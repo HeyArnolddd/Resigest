@@ -13,3 +13,8 @@ spring:
 
 server:
   port: 8080
+
+app:
+  jwt:
+    secret: resigest-dev-secret-key-para-desarrollo-cambiar-en-produccion-2026
+    expiracion-horas: 8

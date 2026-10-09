@@ -4,12 +4,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * Configuración TEMPORAL de seguridad: permite todas las peticiones para poder
- * probar el primer módulo sin autenticación.
- * En el Sprint 2 se reemplaza por autenticación JWT y permisos por rol.
+ * probar los primeros módulos sin autenticación.
+ * En el Commit 8 (fin del Sprint 2) se reemplaza por autenticación JWT y
+ * permisos por rol.
  */
 @Configuration
 @EnableWebSecurity
@@ -21,5 +24,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
         return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }
