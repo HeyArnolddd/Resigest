@@ -5,6 +5,7 @@ import co.edu.uis.resigest.inmueble.dto.CrearApartamentoRequest;
 import co.edu.uis.resigest.inmueble.service.ApartamentoService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,6 +31,7 @@ public class ApartamentoController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApartamentoDTO> crear(@Valid @RequestBody CrearApartamentoRequest request) {
         ApartamentoDTO creado = apartamentoService.crear(request);
         return ResponseEntity.created(URI.create("/api/apartamentos/" + creado.id()))
