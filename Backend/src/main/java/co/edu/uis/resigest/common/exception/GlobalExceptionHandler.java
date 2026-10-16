@@ -35,6 +35,12 @@ public class GlobalExceptionHandler {
                 .body(ApiError.de(422, "REGLA_NEGOCIO", ex.getMessage()));
     }
 
+    @ExceptionHandler(AutenticacionException.class)
+    public ResponseEntity<ApiError> manejarAutenticacion(AutenticacionException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiError.de(401, "NO_AUTORIZADO", ex.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> manejarValidacion(MethodArgumentNotValidException ex) {
         Map<String, String> errores = new HashMap<>();
