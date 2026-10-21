@@ -1,5 +1,7 @@
 package co.edu.uis.resigest.inmueble.web;
 
+import co.edu.uis.resigest.financiero.dto.EstadoCuentaDTO;
+import co.edu.uis.resigest.financiero.service.CarteraService;
 import co.edu.uis.resigest.inmueble.dto.ApartamentoDTO;
 import co.edu.uis.resigest.inmueble.dto.CrearApartamentoRequest;
 import co.edu.uis.resigest.inmueble.service.ApartamentoService;
@@ -25,9 +27,12 @@ import java.util.List;
 public class ApartamentoController {
 
     private final ApartamentoService apartamentoService;
+    private final CarteraService carteraService;
 
-    public ApartamentoController(ApartamentoService apartamentoService) {
+    public ApartamentoController(ApartamentoService apartamentoService,
+                                 CarteraService carteraService) {
         this.apartamentoService = apartamentoService;
+        this.carteraService = carteraService;
     }
 
     @PostMapping
@@ -41,6 +46,12 @@ public class ApartamentoController {
     @GetMapping("/{id}")
     public ResponseEntity<ApartamentoDTO> obtener(@PathVariable Long id) {
         return ResponseEntity.ok(apartamentoService.obtener(id));
+    }
+
+    @GetMapping("/{id}/estado-cuenta")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESIDENTE')")
+    public ResponseEntity<EstadoCuentaDTO> estadoCuenta(@PathVariable Long id) {
+        return ResponseEntity.ok(carteraService.estadoCuenta(id));
     }
 
     @GetMapping
