@@ -3,6 +3,7 @@ package co.edu.uis.resigest.inmueble.repository;
 import co.edu.uis.resigest.inmueble.domain.Apartamento;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ApartamentoRepository extends JpaRepository<Apartamento, Long> {
@@ -12,4 +13,6 @@ public interface ApartamentoRepository extends JpaRepository<Apartamento, Long> 
      * El nombre del método se traduce automáticamente a una consulta JPQL.
      */
     Optional<Apartamento> findByTorreIdAndNumero(Long torreId, String numero);
+
+    List<Apartamento> findByActivoTrue();
 }
