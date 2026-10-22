@@ -10,12 +10,15 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Deuda mensual de un apartamento (arriendo, cuota de administración o servicio).
@@ -51,6 +54,9 @@ public class ObligacionFinanciera extends EntidadBase {
 
     @Column(nullable = false)
     private LocalDate fechaVencimiento;
+
+    @OneToMany(mappedBy = "obligacion")
+    private List<Pago> pagos = new ArrayList<>();
 
     protected ObligacionFinanciera() {
         // Constructor sin argumentos para JPA.
