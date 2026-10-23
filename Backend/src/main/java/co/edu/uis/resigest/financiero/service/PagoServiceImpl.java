@@ -11,6 +11,7 @@ import co.edu.uis.resigest.financiero.dto.IniciarPagoRequest;
 import co.edu.uis.resigest.financiero.dto.PagoDTO;
 import co.edu.uis.resigest.financiero.dto.ReportarPagoManualRequest;
 import co.edu.uis.resigest.financiero.dto.ValidarPagoRequest;
+import co.edu.uis.resigest.financiero.dto.WebhookPagoRequest;
 import co.edu.uis.resigest.financiero.gateway.PasarelaPago;
 import co.edu.uis.resigest.financiero.gateway.RespuestaTransaccion;
 import co.edu.uis.resigest.financiero.gateway.SolicitudPago;
@@ -104,6 +105,22 @@ public class PagoServiceImpl implements PagoService {
         return pagoRepository.findByEstado(EstadoPago.EN_VERIFICACION).stream()
                 .map(PagoDTO::de)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public PagoDTO procesarWebhook(WebhookPagoRequest request) {
+        Pago pago = pagoRepository.findByIdTransaccionExterna(request.idTransaccion())
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "Transacción no encontrada: " + request.idTransaccion()));
+
+        if (request.aprobada()) {
+            pago.aprobar();
+            pago.getObligacion().registrarAbono(pago.getMonto());
+        } else {
+            pago.rechazar("Rechazado por la pasarela");
+        }
+        return PagoDTO.de(pago);
     }
 
     private ObligacionFinanciera buscarObligacion(Long id) {

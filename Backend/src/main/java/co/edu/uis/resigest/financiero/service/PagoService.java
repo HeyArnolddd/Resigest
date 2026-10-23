@@ -4,6 +4,7 @@ import co.edu.uis.resigest.financiero.dto.IniciarPagoRequest;
 import co.edu.uis.resigest.financiero.dto.PagoDTO;
 import co.edu.uis.resigest.financiero.dto.ReportarPagoManualRequest;
 import co.edu.uis.resigest.financiero.dto.ValidarPagoRequest;
+import co.edu.uis.resigest.financiero.dto.WebhookPagoRequest;
 
 import java.util.List;
 
@@ -19,4 +20,6 @@ public interface PagoService {
     PagoDTO validarPago(Long pagoId, ValidarPagoRequest request);
 
     List<PagoDTO> listarPendientesValidacion();
+
+    PagoDTO procesarWebhook(WebhookPagoRequest request);
 }
