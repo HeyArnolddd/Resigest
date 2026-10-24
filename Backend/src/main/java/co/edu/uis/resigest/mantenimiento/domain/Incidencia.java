@@ -4,6 +4,7 @@ import co.edu.uis.resigest.common.domain.EntidadBase;
 import co.edu.uis.resigest.common.exception.ReglaNegocioException;
 import co.edu.uis.resigest.usuarios.domain.TecnicoMantenimiento;
 import co.edu.uis.resigest.usuarios.domain.Usuario;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,9 +12,13 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Incidencia de mantenimiento reportada por un residente o portero.
@@ -52,6 +57,9 @@ public class Incidencia extends EntidadBase {
 
     @Column(length = 1000)
     private String solucion;
+
+    @OneToMany(mappedBy = "incidencia", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<EvidenciaIncidencia> evidencias = new ArrayList<>();
 
     protected Incidencia() {
         // Constructor sin argumentos para JPA.
