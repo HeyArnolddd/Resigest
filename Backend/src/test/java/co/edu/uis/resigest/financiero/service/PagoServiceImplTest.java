@@ -15,6 +15,7 @@ import co.edu.uis.resigest.financiero.repository.PagoRepository;
 import co.edu.uis.resigest.inmueble.domain.Apartamento;
 import co.edu.uis.resigest.inmueble.domain.Torre;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -40,6 +41,9 @@ class PagoServiceImplTest {
 
     @Mock
     private PasarelaPago pasarelaPago;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private PagoServiceImpl pagoService;

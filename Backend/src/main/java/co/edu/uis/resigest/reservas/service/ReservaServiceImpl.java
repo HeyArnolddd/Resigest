@@ -7,11 +7,13 @@ import co.edu.uis.resigest.reservas.domain.ZonaComun;
 import co.edu.uis.resigest.reservas.dto.RechazoRequest;
 import co.edu.uis.resigest.reservas.dto.ReservaDTO;
 import co.edu.uis.resigest.reservas.dto.SolicitudReservaRequest;
+import co.edu.uis.resigest.reservas.event.ReservaResueltaEvento;
 import co.edu.uis.resigest.reservas.repository.ReservaRepository;
 import co.edu.uis.resigest.reservas.repository.ZonaComunRepository;
 import co.edu.uis.resigest.reservas.validation.ValidadorReserva;
 import co.edu.uis.resigest.usuarios.domain.Residente;
 import co.edu.uis.resigest.usuarios.repository.ResidenteRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,15 +29,18 @@ public class ReservaServiceImpl implements ReservaService {
     private final ZonaComunRepository zonaComunRepository;
     private final ResidenteRepository residenteRepository;
     private final List<ValidadorReserva> validadores;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ReservaServiceImpl(ReservaRepository reservaRepository,
                               ZonaComunRepository zonaComunRepository,
                               ResidenteRepository residenteRepository,
-                              List<ValidadorReserva> validadores) {
+                              List<ValidadorReserva> validadores,
+                              ApplicationEventPublisher eventPublisher) {
         this.reservaRepository = reservaRepository;
         this.zonaComunRepository = zonaComunRepository;
         this.residenteRepository = residenteRepository;
         this.validadores = validadores;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -61,6 +66,8 @@ public class ReservaServiceImpl implements ReservaService {
     public ReservaDTO aprobar(Long id) {
         Reserva reserva = buscarReserva(id);
         reserva.aprobar();
+        eventPublisher.publishEvent(new ReservaResueltaEvento(
+                reserva.getApartamento().getId(), reserva.getZonaComun().getNombre(), true));
         return ReservaDTO.de(reserva);
     }
 
@@ -69,6 +76,8 @@ public class ReservaServiceImpl implements ReservaService {
     public ReservaDTO rechazar(Long id, RechazoRequest request) {
         Reserva reserva = buscarReserva(id);
         reserva.rechazar();
+        eventPublisher.publishEvent(new ReservaResueltaEvento(
+                reserva.getApartamento().getId(), reserva.getZonaComun().getNombre(), false));
         return ReservaDTO.de(reserva);
     }
 

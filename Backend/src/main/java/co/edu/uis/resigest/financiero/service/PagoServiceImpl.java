@@ -12,11 +12,13 @@ import co.edu.uis.resigest.financiero.dto.PagoDTO;
 import co.edu.uis.resigest.financiero.dto.ReportarPagoManualRequest;
 import co.edu.uis.resigest.financiero.dto.ValidarPagoRequest;
 import co.edu.uis.resigest.financiero.dto.WebhookPagoRequest;
+import co.edu.uis.resigest.financiero.event.PagoAprobadoEvento;
 import co.edu.uis.resigest.financiero.gateway.PasarelaPago;
 import co.edu.uis.resigest.financiero.gateway.RespuestaTransaccion;
 import co.edu.uis.resigest.financiero.gateway.SolicitudPago;
 import co.edu.uis.resigest.financiero.repository.ObligacionRepository;
 import co.edu.uis.resigest.financiero.repository.PagoRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,13 +34,16 @@ public class PagoServiceImpl implements PagoService {
     private final PagoRepository pagoRepository;
     private final ObligacionRepository obligacionRepository;
     private final PasarelaPago pasarelaPago;
+    private final ApplicationEventPublisher eventPublisher;
 
     public PagoServiceImpl(PagoRepository pagoRepository,
                            ObligacionRepository obligacionRepository,
-                           PasarelaPago pasarelaPago) {
+                           PasarelaPago pasarelaPago,
+                           ApplicationEventPublisher eventPublisher) {
         this.pagoRepository = pagoRepository;
         this.obligacionRepository = obligacionRepository;
         this.pasarelaPago = pasarelaPago;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -56,6 +61,8 @@ public class PagoServiceImpl implements PagoService {
             pago.setUrlRecibo(respuesta.urlRecibo());
             pago.aprobar();
             obligacion.registrarAbono(pago.getMonto());
+            eventPublisher.publishEvent(new PagoAprobadoEvento(
+                    obligacion.getApartamento().getId(), pago.getMonto()));
         } else {
             pago.rechazar("Rechazado por la pasarela");
         }
@@ -90,6 +97,8 @@ public class PagoServiceImpl implements PagoService {
         if (request.aprobar()) {
             pago.aprobar();
             pago.getObligacion().registrarAbono(pago.getMonto());
+            eventPublisher.publishEvent(new PagoAprobadoEvento(
+                    pago.getObligacion().getApartamento().getId(), pago.getMonto()));
         } else {
             pago.rechazar(request.motivo());
             if (pago instanceof PagoManual manual) {

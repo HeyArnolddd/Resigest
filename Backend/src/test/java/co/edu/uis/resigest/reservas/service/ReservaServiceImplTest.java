@@ -9,6 +9,7 @@ import co.edu.uis.resigest.reservas.repository.ReservaRepository;
 import co.edu.uis.resigest.reservas.repository.ZonaComunRepository;
 import co.edu.uis.resigest.usuarios.repository.ResidenteRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -34,12 +35,15 @@ class ReservaServiceImplTest {
     @Mock
     private ResidenteRepository residenteRepository;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private ReservaServiceImpl reservaService;
 
     @BeforeEach
     void setUp() {
         reservaService = new ReservaServiceImpl(
-                reservaRepository, zonaComunRepository, residenteRepository, List.of());
+                reservaRepository, zonaComunRepository, residenteRepository, List.of(), eventPublisher);
     }
 
     @Test
