@@ -24,12 +24,12 @@ export const roles = {
     usuario: 'Juan Pérez',
     detalle: 'Torre 2 · Apto 304',
     nav: [
-      { key: 'inicio', label: 'Inicio', icon: Home },
-      { key: 'finanzas', label: 'Finanzas', icon: Wallet },
-      { key: 'reservas', label: 'Reservas', icon: CalendarRange },
-      { key: 'incidencias', label: 'Incidencias', icon: TriangleAlert },
-      { key: 'paquetes', label: 'Paquetes', icon: Package },
-      { key: 'comunidad', label: 'Comunidad', icon: MessagesSquare },
+      { key: 'inicio', label: 'Inicio', icon: Home, cuarto: 'Sala' },
+      { key: 'finanzas', label: 'Finanzas', icon: Wallet, cuarto: 'Estudio' },
+      { key: 'reservas', label: 'Reservas', icon: CalendarRange, cuarto: 'Terraza' },
+      { key: 'incidencias', label: 'Incidencias', icon: TriangleAlert, cuarto: 'Cuarto de herramientas' },
+      { key: 'paquetes', label: 'Paquetes', icon: Package, cuarto: 'Recibidor' },
+      { key: 'comunidad', label: 'Comunidad', icon: MessagesSquare, cuarto: 'Comedor' },
     ],
   },
   porteria: {

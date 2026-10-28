@@ -24,6 +24,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--full') opt.full = true
   else if (a === '--wait') opt.wait = Number(args[++i])
   else if (a === '--height') opt.height = Number(args[++i])
+  else if (a === '--width') opt.width = Number(args[++i])
 }
 
 const nombresRol = {
@@ -35,7 +36,7 @@ const nombresRol = {
 
 const browser = await chromium.launch({ channel: 'msedge', headless: true })
 const page = await browser.newPage({
-  viewport: opt.mobile ? { width: 390, height: opt.height ?? 844 } : { width: 1440, height: opt.height ?? 900 },
+  viewport: opt.mobile ? { width: 390, height: opt.height ?? 844 } : { width: opt.width ?? 1440, height: opt.height ?? 900 },
   deviceScaleFactor: opt.mobile ? 2 : 1,
 })
 const errores = []
@@ -49,7 +50,7 @@ try {
   }
   if (opt.nav) {
     if (opt.mobile) await page.getByRole('button', { name: /menú|menu/i }).first().click().catch(() => {})
-    await page.getByRole('button', { name: opt.nav, exact: true }).first().click()
+    await page.getByRole('button', { name: new RegExp('^' + opt.nav + '(\\s|$)') }).first().click()
   }
   for (const texto of opt.clicks) {
     await page.getByText(texto, { exact: true }).first().click()

@@ -6,16 +6,87 @@ export const residente = {
   celular: '+57 300 123 4567',
 }
 
-export const obligaciones = [
-  { id: 'OB-118', concepto: 'Cuota de administración', periodo: 'Sep 2026', valor: 160000, vencimiento: '10/09/2026', estado: 'Pendiente' },
-  { id: 'OB-117', concepto: 'Cuota de administración', periodo: 'Ago 2026', valor: 160000, vencimiento: '10/08/2026', estado: 'Pendiente' },
-  { id: 'OB-116', concepto: 'Cuota de administración', periodo: 'Jul 2026', valor: 160000, vencimiento: '10/07/2026', estado: 'Pagada' },
-  { id: 'OB-115', concepto: 'Cuota de administración', periodo: 'Jun 2026', valor: 160000, vencimiento: '10/06/2026', estado: 'Pagada' },
-  { id: 'OB-114', concepto: 'Fondo de reserva · semestre I', periodo: 'May 2026', valor: 80000, vencimiento: '15/05/2026', estado: 'Pagada' },
-  { id: 'OB-113', concepto: 'Cuota de administración', periodo: 'Abr 2026', valor: 160000, vencimiento: '10/04/2026', estado: 'Pagada' },
+// ── Cartera del apartamento del residente (forma de ObligacionDTO / PagoDTO del API_CONTRACT) ──
+// La cuota de cada mes vence el día 5 del mes siguiente; el agua se cobra cada dos meses.
+
+// [periodo, concepto, montoTotal, estado]
+const cartera = [
+  ['2025-11', 'CUOTA_ADMINISTRACION', 160000, 'PAGADA'],
+  ['2025-11', 'SERVICIO_PUBLICO', 47300, 'PAGADA'],
+  ['2025-12', 'CUOTA_ADMINISTRACION', 160000, 'PAGADA'],
+  ['2026-01', 'CUOTA_ADMINISTRACION', 160000, 'PAGADA'],
+  ['2026-01', 'SERVICIO_PUBLICO', 51600, 'PAGADA'],
+  ['2026-02', 'CUOTA_ADMINISTRACION', 160000, 'PAGADA'],
+  ['2026-03', 'CUOTA_ADMINISTRACION', 160000, 'PAGADA'],
+  ['2026-03', 'SERVICIO_PUBLICO', 46900, 'PAGADA'],
+  ['2026-04', 'CUOTA_ADMINISTRACION', 160000, 'PAGADA'],
+  ['2026-05', 'CUOTA_ADMINISTRACION', 160000, 'PAGADA'],
+  ['2026-05', 'SERVICIO_PUBLICO', 53300, 'PAGADA'],
+  ['2026-06', 'CUOTA_ADMINISTRACION', 160000, 'PAGADA'],
+  ['2026-07', 'CUOTA_ADMINISTRACION', 160000, 'PAGADA'],
+  ['2026-07', 'SERVICIO_PUBLICO', 49800, 'PAGADA'],
+  ['2026-08', 'CUOTA_ADMINISTRACION', 160000, 'EN_VERIFICACION'],
+  ['2026-09', 'CUOTA_ADMINISTRACION', 160000, 'VENCIDA'],
+  ['2026-09', 'SERVICIO_PUBLICO', 52400, 'PAGADA'],
+  ['2026-10', 'CUOTA_ADMINISTRACION', 160000, 'PENDIENTE'],
 ]
 
-export const saldoPendiente = 320000
+const vencimiento = (periodo) => {
+  const [a, m] = periodo.split('-').map(Number)
+  return m === 12 ? `${a + 1}-01-05` : `${a}-${String(m + 1).padStart(2, '0')}-05`
+}
+
+export const obligacionesApto = cartera.map(([periodo, concepto, montoTotal, estado], i) => ({
+  id: 300 + i,
+  concepto,
+  periodo,
+  montoTotal,
+  saldoPendiente: estado === 'PAGADA' ? 0 : montoTotal,
+  estado,
+  fechaVencimiento: vencimiento(periodo),
+}))
+
+// Pagos del apartamento; las obligaciones pagadas por Wompi tienen referencia PAGO-…
+export const pagosApto = obligacionesApto
+  .filter((o) => ['PAGADA', 'EN_VERIFICACION'].includes(o.estado))
+  .map((o, i) => {
+    const manual = o.estado === 'EN_VERIFICACION' || i % 4 === 3
+    const [a, m] = o.fechaVencimiento.split('-')
+    return {
+      id: 500 + i,
+      metodo: manual ? 'TRANSFERENCIA' : 'WOMPI',
+      monto: o.montoTotal,
+      estado: o.estado === 'EN_VERIFICACION' ? 'EN_VERIFICACION' : 'APROBADO',
+      fecha: `${a}-${m}-0${(i % 4) + 1}T${10 + (i % 8)}:${String((i * 17) % 60).padStart(2, '0')}:00`,
+      obligacionId: o.id,
+      referencia: manual ? `TRF-${88420 + i * 37}` : `PAGO-${(7731 + i * 211).toString(36).toUpperCase()}`,
+    }
+  })
+  .reverse()
+
+const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+const ddmmaaaa = (iso) => iso.split('-').reverse().join('/')
+
+// Vista simplificada que usa el Inicio: las últimas seis cuotas de administración.
+export const obligaciones = obligacionesApto
+  .filter((o) => o.concepto === 'CUOTA_ADMINISTRACION')
+  .slice(-6)
+  .reverse()
+  .map((o) => {
+    const [a, m] = o.periodo.split('-')
+    return {
+      id: `OB-${o.id}`,
+      concepto: 'Cuota de administración',
+      periodo: `${MESES_CORTOS[Number(m) - 1]} ${a}`,
+      valor: o.montoTotal,
+      vencimiento: ddmmaaaa(o.fechaVencimiento),
+      estado: o.estado === 'PAGADA' ? 'Pagada' : o.estado === 'EN_VERIFICACION' ? 'En verificación' : 'Pendiente',
+    }
+  })
+
+export const saldoPendiente = obligacionesApto
+  .filter((o) => ['PENDIENTE', 'VENCIDA'].includes(o.estado))
+  .reduce((total, o) => total + o.saldoPendiente, 0)
 
 export const zonasComunes = [
   { id: 'salon', nombre: 'Salón Social', capacidad: '60 personas', horarios: ['08:00 - 12:00', '14:00 - 18:00', '18:00 - 22:00'] },

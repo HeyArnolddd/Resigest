@@ -14,15 +14,16 @@ export default function Navbar({ role, onOpenMenu, onExit }) {
   const marcarTodas = () => setLista(lista.map((n) => ({ ...n, leida: true })))
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 lg:px-6">
-      <div className="flex items-center gap-2">
+    <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 sm:gap-4 sm:px-4 lg:px-6">
+      <div className="flex min-w-0 items-center gap-2">
         <IconButton
           icon={Menu}
           label="Abrir menú"
           className="lg:hidden"
           onClick={onOpenMenu}
         />
-        <Logo subtitulo={false} className="lg:hidden" />
+        {/* En pantallas muy angostas solo cabe el isotipo */}
+        <Logo subtitulo={false} className="lg:hidden [&_p]:max-[374px]:hidden" />
         <div className="hidden min-w-0 items-center gap-3 leading-tight lg:flex">
           <div>
             <p className="text-sm font-bold text-slate-900">Conjunto Residencial Los Robles</p>
@@ -34,7 +35,7 @@ export default function Navbar({ role, onOpenMenu, onExit }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         <div className="relative">
           <IconButton
             icon={Bell}
@@ -49,7 +50,7 @@ export default function Navbar({ role, onOpenMenu, onExit }) {
           {abierto && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setAbierto(false)} />
-              <div className="animate-scale-in absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-pop">
+              <div className="animate-scale-in fixed inset-x-3 top-16 z-40 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-pop sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80">
                 <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                   <p className="text-sm font-bold text-slate-900">Notificaciones</p>
                   <button
@@ -102,7 +103,7 @@ export default function Navbar({ role, onOpenMenu, onExit }) {
           type="button"
           onClick={onExit}
           aria-label="Cerrar sesión"
-          className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+          className="flex items-center gap-2 rounded-lg border border-slate-300 px-2.5 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 sm:px-3"
         >
           <LogOut className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Cerrar sesión</span>

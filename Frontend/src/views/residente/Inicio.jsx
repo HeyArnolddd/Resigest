@@ -14,11 +14,14 @@ import {
   Wrench,
 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui'
-import EdificioHogar from '../../components/inicio/EdificioHogar'
+import { Titulo, VerMas } from '../../components/ui/Panel'
+import { aparecer, tarjeta } from '../../lib/panel'
+import CiudadBanner from '../../components/inicio/CiudadBanner'
 import EscenaPaquetes from '../../components/inicio/EscenaPaquetes'
 import IlustracionZona from '../../components/reservas/IlustracionZona'
 import { estadoReserva } from '../../lib/labels'
-import { cn, formatCOP, saludo } from '../../lib/utils'
+import { alinearTooltip, cn, esDeNoche, formatCOP, saludo } from '../../lib/utils'
+import { useAhora } from '../../lib/useAhora'
 import { colorZona } from '../../lib/zonas'
 import {
   incidencias,
@@ -46,54 +49,17 @@ function faltan(fecha, ahora) {
   return `En ${dias} días`
 }
 
-const aparecer = (i) => ({
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  transition: { delay: i * 0.05, duration: 0.45, ease: [0.16, 1, 0.3, 1] },
-})
-
-const tarjeta = 'rounded-2xl bg-white shadow-[0_1px_2px_rgb(15_23_42/0.04),0_12px_32px_-16px_rgb(15_23_42/0.18)]'
-
-function Titulo({ children, accion }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-        <span className="size-2.5 rounded-[3px] bg-brand-500" />
-        {children}
-      </h2>
-      {accion}
-    </div>
-  )
-}
-
-Titulo.propTypes = { children: PropTypes.node, accion: PropTypes.node }
-
-function VerMas({ children, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group inline-flex items-center gap-1 rounded-md text-xs font-semibold text-brand-700 outline-none hover:text-brand-800 focus-visible:ring-2 focus-visible:ring-brand-500"
-    >
-      {children}
-      <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-    </button>
-  )
-}
-
-VerMas.propTypes = { children: PropTypes.node, onClick: PropTypes.func }
-
 // Cuotas de los últimos meses: barra por mes, verde si está pagada y ámbar si sigue pendiente.
 function CuotasRecientes({ lista }) {
   const max = Math.max(...lista.map((o) => o.valor))
   return (
     <div>
       <div className="flex h-20 items-end gap-3" role="img" aria-label="Cuotas de los últimos seis meses">
-        {lista.map((o) => {
+        {lista.map((o, i) => {
           const pagada = o.estado === 'Pagada'
           return (
             <div key={o.id} className="group relative flex h-full flex-1 flex-col justify-end">
-              <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity [@media(hover:hover)]:group-hover:opacity-100">
+              <span className={cn('pointer-events-none absolute bottom-full z-10 mb-1 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg [@media(hover:hover)]:group-hover:block', alinearTooltip(i, lista.length))}>
                 {o.periodo} · {formatCOP(o.valor)} · {o.estado}
               </span>
               <motion.span
@@ -220,7 +186,11 @@ function agruparPorDia(lista) {
 }
 
 export default function Inicio({ onNavigate }) {
-  const ahora = new Date()
+  const ahora = useAhora()
+  // De noche entre las 6 p. m. y las 6 a. m., igual que el saludo; se revisa cada minuto.
+  // `?modo=dia|noche` lo fuerza para revisar el mockup.
+  const modo = new URLSearchParams(window.location.search).get('modo')
+  const noche = modo ? modo === 'noche' : esDeNoche(ahora)
   const primerNombre = residente.nombre.split(' ')[0]
 
   const misReservas = reservasAgenda
@@ -244,23 +214,26 @@ export default function Inicio({ onNavigate }) {
   return (
     <div className="space-y-5">
       {/* Banner + estado de cuenta */}
-      <div className="grid gap-5 lg:grid-cols-12">
+      <div className="grid gap-5 lg:grid-cols-12 [&>*]:min-w-0">
         <motion.section
           {...aparecer(0)}
-          className="relative flex flex-col sm:min-h-72 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 to-brand-700 text-white lg:col-span-8"
+          className="relative flex min-h-80 flex-col overflow-hidden rounded-2xl bg-brand-700 text-white sm:min-h-72 lg:col-span-8"
         >
-          <svg viewBox="0 0 400 200" className="pointer-events-none absolute inset-0 h-full w-full" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M-20 -20 C60 0 90 50 70 100 C50 150 -10 140 -20 170 Z" className="fill-brand-500/40" />
-            <circle cx="250" cy="30" r="5" className="fill-brand-300/50" />
-          </svg>
-          <EdificioHogar className="pointer-events-none absolute bottom-0 right-0 hidden w-[52%] max-w-md sm:block" />
+          <CiudadBanner noche={noche} className="pointer-events-none absolute inset-0 h-full w-full" />
+          {/* Velo para que el texto se lea sobre la ciudad */}
+          <div
+            className={cn(
+              'pointer-events-none absolute inset-0 bg-gradient-to-r to-transparent',
+              noche ? 'from-brand-950/85 via-brand-950/50' : 'from-brand-800/80 via-brand-800/40',
+            )}
+          />
           <div className="relative flex flex-1 flex-col p-6 sm:p-7">
             <div className="flex flex-1 flex-col">
               <p className="text-xs font-semibold uppercase tracking-wider text-brand-100 first-letter:uppercase">
                 {fechaLarga(ahora)}
               </p>
               <h1 className="mt-2 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
-                {saludo()}, {primerNombre}
+                {saludo(ahora)}, {primerNombre}
               </h1>
               <p className="mt-1 text-sm text-brand-50">
                 {residente.torre} · Apartamento {residente.apto}
@@ -314,7 +287,7 @@ export default function Inicio({ onNavigate }) {
       </div>
 
       {/* Indicadores */}
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-3 [&>*]:min-w-0">
         <Indicador
           indice={2}
           icono={CalendarRange}
@@ -402,7 +375,7 @@ export default function Inicio({ onNavigate }) {
       </div>
 
       {/* Próxima reserva + incidencias */}
-      <div className="grid gap-5 lg:grid-cols-12">
+      <div className="grid gap-5 lg:grid-cols-12 [&>*]:min-w-0">
         <motion.section {...aparecer(5)} className={cn(tarjeta, 'flex flex-col overflow-hidden lg:col-span-5')}>
           <div className="px-6 pt-6">
             <Titulo accion={<VerMas onClick={() => onNavigate('reservas')}>Mis reservas</VerMas>}>Próxima reserva</Titulo>
@@ -485,7 +458,7 @@ export default function Inicio({ onNavigate }) {
       </div>
 
       {/* Notificaciones + paquetes */}
-      <div className="grid items-start gap-5 lg:grid-cols-12">
+      <div className="grid items-start gap-5 lg:grid-cols-12 [&>*]:min-w-0">
         <motion.section {...aparecer(7)} className={cn(tarjeta, 'p-6 lg:col-span-7')}>
           <Titulo
             accion={

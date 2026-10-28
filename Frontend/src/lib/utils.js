@@ -6,11 +6,23 @@ export function formatCOP(monto) {
   return '$' + monto.toLocaleString('es-CO')
 }
 
-export function saludo() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Buenos días'
-  if (h < 19) return 'Buenas tardes'
-  return 'Buenas noches'
+// Tooltip de una barra: centrado, salvo en las barras de los extremos, donde se pega al borde
+// para no salirse de la pantalla.
+export function alinearTooltip(indice, total) {
+  if (indice === 0) return 'left-0'
+  if (indice === total - 1) return 'right-0'
+  return 'left-1/2 -translate-x-1/2'
+}
+
+// En Bucaramanga oscurece hacia las 6 p. m. y amanece hacia las 6 a. m.
+export function esDeNoche(fecha = new Date()) {
+  const h = fecha.getHours()
+  return h >= 18 || h < 6
+}
+
+export function saludo(fecha = new Date()) {
+  if (esDeNoche(fecha)) return 'Buenas noches'
+  return fecha.getHours() < 12 ? 'Buenos días' : 'Buenas tardes'
 }
 
 export function iniciales(nombre) {

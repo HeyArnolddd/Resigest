@@ -62,12 +62,10 @@ export function StatCard({
   const Comp = isButton ? motion.button : 'div'
   return (
     <Comp
-      {...(isButton
-        ? { whileTap: { scale: 0.98 }, onClick, type: 'button', className: 'tactile text-left' }
-        : {})}
+      {...(isButton ? { whileTap: { scale: 0.98 }, onClick, type: 'button' } : {})}
       className={cn(
-        'group w-full rounded-lg border border-slate-200 bg-white p-5',
-        !isButton && 'block',
+        'group w-full rounded-lg border border-slate-200 bg-white p-4 text-left sm:p-5',
+        isButton ? 'tactile' : 'block',
       )}
     >
       <div className="flex items-start justify-between">
@@ -79,7 +77,7 @@ export function StatCard({
         )}
       </div>
       <p className="mt-4 text-xs font-medium text-slate-500">{label}</p>
-      <p className="mt-1 text-xl font-bold tracking-tight text-slate-900">{value}</p>
+      <p className="mt-1 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">{value}</p>
       {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
       {footer}
     </Comp>
