@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: resigest-db
+    environment:
+      POSTGRES_DB: resigest
+      POSTGRES_USER: resigest
+      POSTGRES_PASSWORD: resigest
+    ports:
+      - "5432:5432"
+    volumes:
+      - resigest-data:/var/lib/postgresql/data
+
+volumes:
+  resigest-data:
