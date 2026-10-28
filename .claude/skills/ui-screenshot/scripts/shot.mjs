@@ -23,6 +23,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--mobile') opt.mobile = true
   else if (a === '--full') opt.full = true
   else if (a === '--wait') opt.wait = Number(args[++i])
+  else if (a === '--height') opt.height = Number(args[++i])
 }
 
 const nombresRol = {
@@ -34,7 +35,7 @@ const nombresRol = {
 
 const browser = await chromium.launch({ channel: 'msedge', headless: true })
 const page = await browser.newPage({
-  viewport: opt.mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+  viewport: opt.mobile ? { width: 390, height: opt.height ?? 844 } : { width: 1440, height: opt.height ?? 900 },
   deviceScaleFactor: opt.mobile ? 2 : 1,
 })
 const errores = []

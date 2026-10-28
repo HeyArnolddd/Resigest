@@ -17,7 +17,8 @@ Opciones:
 - `--nav "<Etiqueta del menú>"`: hace clic en ese ítem del menú lateral (p. ej. `--nav "Finanzas"`).
 - `--click "<texto>"`: clic adicional en un botón/enlace por su texto (se puede repetir).
 - `--mobile`: viewport de 390×844 en lugar de 1440×900.
-- `--full`: captura la página completa.
+- `--full`: captura la página completa. Ojo: el contenido hace scroll dentro de `<main>`, así que para ver todo usa además `--height`.
+- `--height <px>`: alto del viewport (p. ej. `--height 1700` para ver una pantalla larga completa).
 - `--wait <ms>`: espera antes de capturar (por defecto 600; usa ~2000 en el login por la animación de entrada).
 - `--out <ruta.png>` (por defecto en la carpeta temporal del sistema).
 

@@ -1,6 +1,7 @@
-import { Home, LogOut } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import Avatar from '../ui/Avatar'
+import Logo from '../ui/Logo'
 
 export default function Sidebar({ role, active, onSelect, onExit, mobile = false }) {
   return (
@@ -10,16 +11,8 @@ export default function Sidebar({ role, active, onSelect, onExit, mobile = false
         mobile ? 'relative' : 'hidden lg:flex',
       )}
     >
-      <div className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 px-5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-white shadow-sm">
-          <Home className="size-4" strokeWidth={2} />
-        </span>
-        <div className="leading-tight">
-          <p className="text-base font-extrabold tracking-tight text-slate-900">ResiGest</p>
-          <p className="text-2xs font-medium uppercase tracking-wider text-slate-400">
-            Gestión residencial
-          </p>
-        </div>
+      <div className="flex h-16 shrink-0 items-center border-b border-slate-100 px-5">
+        <Logo />
       </div>
 
       <div className="mx-4 mt-4 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
