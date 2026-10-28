@@ -35,7 +35,7 @@ public class ManejadorEventosNotificacion {
                     String mensaje = "Tu reserva de " + evento.getZonaNombre() + " fue "
                             + (evento.isAprobada() ? "aprobada" : "rechazada") + ".";
                     notificacionService.notificar(residente, titulo, mensaje,
-                            TipoNotificacion.RESERVA, TipoCanal.PLATAFORMA);
+                            TipoNotificacion.RESERVA, TipoCanal.PLATAFORMA, TipoCanal.PUSH);
                 });
     }
 
@@ -45,6 +45,6 @@ public class ManejadorEventosNotificacion {
                 .findFirst()
                 .ifPresent(residente -> notificacionService.notificar(residente, "Pago aprobado",
                         "Tu pago de " + evento.getMonto() + " fue aprobado.",
-                        TipoNotificacion.PAGO, TipoCanal.PLATAFORMA));
+                        TipoNotificacion.PAGO, TipoCanal.PLATAFORMA, TipoCanal.PUSH));
     }
 }

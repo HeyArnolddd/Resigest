@@ -4,8 +4,10 @@ import co.edu.uis.resigest.financiero.dto.IniciarPagoRequest;
 import co.edu.uis.resigest.financiero.dto.PagoDTO;
 import co.edu.uis.resigest.financiero.dto.ReportarPagoManualRequest;
 import co.edu.uis.resigest.financiero.dto.ValidarPagoRequest;
+import co.edu.uis.resigest.financiero.service.ComprobanteService;
 import co.edu.uis.resigest.financiero.service.PagoService;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,9 +29,11 @@ import java.util.List;
 public class PagoController {
 
     private final PagoService pagoService;
+    private final ComprobanteService comprobanteService;
 
-    public PagoController(PagoService pagoService) {
+    public PagoController(PagoService pagoService, ComprobanteService comprobanteService) {
         this.pagoService = pagoService;
+        this.comprobanteService = comprobanteService;
     }
 
     @PostMapping("/pasarela")
@@ -57,5 +61,14 @@ public class PagoController {
     public ResponseEntity<PagoDTO> validar(@PathVariable Long id,
                                            @Valid @RequestBody ValidarPagoRequest request) {
         return ResponseEntity.ok(pagoService.validarPago(id, request));
+    }
+
+    @GetMapping("/{id}/comprobante")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESIDENTE')")
+    public ResponseEntity<byte[]> comprobante(@PathVariable Long id) {
+        byte[] pdf = comprobanteService.generar(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 }

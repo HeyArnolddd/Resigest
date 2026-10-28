@@ -1,12 +1,16 @@
 package co.edu.uis.resigest.porteria.web;
 
+import co.edu.uis.resigest.common.security.UsuarioAutenticado;
+import co.edu.uis.resigest.common.security.VerificadorPropietario;
 import co.edu.uis.resigest.porteria.dto.EntregaPaqueteRequest;
 import co.edu.uis.resigest.porteria.dto.PaqueteDTO;
 import co.edu.uis.resigest.porteria.dto.RegistrarPaqueteRequest;
 import co.edu.uis.resigest.porteria.service.PaqueteService;
+import co.edu.uis.resigest.usuarios.domain.Rol;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,9 +31,12 @@ import java.util.List;
 public class PaqueteController {
 
     private final PaqueteService paqueteService;
+    private final VerificadorPropietario verificadorPropietario;
 
-    public PaqueteController(PaqueteService paqueteService) {
+    public PaqueteController(PaqueteService paqueteService,
+                             VerificadorPropietario verificadorPropietario) {
         this.paqueteService = paqueteService;
+        this.verificadorPropietario = verificadorPropietario;
     }
 
     @PostMapping
@@ -49,7 +56,11 @@ public class PaqueteController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'PORTERO', 'RESIDENTE')")
-    public List<PaqueteDTO> listar(@RequestParam Long apartamentoId) {
+    public List<PaqueteDTO> listar(@RequestParam Long apartamentoId,
+                                   @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        if (autenticado.getRol() == Rol.RESIDENTE) {
+            verificadorPropietario.verificarApartamento(apartamentoId, autenticado);
+        }
         return paqueteService.listarPorApartamento(apartamentoId);
     }
 }

@@ -1,5 +1,7 @@
 package co.edu.uis.resigest.inmueble.web;
 
+import co.edu.uis.resigest.common.security.UsuarioAutenticado;
+import co.edu.uis.resigest.common.security.VerificadorPropietario;
 import co.edu.uis.resigest.financiero.dto.EstadoCuentaDTO;
 import co.edu.uis.resigest.financiero.service.CarteraService;
 import co.edu.uis.resigest.inmueble.dto.ApartamentoDTO;
@@ -8,6 +10,7 @@ import co.edu.uis.resigest.inmueble.service.ApartamentoService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,11 +31,14 @@ public class ApartamentoController {
 
     private final ApartamentoService apartamentoService;
     private final CarteraService carteraService;
+    private final VerificadorPropietario verificadorPropietario;
 
     public ApartamentoController(ApartamentoService apartamentoService,
-                                 CarteraService carteraService) {
+                                 CarteraService carteraService,
+                                 VerificadorPropietario verificadorPropietario) {
         this.apartamentoService = apartamentoService;
         this.carteraService = carteraService;
+        this.verificadorPropietario = verificadorPropietario;
     }
 
     @PostMapping
@@ -50,7 +56,9 @@ public class ApartamentoController {
 
     @GetMapping("/{id}/estado-cuenta")
     @PreAuthorize("hasAnyRole('ADMIN', 'RESIDENTE')")
-    public ResponseEntity<EstadoCuentaDTO> estadoCuenta(@PathVariable Long id) {
+    public ResponseEntity<EstadoCuentaDTO> estadoCuenta(@PathVariable Long id,
+                                                        @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        verificadorPropietario.verificarApartamento(id, autenticado);
         return ResponseEntity.ok(carteraService.estadoCuenta(id));
     }
 

@@ -11,4 +11,6 @@ public interface ResidenteRepository extends JpaRepository<Residente, Long> {
     List<Residente> findByApartamentoId(Long apartamentoId);
 
     Optional<Residente> findByCorreo(String correo);
+
+    Optional<Residente> findByIdAndApartamentoId(Long id, Long apartamentoId);
 }

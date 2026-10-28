@@ -1,5 +1,7 @@
 package co.edu.uis.resigest.financiero.web;
 
+import co.edu.uis.resigest.common.security.UsuarioAutenticado;
+import co.edu.uis.resigest.common.security.VerificadorPropietario;
 import co.edu.uis.resigest.financiero.domain.EstadoObligacion;
 import co.edu.uis.resigest.financiero.dto.GenerarObligacionesRequest;
 import co.edu.uis.resigest.financiero.dto.ObligacionDTO;
@@ -7,6 +9,7 @@ import co.edu.uis.resigest.financiero.service.CarteraService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,15 +27,22 @@ import java.util.List;
 public class ObligacionController {
 
     private final CarteraService carteraService;
+    private final VerificadorPropietario verificadorPropietario;
 
-    public ObligacionController(CarteraService carteraService) {
+    public ObligacionController(CarteraService carteraService,
+                                VerificadorPropietario verificadorPropietario) {
         this.carteraService = carteraService;
+        this.verificadorPropietario = verificadorPropietario;
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'RESIDENTE')")
     public List<ObligacionDTO> listar(@RequestParam(required = false) Long apartamentoId,
-                                      @RequestParam(required = false) EstadoObligacion estado) {
+                                      @RequestParam(required = false) EstadoObligacion estado,
+                                      @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        if (apartamentoId != null) {
+            verificadorPropietario.verificarApartamento(apartamentoId, autenticado);
+        }
         return carteraService.listarObligaciones(apartamentoId, estado);
     }
 
