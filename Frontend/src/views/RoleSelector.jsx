@@ -9,7 +9,7 @@ export default function RoleSelector({ onSelect }) {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(900px 500px at 15% -10%, rgba(5,150,105,0.08), transparent 60%), radial-gradient(700px 500px at 110% 110%, rgba(5,150,105,0.06), transparent 55%)',
+            'radial-gradient(900px 500px at 15% -10%, rgba(0,122,51,0.08), transparent 60%), radial-gradient(700px 500px at 110% 110%, rgba(0,122,51,0.06), transparent 55%)',
         }}
         aria-hidden="true"
       />

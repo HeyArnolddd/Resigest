@@ -43,7 +43,7 @@ export default function Inicio() {
           onClick={() => setModalPaquete(true)}
           className="group flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-6 text-left transition-all hover:-translate-y-0.5 hover:border-brand-200"
         >
-          <span className="flex h-14 w-14 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-md shadow-emerald-600/20">
+          <span className="flex h-14 w-14 items-center justify-center rounded-lg bg-brand-600 text-white shadow-md shadow-brand-600/20">
             <PackagePlus className="h-7 w-7" strokeWidth={2} />
           </span>
           <span className="flex-1">
@@ -52,7 +52,7 @@ export default function Inicio() {
               Recibe y registra correspondencia del día
             </span>
           </span>
-          <span className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 opacity-0 transition-opacity group-hover:opacity-100">
+          <span className="rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-bold text-brand-700 opacity-0 transition-opacity group-hover:opacity-100">
             Abrir
           </span>
         </button>
@@ -100,7 +100,7 @@ export default function Inicio() {
           <div className="px-5 py-2">
             {paquetesLista.map((p) => (
               <div key={p.id} className="flex items-center gap-3 border-b border-slate-100 py-3 last:border-0">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
                   <Package className="h-4 w-4" strokeWidth={2} />
                 </span>
                 <div className="min-w-0 flex-1">

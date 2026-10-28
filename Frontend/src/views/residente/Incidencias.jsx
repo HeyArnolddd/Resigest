@@ -44,7 +44,7 @@ export default function Incidencias() {
       />
 
       {reportada && (
-        <div className="animate-fade-up mb-4 flex items-center gap-3 rounded-lg border border-success/30 bg-success-bg px-4 py-3 text-sm text-green-800">
+        <div className="animate-fade-up mb-4 flex items-center gap-3 rounded-lg border border-success/30 bg-success-bg px-4 py-3 text-sm text-success-strong">
           <Check className="h-4 w-4 shrink-0" strokeWidth={2.5} />
           <span className="font-medium">Incidencia reportada correctamente. Quedó en estado "Nueva".</span>
         </div>
@@ -86,7 +86,7 @@ export default function Incidencias() {
 
             {inc.estado === 'Resuelta' && (
               <div className="mt-4 rounded-lg border border-success/30 bg-success-bg p-3">
-                <p className="text-sm font-semibold text-green-800">¿La incidencia fue solucionada?</p>
+                <p className="text-sm font-semibold text-success-strong">¿La incidencia fue solucionada?</p>
                 <div className="mt-2 flex gap-2">
                   <Button size="sm" onClick={() => responder(inc.id, 'si')} icon={Check}>
                     Correcto
