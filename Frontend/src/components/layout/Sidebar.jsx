@@ -2,20 +2,20 @@ import { LogOut } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import Avatar from '../ui/Avatar'
 import Logo from '../ui/Logo'
-
 export default function Sidebar({ role, active, onSelect, onExit, mobile = false }) {
+  const casa = role.key === 'residente'
   return (
     <aside
       className={cn(
-        'flex h-full w-64 shrink-0 flex-col border-r border-slate-200 bg-white',
-        mobile ? 'relative' : 'hidden lg:flex',
+        'relative flex h-full w-64 shrink-0 flex-col border-r border-slate-200 bg-white',
+        !mobile && 'hidden lg:flex',
       )}
     >
-      <div className="flex h-16 shrink-0 items-center border-b border-slate-100 px-5">
+      <div className="relative flex h-16 shrink-0 items-center border-b border-slate-100 px-5">
         <Logo />
       </div>
 
-      <div className="mx-4 mt-4 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+      <div className="relative mx-4 mt-4 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
         <Avatar nombre={role.usuario} size="md" />
         <div className="min-w-0 leading-tight">
           <p className="truncate text-xs font-bold text-slate-800">{role.usuario}</p>
@@ -23,7 +23,7 @@ export default function Sidebar({ role, active, onSelect, onExit, mobile = false
         </div>
       </div>
 
-      <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-3">
+      <nav className="relative mt-4 flex-1 space-y-0.5 overflow-y-auto px-3">
         <p className="px-2 pb-2 text-2xs font-semibold uppercase tracking-wider text-slate-400">
           Menú
         </p>
@@ -40,19 +40,29 @@ export default function Sidebar({ role, active, onSelect, onExit, mobile = false
                 isActive
                   ? 'bg-brand-50 text-brand-700'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                casa && 'py-2.5',
               )}
             >
               {isActive && (
                 <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-brand-600" />
               )}
               <Icon className="size-4 shrink-0" strokeWidth={isActive ? 2.5 : 2} />
-              {item.label}
+              {casa && item.cuarto ? (
+                <span className="text-left leading-tight">
+                  {item.label}
+                  <span className={cn('block text-2xs font-medium', isActive ? 'text-brand-600' : 'text-slate-400')}>
+                    {item.cuarto}
+                  </span>
+                </span>
+              ) : (
+                item.label
+              )}
             </button>
           )
         })}
       </nav>
 
-      <div className="border-t border-slate-100 p-3">
+      <div className="relative border-t border-slate-100 bg-white p-3">
         <button
           type="button"
           onClick={onExit}

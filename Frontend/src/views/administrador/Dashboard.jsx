@@ -19,7 +19,7 @@ export default function Dashboard({ onNavigate }) {
         subtitle="Visión general del conjunto residencial"
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
         <StatCard
           icon={Users}
           label="Residentes"
@@ -64,7 +64,7 @@ export default function Dashboard({ onNavigate }) {
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
-          <div className="flex items-start justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <h3 className="text-sm font-bold text-slate-900">Recaudo mensual</h3>
               <p className="mt-0.5 text-xs text-slate-500">Cuotas de administración · Millones COP</p>
@@ -73,16 +73,18 @@ export default function Dashboard({ onNavigate }) {
               +5% vs agosto
             </span>
           </div>
-          <div className="mt-5 flex h-44 items-end gap-3 border-b border-slate-200 pb-px">
+          <div className="mt-5 flex h-44 items-end gap-2 border-b sm:gap-3 border-slate-200 pb-px">
             {recaudoMensual.map((r) => (
-              <div key={r.mes} className="group flex flex-1 flex-col items-center gap-2">
+              <div key={r.mes} className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
                 <span className="text-xs font-semibold text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
                   {r.valor.toFixed(1)}
                 </span>
-                <div
-                  className="w-full w-12 rounded-t-lg bg-brand-600 transition-all group-hover:bg-brand-700"
-                  style={{ height: `${(r.valor / maxRecaudo) * 100}%` }}
-                />
+                <div className="flex w-full flex-1 items-end justify-center">
+                  <div
+                    className="w-full max-w-12 rounded-t-lg bg-brand-600 transition-all group-hover:bg-brand-700"
+                    style={{ height: `${(r.valor / maxRecaudo) * 100}%` }}
+                  />
+                </div>
                 <span className="text-xs font-medium text-slate-500">{r.mes}</span>
               </div>
             ))}
