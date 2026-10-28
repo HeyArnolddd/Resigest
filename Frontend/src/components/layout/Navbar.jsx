@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, CheckCheck, Menu, RotateCcw } from 'lucide-react'
+import { Bell, CheckCheck, Menu, LogOut } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import Avatar from '../ui/Avatar'
 import { IconButton } from '../ui/Button'
@@ -95,10 +95,11 @@ export default function Navbar({ role, onOpenMenu, onExit }) {
         <button
           type="button"
           onClick={onExit}
+          aria-label="Cerrar sesión"
           className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
         >
-          <RotateCcw className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Cambiar rol</span>
+          <LogOut className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Cerrar sesión</span>
         </button>
       </div>
     </header>

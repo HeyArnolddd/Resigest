@@ -66,7 +66,7 @@ export default function Sidebar({ role, active, onSelect, onExit, mobile = false
           className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
         >
           <LogOut className="size-4" strokeWidth={2} />
-          Cambiar de rol
+          Cerrar sesión
         </button>
       </div>
     </aside>

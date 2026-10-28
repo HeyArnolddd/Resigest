@@ -1,5 +1,4 @@
 import {
-  Building2,
   CalendarRange,
   ClipboardList,
   DoorOpen,
@@ -77,34 +76,3 @@ export const roles = {
     ],
   },
 }
-
-export const rolCards = [
-  {
-    key: 'residente',
-    nombre: 'Residente',
-    descripcion: 'Estado de cuenta, reservas, incidencias y paquetes.',
-    icon: Home,
-    tint: 'bg-brand-50 text-brand-600',
-  },
-  {
-    key: 'porteria',
-    nombre: 'Portería',
-    descripcion: 'Registro de visitantes, paquetes y bitácora.',
-    icon: DoorOpen,
-    tint: 'bg-sky-50 text-sky-600',
-  },
-  {
-    key: 'mantenimiento',
-    nombre: 'Mantenimiento',
-    descripcion: 'Gestión y seguimiento de incidencias.',
-    icon: Wrench,
-    tint: 'bg-amber-50 text-amber-600',
-  },
-  {
-    key: 'administrador',
-    nombre: 'Administrador',
-    descripcion: 'Supervisión general, finanzas y comunicados.',
-    icon: Building2,
-    tint: 'bg-violet-50 text-violet-600',
-  },
-]

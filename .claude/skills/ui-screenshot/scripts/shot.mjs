@@ -22,6 +22,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--out') opt.out = args[++i]
   else if (a === '--mobile') opt.mobile = true
   else if (a === '--full') opt.full = true
+  else if (a === '--wait') opt.wait = Number(args[++i])
 }
 
 const nombresRol = {
@@ -52,7 +53,7 @@ try {
   for (const texto of opt.clicks) {
     await page.getByText(texto, { exact: true }).first().click()
   }
-  await page.waitForTimeout(600)
+  await page.waitForTimeout(opt.wait ?? 600)
   const out =
     opt.out ??
     join(tmpdir(), `resigest-${opt.role ?? 'inicio'}-${opt.nav ?? 'home'}-${opt.mobile ? 'mobile' : 'desktop'}.png`.replace(/\s+/g, '_'))

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import RoleSelector from './views/RoleSelector'
+import Login from './views/Login'
 import Shell from './components/layout/Shell'
 import { roles } from './config/roles'
 import { sections as sectionsResidente } from './views/residente/sections'
@@ -20,7 +20,7 @@ function App() {
   const onExit = () => setRoleKey(null)
 
   if (!roleKey) {
-    return <RoleSelector onSelect={setRoleKey} />
+    return <Login onLogin={setRoleKey} />
   }
 
   const role = roles[roleKey]
