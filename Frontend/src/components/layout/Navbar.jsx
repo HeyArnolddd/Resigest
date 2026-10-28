@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Bell, CheckCheck, Menu, LogOut } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import Avatar from '../ui/Avatar'
+import Logo from '../ui/Logo'
 import { IconButton } from '../ui/Button'
 import { notificaciones } from '../../data/mock'
 
@@ -21,11 +22,16 @@ export default function Navbar({ role, onOpenMenu, onExit }) {
           className="lg:hidden"
           onClick={onOpenMenu}
         />
-        <span className="text-sm font-semibold text-slate-400">ResiGest</span>
-        <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:block" />
-        <span className="hidden text-sm font-semibold text-slate-600 sm:block">
-          {role.nombre}
-        </span>
+        <Logo subtitulo={false} className="lg:hidden" />
+        <div className="hidden min-w-0 items-center gap-3 leading-tight lg:flex">
+          <div>
+            <p className="text-sm font-bold text-slate-900">Conjunto Residencial Los Robles</p>
+            <p className="text-xs text-slate-500">Bucaramanga</p>
+          </div>
+          <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 ring-1 ring-brand-100">
+            Portal {role.nombre.toLowerCase()}
+          </span>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
