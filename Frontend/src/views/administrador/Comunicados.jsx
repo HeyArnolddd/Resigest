@@ -32,7 +32,7 @@ export default function Comunicados() {
       <PageHeader title="Comunicados" subtitle="Publica información oficial del conjunto" />
 
       {publicado && (
-        <div className="animate-fade-up mb-4 flex items-center gap-3 rounded-lg border border-success/30 bg-success-bg px-4 py-3 text-sm text-green-800">
+        <div className="animate-fade-up mb-4 flex items-center gap-3 rounded-lg border border-success/30 bg-success-bg px-4 py-3 text-sm text-success-strong">
           <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={2.5} />
           <span className="font-medium">Comunicado publicado. Los residentes seleccionados ya pueden verlo.</span>
         </div>

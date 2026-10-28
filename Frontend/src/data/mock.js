@@ -317,3 +317,98 @@ export const recaudoMensual = [
   { mes: 'Ago', valor: 4.2 },
   { mes: 'Sep', valor: 4.4 },
 ]
+// ── Agenda de zonas comunes (forma de ZonaComunDTO / ReservaDTO del API_CONTRACT) ──
+// `franjas` (zonas) y `residente`/`apartamento` (reservas) son extras que el backend aún no devuelve en ReservaDTO.
+
+export const zonas = [
+  { id: 1, nombre: 'Piscina', descripcion: 'Piscina de adultos y chapoteadero', capacidad: 40, activa: true, franjas: ['08:00-11:00', '11:00-14:00', '14:00-17:00', '17:00-20:00'] },
+  { id: 2, nombre: 'Salón Social', descripcion: 'Cumpleaños, reuniones y celebraciones', capacidad: 60, activa: true, franjas: ['08:00-12:00', '14:00-18:00', '18:00-23:00'] },
+  { id: 3, nombre: 'Zona BBQ', descripcion: 'Parrillas, mesas y zona verde', capacidad: 30, activa: true, franjas: ['12:00-16:00', '16:00-20:00', '18:00-22:00'] },
+  { id: 4, nombre: 'Parque infantil', descripcion: 'Columpios y rodaderos para niños', capacidad: 20, activa: true, franjas: ['09:00-11:00', '11:00-13:00', '15:00-17:00', '16:00-18:00'] },
+  { id: 5, nombre: 'Gimnasio', descripcion: 'Máquinas, pesas y cardio', capacidad: 10, activa: true, franjas: ['06:00-07:30', '06:00-08:00', '18:00-20:00', '20:00-22:00'] },
+]
+
+const vecinos = [
+  { nombre: 'Juan Pérez', apartamentoId: 12, apartamento: 'Torre 2 · 304' },
+  { nombre: 'Ana Gómez', apartamentoId: 4, apartamento: 'Torre 1 · 204' },
+  { nombre: 'Carlos Rodríguez', apartamentoId: 25, apartamento: 'Torre 3 · 502' },
+  { nombre: 'María Fernández', apartamentoId: 1, apartamento: 'Torre 1 · 101' },
+  { nombre: 'Luis Ramírez', apartamentoId: 2, apartamento: 'Torre 1 · 102' },
+  { nombre: 'Pedro Suárez', apartamentoId: 22, apartamento: 'Torre 3 · 410' },
+  { nombre: 'Sofía Torres', apartamentoId: 9, apartamento: 'Torre 2 · 208' },
+  { nombre: 'Camilo Ortiz', apartamentoId: 7, apartamento: 'Torre 2 · 111' },
+]
+
+// [día, zonaId, hora inicio, hora fin, vecino, estado]
+const agenda = [
+  ['2026-10-01', 5, 6, 8, 3, 'APROBADA'],
+  ['2026-10-02', 2, 18, 22, 0, 'APROBADA'],
+  ['2026-10-03', 1, 9, 12, 5, 'APROBADA'],
+  ['2026-10-03', 3, 12, 16, 2, 'APROBADA'],
+  ['2026-10-04', 1, 14, 17, 7, 'APROBADA'],
+  ['2026-10-04', 4, 9, 11, 6, 'APROBADA'],
+  ['2026-10-06', 5, 18, 20, 1, 'APROBADA'],
+  ['2026-10-08', 3, 18, 22, 4, 'APROBADA'],
+  ['2026-10-09', 2, 14, 18, 2, 'APROBADA'],
+  ['2026-10-10', 1, 9, 12, 0, 'APROBADA'],
+  ['2026-10-10', 3, 13, 17, 6, 'APROBADA'],
+  ['2026-10-10', 4, 15, 17, 1, 'APROBADA'],
+  ['2026-10-11', 2, 18, 23, 3, 'APROBADA'],
+  ['2026-10-11', 1, 14, 17, 4, 'RECHAZADA'],
+  ['2026-10-13', 5, 6, 8, 7, 'APROBADA'],
+  ['2026-10-15', 4, 15, 17, 5, 'APROBADA'],
+  ['2026-10-16', 2, 8, 12, 1, 'APROBADA'],
+  ['2026-10-17', 1, 10, 13, 2, 'APROBADA'],
+  ['2026-10-17', 3, 18, 22, 0, 'APROBADA'],
+  ['2026-10-18', 2, 14, 18, 6, 'APROBADA'],
+  ['2026-10-18', 1, 9, 12, 3, 'APROBADA'],
+  ['2026-10-20', 5, 18, 20, 4, 'APROBADA'],
+  ['2026-10-22', 3, 12, 16, 7, 'APROBADA'],
+  ['2026-10-23', 2, 18, 22, 5, 'APROBADA'],
+  ['2026-10-24', 1, 9, 12, 1, 'APROBADA'],
+  ['2026-10-24', 3, 12, 16, 3, 'APROBADA'],
+  ['2026-10-24', 4, 10, 12, 0, 'APROBADA'],
+  ['2026-10-24', 2, 15, 19, 2, 'CANCELADA'],
+  ['2026-10-25', 1, 14, 17, 6, 'APROBADA'],
+  ['2026-10-25', 3, 18, 22, 4, 'APROBADA'],
+  ['2026-10-26', 5, 6, 8, 0, 'APROBADA'],
+  ['2026-10-27', 1, 10, 12, 3, 'APROBADA'],
+  ['2026-10-27', 2, 14, 18, 0, 'PENDIENTE'],
+  ['2026-10-27', 4, 15, 17, 7, 'APROBADA'],
+  ['2026-10-27', 3, 16, 20, 5, 'APROBADA'],
+  ['2026-10-27', 5, 18, 20, 2, 'APROBADA'],
+  ['2026-10-28', 1, 13, 16, 4, 'PENDIENTE'],
+  ['2026-10-28', 3, 18, 22, 1, 'APROBADA'],
+  ['2026-10-29', 5, 6, 7.5, 5, 'APROBADA'],
+  ['2026-10-29', 2, 9, 12, 6, 'APROBADA'],
+  ['2026-10-30', 3, 18, 22, 2, 'PENDIENTE'],
+  ['2026-10-30', 4, 16, 18, 3, 'APROBADA'],
+  ['2026-10-31', 4, 9, 11, 1, 'APROBADA'],
+  ['2026-10-31', 1, 10, 13, 0, 'APROBADA'],
+  ['2026-10-31', 3, 12, 16, 4, 'APROBADA'],
+  ['2026-10-31', 2, 15, 22, 7, 'APROBADA'],
+  ['2026-11-01', 1, 9, 12, 5, 'APROBADA'],
+  ['2026-11-01', 3, 13, 17, 6, 'PENDIENTE'],
+  ['2026-11-03', 5, 18, 20, 3, 'APROBADA'],
+  ['2026-11-05', 2, 18, 22, 1, 'PENDIENTE'],
+  ['2026-11-07', 1, 10, 13, 2, 'APROBADA'],
+  ['2026-11-07', 3, 12, 16, 0, 'APROBADA'],
+  ['2026-11-08', 2, 14, 18, 4, 'APROBADA'],
+  ['2026-11-14', 4, 9, 11, 6, 'APROBADA'],
+  ['2026-11-15', 3, 18, 22, 7, 'PENDIENTE'],
+  ['2026-11-21', 2, 16, 22, 5, 'APROBADA'],
+]
+
+const hora = (h) => `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}:00`
+
+export const reservasAgenda = agenda.map(([dia, zonaId, ini, fin, v, estado], i) => ({
+  id: 200 + i,
+  zonaComunId: zonaId,
+  zonaComunNombre: zonas.find((z) => z.id === zonaId).nombre,
+  apartamentoId: vecinos[v].apartamentoId,
+  fechaInicio: `${dia}T${hora(ini)}`,
+  fechaFin: `${dia}T${hora(fin)}`,
+  estado,
+  residente: vecinos[v].nombre,
+  apartamento: vecinos[v].apartamento,
+}))
