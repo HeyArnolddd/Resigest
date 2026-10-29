@@ -1,34 +1,68 @@
 import { useState } from 'react'
-import { CalendarRange, Check, X } from 'lucide-react'
-import {
-  Button,
-  Card,
-  CardHeader,
-  EmptyState,
-  Field,
-  Modal,
-  PageHeader,
-  StatusBadge,
-  Table,
-  Textarea,
-} from '../../components/ui'
+import PropTypes from 'prop-types'
+import { AnimatePresence, motion } from 'motion/react'
+import { CalendarDays, CalendarRange, Check, CheckCircle2, Clock, X } from 'lucide-react'
+import { Avatar, Button, Field, Modal, StatusBadge, Textarea } from '../../components/ui'
+import { Titulo } from '../../components/ui/Panel'
 import CalendarioReservas from '../../components/reservas/CalendarioReservas'
+import IlustracionZona from '../../components/reservas/IlustracionZona'
 import { estadoReserva } from '../../lib/labels'
+import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
 import { colorZona } from '../../lib/zonas'
 import { reservasAgenda, zonas } from '../../data/mock'
 
-const fmtFecha = (iso) =>
-  new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+const fmtFecha = (iso) => new Date(iso).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })
 const fmtHorario = (r) => `${r.fechaInicio.slice(11, 16)} – ${r.fechaFin.slice(11, 16)}`
 
-function Zona({ r }) {
+function Solicitud({ reserva, onAprobar, onRechazar, onVer }) {
+  const color = colorZona(reserva.zonaComunId)
   return (
-    <span className="inline-flex items-center gap-2 font-medium">
-      <span className={cn('size-2.5 shrink-0 rounded-full', colorZona(r.zonaComunId).punto)} />
-      {r.zonaComunNombre}
-    </span>
+    <motion.article
+      layout
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+      className={cn(tarjeta, 'flex flex-col overflow-hidden')}
+    >
+      <button type="button" onClick={() => onVer(reserva)} className="relative h-28 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500" aria-label={`Ver detalle de ${reserva.zonaComunNombre}`}>
+        <IlustracionZona nombre={reserva.zonaComunNombre} />
+        <span className={cn('absolute left-3 top-3 rounded-md px-2 py-0.5 text-[11px] font-bold shadow-sm', color.solido)}>{reserva.zonaComunNombre}</span>
+      </button>
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex items-center gap-2.5">
+          <Avatar nombre={reserva.residente} size="sm" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-800">{reserva.residente}</p>
+            <p className="truncate text-xs text-slate-500">{reserva.apartamento}</p>
+          </div>
+        </div>
+        <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+          <span className="flex items-center gap-1 first-letter:uppercase">
+            <CalendarDays className="size-3.5 text-slate-400" /> {fmtFecha(reserva.fechaInicio)}
+          </span>
+          <span className="flex items-center gap-1 tabular-nums">
+            <Clock className="size-3.5 text-slate-400" /> {fmtHorario(reserva)}
+          </span>
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button size="sm" variant="secondary" icon={X} onClick={() => onRechazar(reserva)}>
+            Rechazar
+          </Button>
+          <Button size="sm" icon={Check} onClick={() => onAprobar(reserva)}>
+            Aprobar
+          </Button>
+        </div>
+      </div>
+    </motion.article>
   )
+}
+
+Solicitud.propTypes = {
+  reserva: PropTypes.object.isRequired,
+  onAprobar: PropTypes.func.isRequired,
+  onRechazar: PropTypes.func.isRequired,
+  onVer: PropTypes.func.isRequired,
 }
 
 export default function Reservas() {
@@ -36,12 +70,13 @@ export default function Reservas() {
   const [detalle, setDetalle] = useState(null)
   const [rechazo, setRechazo] = useState(null)
 
-  const pendientes = lista
-    .filter((r) => r.estado === 'PENDIENTE')
-    .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio))
+  const pendientes = lista.filter((r) => r.estado === 'PENDIENTE').sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio))
+  const aprobadas = lista.filter((r) => r.estado === 'APROBADA')
+  const masUsada = zonas
+    .map((z) => [z.nombre, aprobadas.filter((r) => r.zonaComunId === z.id).length])
+    .sort((a, b) => b[1] - a[1])[0]
 
   const cambiarEstado = (id, estado) => setLista(lista.map((r) => (r.id === id ? { ...r, estado } : r)))
-
   const aprobar = (r) => {
     cambiarEstado(r.id, 'APROBADA')
     setDetalle(null)
@@ -58,72 +93,64 @@ export default function Reservas() {
   const estadoDetalle = detalle && estadoReserva[detalle.estado]
 
   return (
-    <div>
-      <PageHeader
-        title="Reservas"
-        subtitle="Agenda de zonas comunes y solicitudes por aprobar"
-        actions={
-          pendientes.length > 0 && (
-            <span className="rounded-full bg-warning-bg px-3 py-1.5 text-xs font-bold text-warning-strong">
-              {pendientes.length} por aprobar
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reservas</h1>
+        <p className="mt-1 text-sm text-slate-500">Agenda de zonas comunes y solicitudes por aprobar</p>
+      </div>
+
+      <motion.div {...aparecer(0)} className={cn(tarjeta, 'flex flex-wrap items-center gap-x-8 gap-y-3 px-6 py-4')}>
+        <p className="flex items-center gap-2 text-sm text-slate-600">
+          <span className="size-2.5 rounded-full bg-warning" />
+          <span className="text-lg font-extrabold text-slate-900 tabular-nums">{pendientes.length}</span> por aprobar
+        </p>
+        <p className="flex items-center gap-2 text-sm text-slate-600">
+          <span className="size-2.5 rounded-full bg-success" />
+          <span className="text-lg font-extrabold text-slate-900 tabular-nums">{aprobadas.length}</span> aprobadas
+        </p>
+        <p className="flex items-center gap-2 text-sm text-slate-600">
+          <span className="size-2.5 rounded-full bg-brand-500" />
+          Zona más usada: <span className="font-bold text-slate-900">{masUsada[0]}</span>
+        </p>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 sm:ml-auto">
+          {zonas.map((z) => (
+            <span key={z.id} className="flex items-center gap-1.5 text-[11px] text-slate-500">
+              <span className={cn('size-2 rounded-full', colorZona(z.id).punto)} />
+              {z.nombre}
             </span>
-          )
-        }
-      />
+          ))}
+        </div>
+      </motion.div>
 
-      <Card className="p-4 sm:p-5">
-        <CalendarioReservas reservas={lista} zonas={zonas} onSelect={setDetalle} />
-      </Card>
-
-      <Card className="mt-6">
-        <CardHeader title="Solicitudes por aprobar" subtitle="Ordenadas por fecha de uso" />
+      {/* Solicitudes */}
+      <section>
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
+          <span className="size-2.5 rounded-[3px] bg-brand-500" />
+          Solicitudes por aprobar
+        </h2>
         {pendientes.length ? (
-          <div className="pt-2">
-            <Table
-              rowKey="id"
-              data={pendientes}
-              columns={[
-                {
-                  key: 'residente',
-                  header: 'Residente',
-                  render: (r) => (
-                    <div>
-                      <p className="font-semibold text-slate-800">{r.residente}</p>
-                      <p className="text-xs text-slate-500">{r.apartamento}</p>
-                    </div>
-                  ),
-                },
-                { key: 'zona', header: 'Zona', render: (r) => <Zona r={r} /> },
-                { key: 'fecha', header: 'Fecha', render: (r) => fmtFecha(r.fechaInicio) },
-                { key: 'horario', header: 'Horario', render: fmtHorario },
-                {
-                  key: 'acciones',
-                  header: 'Acción',
-                  align: 'right',
-                  render: (r) => (
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="success" icon={Check} onClick={() => aprobar(r)}>
-                        Aprobar
-                      </Button>
-                      <Button size="sm" variant="secondary" icon={X} onClick={() => pedirRechazo(r)}>
-                        Rechazar
-                      </Button>
-                    </div>
-                  ),
-                },
-              ]}
-            />
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <AnimatePresence mode="popLayout">
+              {pendientes.map((r) => (
+                <Solicitud key={r.id} reserva={r} onAprobar={aprobar} onRechazar={pedirRechazo} onVer={setDetalle} />
+              ))}
+            </AnimatePresence>
           </div>
         ) : (
-          <div className="p-5">
-            <EmptyState
-              icon={Check}
-              title="No hay solicitudes por aprobar"
-              description="Las nuevas reservas de los residentes aparecerán aquí."
-            />
+          <div className={cn(tarjeta, 'flex flex-col items-center gap-2 px-6 py-10 text-center')}>
+            <span className="flex size-12 items-center justify-center rounded-full bg-success-bg text-success-strong">
+              <CheckCircle2 className="size-6" />
+            </span>
+            <p className="text-sm font-bold text-slate-900">Todo al día</p>
+            <p className="text-xs text-slate-500">Las nuevas reservas de los residentes aparecerán aquí.</p>
           </div>
         )}
-      </Card>
+      </section>
+
+      <motion.section {...aparecer(1)} className={cn(tarjeta, 'p-4 sm:p-5')}>
+        <Titulo>Agenda de zonas comunes</Titulo>
+        <CalendarioReservas reservas={lista} zonas={zonas} onSelect={setDetalle} className="mt-4" />
+      </motion.section>
 
       <Modal
         open={Boolean(detalle)}
@@ -137,7 +164,7 @@ export default function Reservas() {
               <Button variant="secondary" icon={X} onClick={() => pedirRechazo(detalle)}>
                 Rechazar
               </Button>
-              <Button variant="success" icon={Check} onClick={() => aprobar(detalle)}>
+              <Button icon={Check} onClick={() => aprobar(detalle)}>
                 Aprobar reserva
               </Button>
             </>
@@ -149,28 +176,34 @@ export default function Reservas() {
         }
       >
         {detalle && (
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
-            <div>
-              <dt className="text-xs text-slate-500">Zona</dt>
-              <dd className="mt-1">
-                <Zona r={detalle} />
-              </dd>
+          <div className="space-y-4">
+            <div className="h-36 overflow-hidden rounded-xl">
+              <IlustracionZona nombre={detalle.zonaComunNombre} />
             </div>
-            <div>
-              <dt className="text-xs text-slate-500">Estado</dt>
-              <dd className="mt-1">
-                <StatusBadge status={estadoDetalle.label} tone={estadoDetalle.tone} />
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-500">Fecha</dt>
-              <dd className="mt-1 font-medium text-slate-800">{fmtFecha(detalle.fechaInicio)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-500">Horario</dt>
-              <dd className="mt-1 font-medium text-slate-800">{fmtHorario(detalle)}</dd>
-            </div>
-          </dl>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+              <div>
+                <dt className="text-xs text-slate-500">Zona</dt>
+                <dd className="mt-1 flex items-center gap-2 font-medium text-slate-800">
+                  <span className={cn('size-2.5 rounded-full', colorZona(detalle.zonaComunId).punto)} />
+                  {detalle.zonaComunNombre}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Estado</dt>
+                <dd className="mt-1">
+                  <StatusBadge status={estadoDetalle.label} tone={estadoDetalle.tone} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Fecha</dt>
+                <dd className="mt-1 font-medium text-slate-800 first-letter:uppercase">{fmtFecha(detalle.fechaInicio)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Horario</dt>
+                <dd className="mt-1 font-medium text-slate-800 tabular-nums">{fmtHorario(detalle)}</dd>
+              </div>
+            </dl>
+          </div>
         )}
       </Modal>
 

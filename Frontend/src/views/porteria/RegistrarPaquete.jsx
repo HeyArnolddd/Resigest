@@ -1,24 +1,36 @@
 import { useState } from 'react'
-import { BellRing, CheckCircle2, Package } from 'lucide-react'
-import { Button, Field, Input, Modal, Select, StatusBadge } from '../../components/ui'
+import PropTypes from 'prop-types'
+import { motion } from 'motion/react'
+import { BellRing, Package } from 'lucide-react'
+import { Button, Field, Input, Modal, Select } from '../../components/ui'
+import CheckAnimado from '../../components/porteria/CheckAnimado'
+import IlustracionPaquete from '../../components/paquetes/IlustracionPaquete'
+import { horaActual } from '../../lib/porteria'
+import { cn } from '../../lib/utils'
+
+const TAMANOS = ['Sobre', 'Caja pequeña', 'Paquete mediano', 'Caja grande']
 
 export default function RegistrarPaquete({ open, onClose, onRegistrado }) {
   const [registrado, setRegistrado] = useState(null)
+  const [tamano, setTamano] = useState('Caja pequeña')
 
   const cerrar = () => {
     onClose()
-    setTimeout(() => setRegistrado(null), 200)
+    setTimeout(() => {
+      setRegistrado(null)
+      setTamano('Caja pequeña')
+    }, 200)
   }
 
   const registrar = (e) => {
     e.preventDefault()
     const datos = {
-      id: `PAQ-2${Math.floor(30 + Math.random() * 8)}`,
+      id: `PAQ-${Date.now().toString().slice(-4)}`,
       empresa: e.target.empresa.value,
       guia: e.target.guia.value,
       apartamento: `${e.target.torre.value} · ${e.target.apartamento.value}`,
-      fecha: `${new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })} · ${new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`,
-      descripcion: e.target.descripcion.value || 'Sin descripción',
+      fecha: `${new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })} · ${horaActual()}`,
+      descripcion: tamano,
       estado: 'Ha llegado',
     }
     setRegistrado(datos)
@@ -48,12 +60,26 @@ export default function RegistrarPaquete({ open, onClose, onRegistrado }) {
       }
     >
       {registrado ? (
-        <div className="flex flex-col items-center gap-3 py-6 text-center">
-          <CheckCircle2 className="h-12 w-12 text-success" strokeWidth={2} />
+        <div className="flex flex-col items-center gap-4 py-4 text-center">
+          <CheckAnimado />
           <p className="text-base font-bold text-slate-900">Paquete registrado correctamente</p>
-          <StatusBadge status={registrado.estado} />
+          <motion.div
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, type: 'spring', stiffness: 300, damping: 20 }}
+            className="flex items-center gap-3 rounded-xl bg-amber-50/70 p-3 text-left ring-1 ring-amber-100"
+          >
+            <IlustracionPaquete descripcion={registrado.descripcion} className="h-14 w-16" />
+            <div>
+              <p className="text-base font-extrabold text-slate-900">{registrado.apartamento}</p>
+              <p className="text-xs text-slate-500">
+                {registrado.empresa} · <span className="font-mono">{registrado.guia}</span>
+              </p>
+              <p className="mt-1 text-[11px] font-semibold text-warning-strong">Quedó en la estantería</p>
+            </div>
+          </motion.div>
           <p className="flex items-center gap-2 text-sm font-medium text-slate-600">
-            <BellRing className="h-4 w-4 text-brand-600" />
+            <BellRing className="size-4 text-brand-600" />
             Se generó una notificación al residente
           </p>
         </div>
@@ -71,26 +97,52 @@ export default function RegistrarPaquete({ open, onClose, onRegistrado }) {
               </Select>
             </Field>
             <Field label="N.º de guía" required>
-              <Input name="guia" placeholder="Ej. RP-4829137" />
+              <Input name="guia" required placeholder="Ej. RP-4829137" />
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Torre" required>
               <Select name="torre" defaultValue="T1">
-                <option>Torre 1</option>
-                <option>Torre 2</option>
-                <option>Torre 3</option>
+                <option value="T1">Torre 1</option>
+                <option value="T2">Torre 2</option>
+                <option value="T3">Torre 3</option>
               </Select>
             </Field>
             <Field label="Apartamento" required>
-              <Input name="apartamento" placeholder="Ej. 304" />
+              <Input name="apartamento" required inputMode="numeric" placeholder="Ej. 304" />
             </Field>
           </div>
-          <Field label="Descripción">
-            <Input name="descripcion" placeholder="Ej. Caja pequeña, paquete mediano…" />
+          <Field label="Tamaño">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Tamaño del paquete">
+              {TAMANOS.map((t) => {
+                const activo = tamano === t
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={activo}
+                    onClick={() => setTamano(t)}
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded-xl px-2 pb-2.5 pt-2 outline-none ring-1 transition-all focus-visible:ring-2 focus-visible:ring-brand-500',
+                      activo ? 'bg-brand-50/60 ring-2 ring-brand-500' : 'ring-slate-200 hover:bg-slate-50',
+                    )}
+                  >
+                    <IlustracionPaquete descripcion={t} className={cn('h-12 w-14 transition-transform', activo && '-translate-y-0.5')} />
+                    <span className={cn('text-xs font-semibold', activo ? 'text-brand-700' : 'text-slate-600')}>{t}</span>
+                  </button>
+                )
+              })}
+            </div>
           </Field>
         </form>
       )}
     </Modal>
   )
+}
+
+RegistrarPaquete.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onRegistrado: PropTypes.func,
 }

@@ -1,68 +1,119 @@
 import { useState } from 'react'
-import { CheckCircle2, Megaphone } from 'lucide-react'
-import { Button, Card, CardHeader, Field, Input, PageHeader, StatusBadge, Textarea } from '../../components/ui'
-import { cn } from '../../lib/utils'
+import { AnimatePresence, motion } from 'motion/react'
+import { CheckCircle2, Megaphone, Send, Users, Waves } from 'lucide-react'
+import { Button, Field, Input, Textarea } from '../../components/ui'
+import { Titulo } from '../../components/ui/Panel'
+import CarteleraComunicados from '../../components/comunidad/CarteleraComunicados'
 import { comunicados } from '../../data/mock'
+import { aparecer, tarjeta } from '../../lib/panel'
+import { cn } from '../../lib/utils'
 
-const destinatarios = ['Todos los residentes', 'Torre 1', 'Torre 2', 'Torre 3', 'Administración']
+const destinatarios = ['Todos los residentes', 'Torre 1', 'Torre 2', 'Torre 3']
+const categorias = [
+  ['Aviso', Megaphone, 'bg-brand-50 text-brand-700 ring-brand-500'],
+  ['Asamblea', Users, 'bg-violet-50 text-violet-700 ring-violet-500'],
+  ['Zonas comunes', Waves, 'bg-sky-50 text-sky-700 ring-sky-500'],
+]
+const hoy = () => new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
 export default function Comunicados() {
-  const [publicados, setPublicados] = useState(comunicados)
+  const [publicados, setPublicados] = useState(() => comunicados.map((c) => ({ ...c, destino: 'Todos los residentes' })))
   const [publicado, setPublicado] = useState(false)
-  const [destino, setDestino] = useState('Todos los residentes')
+  const [destino, setDestino] = useState(destinatarios[0])
+  const [categoria, setCategoria] = useState('Aviso')
+  const [titulo, setTitulo] = useState('')
+  const [contenido, setContenido] = useState('')
 
   const publicar = (e) => {
     e.preventDefault()
-    const nuevo = {
-      id: publicados.length + 1,
-      titulo: e.target.titulo.value,
-      categoria: 'Comunicado',
-      fecha: new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-      contenido: e.target.contenido.value,
-      destino,
-    }
+    const nuevo = { id: Date.now(), titulo, categoria, fecha: hoy(), contenido, destino }
     setPublicados((p) => [nuevo, ...p])
     setPublicado(true)
-    e.target.reset()
+    setTitulo('')
+    setContenido('')
     setTimeout(() => setPublicado(false), 4000)
   }
 
+  const borrador = {
+    id: 'borrador',
+    titulo: titulo || 'Título del comunicado',
+    categoria,
+    fecha: hoy(),
+    contenido: contenido || 'Aquí verás el contenido tal como lo leerán los residentes en la cartelera.',
+    destino,
+  }
+
   return (
-    <div>
-      <PageHeader title="Comunicados" subtitle="Publica información oficial del conjunto" />
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Comunicados</h1>
+        <p className="mt-1 text-sm text-slate-500">Publica información oficial en la cartelera del conjunto</p>
+      </div>
 
-      {publicado && (
-        <div className="animate-fade-up mb-4 flex items-center gap-3 rounded-lg border border-success/30 bg-success-bg px-4 py-3 text-sm text-success-strong">
-          <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={2.5} />
-          <span className="font-medium">Comunicado publicado. Los residentes seleccionados ya pueden verlo.</span>
-        </div>
-      )}
+      <AnimatePresence>
+        {publicado && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="flex items-center gap-3 rounded-xl bg-success-bg px-4 py-3 text-sm text-success-strong ring-1 ring-green-200"
+          >
+            <CheckCircle2 className="size-5 shrink-0" />
+            <span className="font-medium">Comunicado publicado. Ya aparece en la cartelera de los residentes.</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <Card className="p-5 lg:col-span-2">
-          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">
-            <Megaphone className="h-4 w-4 text-brand-600" />
-            Nuevo comunicado
-          </h3>
-          <form onSubmit={publicar} className="space-y-4">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
+        {/* Redactar */}
+        <motion.section {...aparecer(0)} className={cn(tarjeta, 'p-5 sm:p-6')}>
+          <Titulo>Nuevo comunicado</Titulo>
+          <form onSubmit={publicar} className="mt-4 space-y-4">
+            <Field label="Categoría" required>
+              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Categoría">
+                {categorias.map(([c, Icono, tono]) => (
+                  <button
+                    key={c}
+                    type="button"
+                    role="radio"
+                    aria-checked={categoria === c}
+                    onClick={() => setCategoria(c)}
+                    className={cn(
+                      'flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-xs font-semibold outline-none ring-1 transition-all focus-visible:ring-2 focus-visible:ring-brand-500',
+                      categoria === c ? cn(tono, 'ring-2') : 'text-slate-600 ring-slate-200 hover:bg-slate-50',
+                    )}
+                  >
+                    <Icono className="size-5" strokeWidth={2} />
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </Field>
             <Field label="Título" required>
-              <Input name="titulo" placeholder="Ej. Mantenimiento del agua este sábado" />
+              <Input name="titulo" required value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ej. Corte de agua este sábado" />
             </Field>
             <Field label="Contenido" required>
-              <Textarea name="contenido" className="min-h-32" placeholder="Escribe el contenido del comunicado…" />
+              <Textarea
+                name="contenido"
+                required
+                value={contenido}
+                onChange={(e) => setContenido(e.target.value)}
+                className="min-h-28"
+                placeholder="Escribe el contenido del comunicado…"
+              />
             </Field>
             <Field label="Destinatarios" required>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Destinatarios">
                 {destinatarios.map((d) => (
                   <button
                     key={d}
                     type="button"
+                    role="radio"
+                    aria-checked={destino === d}
                     onClick={() => setDestino(d)}
                     className={cn(
-                      'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
-                      destino === d
-                        ? 'border-brand-600 bg-brand-600 text-white'
-                        : 'border-slate-300 text-slate-600 hover:bg-slate-50',
+                      'rounded-full px-3 py-1.5 text-xs font-semibold outline-none ring-1 transition-colors focus-visible:ring-2 focus-visible:ring-brand-500',
+                      destino === d ? 'bg-brand-600 text-white ring-brand-600' : 'text-slate-600 ring-slate-300 hover:bg-slate-50',
                     )}
                   >
                     {d}
@@ -70,31 +121,23 @@ export default function Comunicados() {
                 ))}
               </div>
             </Field>
-            <Button type="submit" className="w-full">
-              Publicar comunicado
-            </Button>
+            <div className="flex justify-end">
+              <Button type="submit" icon={Send}>
+                Publicar comunicado
+              </Button>
+            </div>
           </form>
-        </Card>
+        </motion.section>
 
-        <Card className="lg:col-span-3">
-          <CardHeader title="Publicados" subtitle={`${publicados.length} comunicados enviados`} />
-          <div className="px-5 py-3">
-            {publicados.map((c) => (
-              <div key={c.id} className="border-b border-slate-100 py-4 last:border-0">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-bold text-slate-900">{c.titulo}</p>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status="Publicado" dot={false} />
-                    <span className="text-xs text-slate-400">{c.fecha}</span>
-                  </div>
-                </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{c.contenido}</p>
-                <p className="mt-1.5 text-xs font-medium text-slate-500">Enviado a: {c.destino}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
+        {/* Vista previa en vivo */}
+        <motion.section {...aparecer(1)} className="lg:self-start">
+          <CarteleraComunicados comunicados={[borrador]} titulo="Vista previa" columnas="grid-cols-1" contador={false} />
+        </motion.section>
       </div>
+
+      <motion.section {...aparecer(2)}>
+        <CarteleraComunicados comunicados={publicados} titulo="Publicados" columnas="sm:grid-cols-2 xl:grid-cols-3" />
+      </motion.section>
     </div>
   )
 }

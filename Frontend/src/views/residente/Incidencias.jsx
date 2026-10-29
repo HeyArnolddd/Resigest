@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import PropTypes from 'prop-types'
 import { motion } from 'motion/react'
 import { Calendar, Check, CheckCircle2, MapPin, Plus, RotateCcw, X } from 'lucide-react'
 import { Button, Field, Modal, Select, Textarea, UploadBox } from '../../components/ui'
 import IlustracionIncidencia from '../../components/incidencias/IlustracionIncidencia'
+import Avance from '../../components/incidencias/Avance'
+import { estilosEstado, puntoPrioridad } from '../../lib/incidencias'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
 
 const categorias = ['Plomería', 'Eléctrico', 'Carpintería', 'Iluminación', 'Ascensores', 'Zonas comunes', 'Otro']
 const ubicaciones = ['Torre 1', 'Torre 2', 'Torre 3', 'Zonas comunes']
-const PASOS = ['Nueva', 'En proceso', 'Resuelta']
 
 const incidenciasIniciales = [
   { id: 'INC-013', titulo: 'Fuga de agua en el baño de la ducha', categoria: 'Plomería', ubicacion: 'Torre 2 · Apto 304', fecha: '07/09/2026', prioridad: 'Alta', estado: 'En proceso', descripcion: 'Se presenta un goteo constante en la ducha del baño principal, incluso con la llave cerrada.' },
@@ -17,51 +17,6 @@ const incidenciasIniciales = [
   { id: 'INC-010', titulo: 'Cerradura de la puerta principal en mal estado', categoria: 'Carpintería', ubicacion: 'Torre 2 · Apto 304', fecha: '02/09/2026', prioridad: 'Media', estado: 'Nueva', descripcion: 'La cerradura de la puerta principal gira con dificultad y a veces se queda trabada.' },
   { id: 'INC-001', titulo: 'Bombilla quemada en el pasillo del piso 4', categoria: 'Iluminación', ubicacion: 'Torre 2 · Piso 4', fecha: '30/07/2026', prioridad: 'Baja', estado: 'Resuelta', descripcion: 'La bombilla del pasillo del piso 4 está quemada desde hace una semana.' },
 ]
-
-// Estados: color reservado + texto (nunca solo color)
-const estilosEstado = {
-  Nueva: 'bg-sky-50 text-sky-700 ring-sky-200',
-  'En proceso': 'bg-warning-bg text-warning-strong ring-amber-200',
-  Resuelta: 'bg-success-bg text-success-strong ring-green-200',
-  Evaluada: 'bg-success-bg text-success-strong ring-green-200',
-  Reabierta: 'bg-danger-bg text-danger-strong ring-red-200',
-}
-
-const puntoPrioridad = { Alta: 'bg-danger', Media: 'bg-warning', Baja: 'bg-slate-400' }
-
-function Avance({ estado }) {
-  // Evaluada cuenta como resuelta; Reabierta vuelve a "En proceso"
-  const actual = estado === 'Evaluada' ? 2 : estado === 'Reabierta' ? 1 : PASOS.indexOf(estado)
-  return (
-    <ol className="flex items-center" aria-label={`Avance: ${estado}`}>
-      {PASOS.map((paso, i) => {
-        const hecho = i < actual || (i === actual && actual === 2)
-        return (
-          <li key={paso} className="flex flex-1 items-center last:flex-none">
-            <span className="flex flex-col items-center gap-1">
-              <span
-                className={cn(
-                  'flex size-6 items-center justify-center rounded-full text-[11px] font-bold',
-                  hecho && 'bg-brand-600 text-white',
-                  i === actual && !hecho && 'bg-white text-brand-700 ring-2 ring-brand-500',
-                  i > actual && 'bg-slate-100 text-slate-400',
-                )}
-              >
-                {hecho ? <Check className="size-3.5" strokeWidth={3} /> : i + 1}
-              </span>
-              <span className={cn('text-[11px] font-medium', i <= actual ? 'text-slate-700' : 'text-slate-400')}>{paso}</span>
-            </span>
-            {i < PASOS.length - 1 && (
-              <span className={cn('mx-1.5 mb-4 h-0.5 flex-1 rounded-full', i < actual ? 'bg-brand-600' : 'bg-slate-200')} />
-            )}
-          </li>
-        )
-      })}
-    </ol>
-  )
-}
-
-Avance.propTypes = { estado: PropTypes.string.isRequired }
 
 export default function Incidencias() {
   const [lista, setLista] = useState(incidenciasIniciales)
