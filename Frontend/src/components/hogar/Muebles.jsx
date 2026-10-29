@@ -1,8 +1,10 @@
 import { useId } from 'react'
 import PropTypes from 'prop-types'
+import { useAhora } from '../../lib/useAhora'
+import { enColombia } from '../../lib/utils'
 
 // Muebles y objetos fijos para los fondos de "interior de casa" del residente.
-// Todos son SVG decorativos, sin animación, en la paleta de marca.
+// Todos son SVG decorativos en la paleta de marca; el reloj y el calendario marcan la hora y fecha de Colombia.
 
 const madera = 'fill-[#c9a877]'
 const maderaOscura = 'fill-[#a8875a]'
@@ -121,7 +123,10 @@ export function MateraGrande({ className = 'w-28' }) {
 }
 MateraGrande.propTypes = props
 
+// Marca la hora de Colombia en tiempo real (el segundero avanza cada segundo)
 export function Reloj({ className = 'w-24' }) {
+  const { horas, minutos, segundos } = enColombia(useAhora(1000))
+  const aguja = (grados) => `rotate(${grados} 50 50)`
   return (
     <Svg viewBox="0 0 100 100" className={className}>
       <circle cx="50" cy="50" r="44" className="fill-brand-700" />
@@ -129,7 +134,9 @@ export function Reloj({ className = 'w-24' }) {
       {Array.from({ length: 12 }, (_, i) => (
         <rect key={i} x="49" y="16" width="2" height={i % 3 === 0 ? 8 : 4} transform={`rotate(${i * 30} 50 50)`} className="fill-brand-800/60" />
       ))}
-      <path d="M50 50 V28 M50 50 L64 58" strokeWidth="3.5" strokeLinecap="round" className="stroke-brand-900" />
+      <path d="M50 50 V31" strokeWidth="4" strokeLinecap="round" transform={aguja((horas % 12) * 30 + minutos / 2)} className="stroke-brand-900" />
+      <path d="M50 50 V22" strokeWidth="3" strokeLinecap="round" transform={aguja(minutos * 6 + segundos / 10)} className="stroke-brand-900" />
+      <path d="M50 56 V20" strokeWidth="1.5" strokeLinecap="round" transform={aguja(segundos * 6)} className="stroke-lime-500" />
       <circle cx="50" cy="50" r="3.5" className="fill-lime-400" />
     </Svg>
   )
@@ -154,16 +161,24 @@ Sofa.propTypes = props
 
 // ── Estudio (Finanzas) ──────────────────────────────────────────────────
 
+// Calendario de hoja: mes, día y día de la semana de hoy en Colombia
 export function Calendario({ className = 'w-28' }) {
+  const { mes, dia, diaSemana } = enColombia(useAhora())
   return (
     <Svg viewBox="0 0 110 120" className={className}>
       <rect x="8" y="14" width="94" height="100" rx="8" className="fill-white" />
-      <rect x="8" y="14" width="94" height="26" rx="8" className="fill-brand-600" />
-      <rect x="8" y="30" width="94" height="10" className="fill-brand-600" />
+      <rect x="8" y="14" width="94" height="28" rx="8" className="fill-brand-600" />
+      <rect x="8" y="32" width="94" height="10" className="fill-brand-600" />
       <path d="M32 6 v18 M78 6 v18" strokeWidth="6" strokeLinecap="round" className="stroke-brand-800" />
-      {Array.from({ length: 15 }, (_, i) => (
-        <rect key={i} x={18 + (i % 5) * 16} y={50 + Math.floor(i / 5) * 18} width="10" height="10" rx="2" className={i === 7 ? 'fill-yellow-400' : 'fill-brand-100'} />
-      ))}
+      <text x="55" y="35" textAnchor="middle" className="fill-white text-[11px] font-bold uppercase tracking-wide">
+        {mes}
+      </text>
+      <text x="55" y="88" textAnchor="middle" className="fill-brand-800 text-[44px] font-extrabold">
+        {dia}
+      </text>
+      <text x="55" y="105" textAnchor="middle" className="fill-slate-500 text-[11px] font-semibold">
+        {diaSemana}
+      </text>
     </Svg>
   )
 }
@@ -376,18 +391,24 @@ export function TableroHerramientas({ className = 'w-44' }) {
       <rect x="24" y="40" width="8" height="78" rx="3" className="fill-[#8a6a3d]" />
       <path d="M10 28 H40 Q46 28 46 34 V40 H10 Z" className="fill-slate-600" />
       <path d="M10 28 Q4 34 8 44" strokeWidth="4" strokeLinecap="round" className="fill-none stroke-slate-600" />
-      {/* Serrucho */}
-      <path d="M58 46 H104 V56 L64 116 H58 Z" className="fill-slate-300" />
-      <path d="M58 116 l3 -6 l3 6 l3 -6 l3 6" strokeWidth="1.5" className="fill-none stroke-slate-400" />
-      <rect x="98" y="30" width="22" height="34" rx="8" className="fill-brand-600" />
-      <rect x="104" y="38" width="10" height="14" rx="4" className={madera} />
+      {/* Serrucho: hoja que se angosta hacia la punta y mango a la derecha */}
+      <path d="M50 70 L104 54 V86 H50 Z" className="fill-slate-300" />
+      <path d={`M50 86 ${'l3 4 l3 -4 '.repeat(9)}`} className="fill-slate-300" />
+      <path d="M56 74 L98 62" strokeWidth="1.5" strokeLinecap="round" className="stroke-white/70" />
+      <rect x="100" y="48" width="26" height="44" rx="9" className="fill-brand-600" />
+      <rect x="107" y="58" width="12" height="20" rx="5" className={madera} />
+      <circle cx="104" cy="60" r="1.8" className="fill-slate-400" />
+      <circle cx="104" cy="80" r="1.8" className="fill-slate-400" />
       {/* Alicate */}
       <path d="M134 30 L148 74 M154 30 L140 74" strokeWidth="5" strokeLinecap="round" className="stroke-slate-500" />
       <path d="M148 74 L156 118 M140 74 L132 118" strokeWidth="8" strokeLinecap="round" className="stroke-orange-500" />
       <circle cx="144" cy="66" r="3.5" className="fill-slate-700" />
-      {/* Llave */}
-      <path d="M172 30 V100" strokeWidth="7" strokeLinecap="round" className="stroke-slate-500" />
-      <path d="M164 22 a9 9 0 1 0 16 0 l-4 6 h-8 Z" className="fill-slate-500" />
+      {/* Llave: boca abierta arriba y argolla abajo */}
+      <path d="M172 32 V94" strokeWidth="7" strokeLinecap="round" className="stroke-slate-500" />
+      <circle cx="172" cy="24" r="10" className="fill-slate-500" />
+      <rect x="168" y="12" width="8" height="13" rx="1" className={madera} />
+      <circle cx="172" cy="100" r="7" className="fill-slate-500" />
+      <circle cx="172" cy="100" r="3" className={madera} />
       {/* Metro */}
       <rect x="160" y="112" width="22" height="20" rx="5" className="fill-yellow-400" />
       <circle cx="171" cy="122" r="4" className="fill-slate-700" />

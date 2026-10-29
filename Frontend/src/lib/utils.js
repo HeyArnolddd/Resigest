@@ -48,3 +48,28 @@ export function colorAvatar(nombre) {
   for (const c of nombre) hash = (hash * 31 + c.charCodeAt(0)) | 0
   return paletaAvatares[Math.abs(hash) % paletaAvatares.length]
 }
+// Fecha y hora en Colombia (America/Bogota), sin importar la zona horaria del equipo
+const partesColombia = new Intl.DateTimeFormat('es-CO', {
+  timeZone: 'America/Bogota',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  weekday: 'long',
+  hour: 'numeric',
+  minute: 'numeric',
+  second: 'numeric',
+  hourCycle: 'h23',
+})
+
+export function enColombia(fecha = new Date()) {
+  const p = Object.fromEntries(partesColombia.formatToParts(fecha).map(({ type, value }) => [type, value]))
+  return {
+    anio: Number(p.year),
+    mes: p.month,
+    dia: Number(p.day),
+    diaSemana: p.weekday,
+    horas: Number(p.hour),
+    minutos: Number(p.minute),
+    segundos: Number(p.second),
+  }
+}

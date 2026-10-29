@@ -330,6 +330,42 @@ export const mensajesComunidad = [
   { id: 4, autor: 'Juan Pérez', torre: 'T2 · 304', hora: '10:12', texto: 'Gracias por la información. ¿Hay algún documento que deba llevar?' },
 ]
 
+// Mensajes privados entre residentes (forma de MensajeChatDTO). Juan Pérez es el usuario 1.
+export const vecinosChat = [
+  { id: 2, nombre: 'Ana Gómez', apartamento: 'T1 · 204' },
+  { id: 3, nombre: 'Carlos Rodríguez', apartamento: 'T3 · 502' },
+  { id: 4, nombre: 'María Fernández', apartamento: 'T1 · 101' },
+  { id: 5, nombre: 'Luis Ramírez', apartamento: 'T1 · 102' },
+  { id: 6, nombre: 'Sofía Torres', apartamento: 'T2 · 208' },
+  { id: 7, nombre: 'Camilo Ortiz', apartamento: 'T2 · 111' },
+  { id: 8, nombre: 'Laura Martínez', apartamento: 'T2 · 305' },
+]
+
+export const mensajesPrivados = [
+  { id: 101, remitenteId: 1, destinatarioId: 6, contenido: 'Sofía, ¿vas a ir a la asamblea del 19?', fecha: '2026-09-08T19:05:00' },
+  { id: 102, remitenteId: 6, destinatarioId: 1, contenido: 'Sí, nos vemos allá.', fecha: '2026-09-08T19:40:00' },
+  { id: 103, remitenteId: 2, destinatarioId: 1, contenido: 'Hola Juan, ¿me prestas la escalera el sábado?', fecha: '2026-09-09T08:15:00' },
+  { id: 104, remitenteId: 1, destinatarioId: 2, contenido: '¡Claro! Pasa por ella en la mañana.', fecha: '2026-09-09T08:20:00' },
+  { id: 105, remitenteId: 2, destinatarioId: 1, contenido: 'Mil gracias, a las 9 paso por el 304.', fecha: '2026-09-09T08:22:00' },
+  { id: 106, remitenteId: 8, destinatarioId: 1, contenido: 'Vecino, creo que un paquete tuyo quedó en mi casillero.', fecha: '2026-09-09T10:31:00' },
+  { id: 107, remitenteId: 8, destinatarioId: 1, contenido: 'Es de Mercado Libre, te lo dejo en portería.', fecha: '2026-09-09T10:32:00' },
+]
+
+// Agenda del conjunto (los mocks toman el 09/09/2026 como "hoy")
+export const eventosConjunto = [
+  { id: 1, tipo: 'mantenimiento', titulo: 'Mantenimiento de ascensores', fecha: '2026-09-10', hora: '09:00 – 13:00', lugar: 'Torres 1 y 2' },
+  { id: 2, tipo: 'tramite', titulo: 'Entrega de carnés de acceso', fecha: '2026-09-14', hora: '08:00 – 17:00', lugar: 'Administración' },
+  { id: 3, tipo: 'asamblea', titulo: 'Asamblea de copropietarios', fecha: '2026-09-19', hora: '09:00', lugar: 'Salón social' },
+  { id: 4, tipo: 'evento', titulo: 'Bingo familiar', fecha: '2026-09-26', hora: '16:00', lugar: 'Salón social' },
+]
+
+export const contactosConjunto = [
+  { id: 'porteria', nombre: 'Portería', horario: 'Las 24 horas', telefono: '+57 607 645 1020' },
+  { id: 'administracion', nombre: 'Administración', horario: 'Lun a vie · 08:00 – 17:00', telefono: '+57 607 645 1021' },
+  { id: 'mantenimiento', nombre: 'Mantenimiento', horario: 'Lun a sáb · 07:00 – 16:00', telefono: '+57 607 645 1022' },
+  { id: 'emergencias', nombre: 'Emergencias', horario: 'Línea nacional', telefono: '123' },
+]
+
 export const ingresos = [
   { id: 1, hora: '10:24', persona: 'Laura Martínez', apartamento: 'T2 · 305', tipo: 'Visitante', estado: 'En portería' },
   { id: 2, hora: '09:58', persona: 'Repartidor Rappi', apartamento: 'T3 · 501', tipo: 'Domicilio', estado: 'Completado' },
@@ -340,11 +376,13 @@ export const ingresos = [
 ]
 
 export const paquetesPorteria = [
-  { id: 'PAQ-231', empresa: 'Rappi', guia: 'RP-4829137', apartamento: 'T2 · 304', fecha: '09/09/2026 · 10:04', estado: 'Ha llegado' },
-  { id: 'PAQ-230', empresa: 'Domicilios.com', guia: 'DC-5587721', apartamento: 'T1 · 102', fecha: '09/09/2026 · 09:22', estado: 'Entregado' },
-  { id: 'PAQ-229', empresa: 'Mercado Libre', guia: 'ML-8839201', apartamento: 'T3 · 501', fecha: '08/09/2026 · 16:45', estado: 'Entregado' },
-  { id: 'PAQ-227', empresa: 'Mercado Libre', guia: 'ML-9912374', apartamento: 'T2 · 304', fecha: '08/09/2026 · 11:03', estado: 'Ha llegado' },
-  { id: 'PAQ-226', empresa: 'Amazon', guia: 'AMZ-7738291', apartamento: 'T1 · 205', fecha: '07/09/2026 · 15:18', estado: 'Entregado' },
+  { id: 'PAQ-231', empresa: 'Rappi', guia: 'RP-4829137', apartamento: 'T2 · 304', descripcion: 'Caja pequeña', fecha: '09/09/2026 · 10:04', estado: 'Ha llegado' },
+  { id: 'PAQ-230', empresa: 'Domicilios.com', guia: 'DC-5587721', apartamento: 'T1 · 102', descripcion: 'Sobre', fecha: '09/09/2026 · 09:22', estado: 'Entregado' },
+  { id: 'PAQ-229', empresa: 'Mercado Libre', guia: 'ML-8839201', apartamento: 'T3 · 501', descripcion: 'Paquete mediano', fecha: '08/09/2026 · 16:45', estado: 'Entregado' },
+  { id: 'PAQ-228', empresa: 'Amazon', guia: 'AMZ-6620183', apartamento: 'T1 · 403', descripcion: 'Caja grande', fecha: '08/09/2026 · 14:20', estado: 'Ha llegado' },
+  { id: 'PAQ-227', empresa: 'Mercado Libre', guia: 'ML-9912374', apartamento: 'T2 · 304', descripcion: 'Paquete mediano', fecha: '08/09/2026 · 11:03', estado: 'Ha llegado' },
+  { id: 'PAQ-226', empresa: 'Amazon', guia: 'AMZ-7738291', apartamento: 'T1 · 205', descripcion: 'Caja grande', fecha: '07/09/2026 · 15:18', estado: 'Entregado' },
+  { id: 'PAQ-225', empresa: 'Envia', guia: 'EV-4410298', apartamento: 'T3 · 202', descripcion: 'Sobre', fecha: '07/09/2026 · 09:47', estado: 'Ha llegado' },
 ]
 
 export const actividadPorteria = [
@@ -380,13 +418,17 @@ export const residentes = [
   { id: 8, nombre: 'Camilo Ortiz', apartamento: 'T2 · 111', celular: '+57 314 771 2054', estadoCuenta: 'Al día', estado: 'Activo' },
 ]
 
+// Estado de cartera del conjunto (120 apartamentos)
+export const carteraConjunto = { apartamentos: 120, alDia: 98, enMora: 22, saldoMora: 5120000 }
+
+// Cuotas de administración por mes, en millones: lo facturado y lo que efectivamente se recaudó
 export const recaudoMensual = [
-  { mes: 'Abr', valor: 3.8 },
-  { mes: 'May', valor: 3.9 },
-  { mes: 'Jun', valor: 4.0 },
-  { mes: 'Jul', valor: 4.1 },
-  { mes: 'Ago', valor: 4.2 },
-  { mes: 'Sep', valor: 4.4 },
+  { mes: 'Abr', facturado: 4.6, valor: 3.8 },
+  { mes: 'May', facturado: 4.6, valor: 3.9 },
+  { mes: 'Jun', facturado: 4.7, valor: 4.0 },
+  { mes: 'Jul', facturado: 4.7, valor: 4.1 },
+  { mes: 'Ago', facturado: 4.8, valor: 4.2 },
+  { mes: 'Sep', facturado: 4.8, valor: 4.4 },
 ]
 // ── Agenda de zonas comunes (forma de ZonaComunDTO / ReservaDTO del API_CONTRACT) ──
 // `franjas` (zonas) y `residente`/`apartamento` (reservas) son extras que el backend aún no devuelve en ReservaDTO.

@@ -40,12 +40,8 @@ export default function Shell({ role, sections, defaultSection, onExit }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Navbar role={role} onOpenMenu={() => setMenuOpen(true)} onExit={onExit} />
-        <main
-          className={cn(
-            'flex-1 overflow-y-auto',
-            fondoHogar && 'bg-gradient-to-b from-brand-100/70 to-brand-50',
-          )}
-        >
+        {/* Todos los roles comparten el fondo verde claro; el residente además tiene muebles */}
+        <main className="flex-1 overflow-y-auto bg-gradient-to-b from-brand-100/70 to-brand-50">
           <div className={cn('relative min-h-full p-4 lg:p-6', fondoHogar && 'pb-36 lg:pb-36')}>
             {fondoHogar && <FondoHogar key={`fondo-${active}`} sala={active} className="animate-fade-in absolute inset-0" />}
             <div className="animate-fade-up relative mx-auto max-w-6xl" key={active}>

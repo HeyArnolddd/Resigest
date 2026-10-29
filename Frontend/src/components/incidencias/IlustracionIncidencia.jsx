@@ -118,8 +118,11 @@ const categorias = {
 }
 
 // Escena sobre un fondo suave del color de la categoría; `className` define el tamaño.
+// Categorías que se dibujan con la escena de otra parecida
+const alias = { Jardinería: 'Zonas comunes', Cubierta: 'Plomería', Equipos: 'Eléctrico' }
+
 export default function IlustracionIncidencia({ categoria, className }) {
-  const { Escena, fondo } = categorias[categoria] ?? categorias.Otro
+  const { Escena, fondo } = categorias[categoria] ?? categorias[alias[categoria]] ?? categorias.Otro
   return (
     <div className={cn('flex items-center justify-center overflow-hidden p-1.5', fondo, className)}>
       <svg viewBox="0 0 120 100" className="h-auto max-h-full w-4/5" aria-hidden="true">

@@ -212,3 +212,11 @@ body {
   0%, 100% { transform: translateY(0); animation-timing-function: cubic-bezier(0.33, 0, 0.66, 0); }
   50% { transform: translateY(-22px); animation-timing-function: cubic-bezier(0.33, 1, 0.66, 1); }
 }
+
+/* Talanquera de la portería: baja, sube para dar paso y vuelve a bajar (usar con origin-left) */
+@keyframes porteria-talanquera {
+  0%, 30% { transform: rotate(0deg); }
+  42%, 70% { transform: rotate(-62deg); }
+  82%, 100% { transform: rotate(0deg); }
+}
+
