@@ -45,7 +45,7 @@ const salas = {
     pared: 'rayas',
     piso: 'madera',
     zocalo: true,
-    izquierda: { pared: [[M.Cuadros, 'max-w-40'], [M.Reloj, 'max-w-24']], suelo: [M.Sofa, 'max-w-52'] },
+    izquierda: { pared: [[M.Cuadros, 'max-w-40'], [M.Reloj, 'max-w-36']], suelo: [M.Sofa, 'max-w-52'] },
     derecha: { pared: [[M.Lampara, 'max-w-28'], [M.Ventana, 'max-w-40'], [M.Estante, 'max-w-36']], suelo: [M.MateraGrande, 'max-w-28'] },
   },
   finanzas: {
@@ -53,7 +53,7 @@ const salas = {
     pared: 'lisa',
     piso: 'madera',
     zocalo: true,
-    izquierda: { pared: [[M.Reloj, 'max-w-24'], [M.Calendario, 'max-w-28']], suelo: [M.Escritorio, 'max-w-52'] },
+    izquierda: { pared: [[M.Reloj, 'mt-20 max-w-36'], [M.Calendario, 'mt-16 max-w-36']], suelo: [M.Escritorio, 'max-w-52'] },
     derecha: { pared: [[M.Lampara, 'max-w-28']], suelo: [M.CajaFuerte, 'max-w-32'] },
   },
   reservas: {
@@ -78,7 +78,7 @@ const salas = {
     piso: 'madera',
     zocalo: true,
     izquierda: { pared: [[M.Espejo, 'max-w-28'], [M.PortaLlaves, 'max-w-28']], suelo: [M.Perchero, 'max-w-28'] },
-    derecha: { pared: [[M.Lampara, 'max-w-28'], [M.Reloj, 'max-w-24']], suelo: [M.PuertaPrincipal, 'max-w-44'] },
+    derecha: { pared: [[M.Lampara, 'max-w-28'], [M.Reloj, 'max-w-36']], suelo: [M.PuertaPrincipal, 'max-w-44'] },
   },
   comunidad: {
     nombre: 'Comedor',
