@@ -226,3 +226,24 @@ Authorization: Bearer <token>
 ```
 
 `tipo` notificación: `RESERVA` | `PAGO` | `INCIDENCIA` | `INGRESO` | `COMUNICADO`
+
+## 12. Novedades recientes (para el front)
+
+**Recuperación de contraseña:**
+
+| Método | Ruta | Body | Respuesta |
+|---|---|---|---|
+| POST | `/api/auth/recuperar` | `{ "correo": "..." }` | `200` (genera token de 1 h; en dev se imprime en el log del backend) |
+| POST | `/api/auth/restablecer` | `{ "token": "...", "nuevaContrasena": "..." }` | `200` |
+
+**Paginación** (ahora devuelven `Page`: `content`, `totalElements`, `totalPages`, `number`, `size`):
+
+- `GET /api/usuarios?page=0&size=10`
+- `GET /api/incidencias?page=0&size=10`
+
+**Chat en tiempo real (WebSocket/STOMP):**
+
+- Conexión: `ws://localhost:8080/ws` (sin token; el front enviará el `remitenteId` en el payload).
+- Enviar: destino `/app/chat.enviar`, body `{ "remitenteId": 2, "destinatarioId": 3, "contenido": "Hola" }`.
+- Recibir: suscribirse a `/topic/chat/{destinatarioId}`.
+- El mensaje también queda persistido (historial por `GET /api/chat?conUsuarioId=`).
