@@ -64,8 +64,9 @@ public class ReservaController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('RESIDENTE')")
-    public ResponseEntity<Void> cancelar(@PathVariable Long id) {
-        reservaService.cancelar(id);
+    public ResponseEntity<Void> cancelar(@PathVariable Long id,
+                                        @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        reservaService.cancelar(id, autenticado.getId());
         return ResponseEntity.noContent().build();
     }
 }
