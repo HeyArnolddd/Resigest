@@ -18,3 +18,9 @@ app:
   jwt:
     secret: resigest-dev-secret-key-para-desarrollo-cambiar-en-produccion-2026
     expiracion-horas: 8
+  pasarela: simulada
+  wompi:
+    url: https://sandbox.wompi.co/v1
+    llave-publica: ${WOMPI_PUBLIC_KEY:}
+    llave-privada: ${WOMPI_PRIVATE_KEY:}
+    correo-cliente: cliente@resigest.com
