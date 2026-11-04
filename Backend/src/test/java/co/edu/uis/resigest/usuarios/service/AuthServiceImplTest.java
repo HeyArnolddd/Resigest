@@ -33,6 +33,9 @@ class AuthServiceImplTest {
     @Mock
     private JwtService jwtService;
 
+    @Mock
+    private co.edu.uis.resigest.usuarios.repository.TokenRecuperacionRepository tokenRecuperacionRepository;
+
     @InjectMocks
     private AuthServiceImpl authService;
 
