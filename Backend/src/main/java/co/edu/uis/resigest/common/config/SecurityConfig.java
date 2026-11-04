@@ -38,7 +38,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/api/pagos/webhook",
-                                "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                                "/swagger-ui/**", "/v3/api-docs/**", "/ws", "/ws/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
         return http.build();
