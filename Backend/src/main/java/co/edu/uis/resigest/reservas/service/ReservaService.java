@@ -14,7 +14,7 @@ public interface ReservaService {
 
     ReservaDTO rechazar(Long id, RechazoRequest request);
 
-    void cancelar(Long id);
+    void cancelar(Long id, Long residenteId);
 
     List<ReservaDTO> listarPorZona(Long zonaId);
 }

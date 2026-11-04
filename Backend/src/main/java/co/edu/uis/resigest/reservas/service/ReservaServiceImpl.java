@@ -1,5 +1,6 @@
 package co.edu.uis.resigest.reservas.service;
 
+import co.edu.uis.resigest.common.exception.AccesoDenegadoException;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.inmueble.domain.Apartamento;
 import co.edu.uis.resigest.reservas.domain.Reserva;
@@ -83,8 +84,14 @@ public class ReservaServiceImpl implements ReservaService {
 
     @Override
     @Transactional
-    public void cancelar(Long id) {
+    public void cancelar(Long id, Long residenteId) {
         Reserva reserva = buscarReserva(id);
+        Residente residente = residenteRepository.findById(residenteId)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe el residente con id " + residenteId));
+        if (!residente.getApartamento().getId().equals(reserva.getApartamento().getId())) {
+            throw new AccesoDenegadoException("No puedes cancelar la reserva de otro apartamento");
+        }
         reserva.cancelar();
     }
 
