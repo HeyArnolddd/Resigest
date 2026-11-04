@@ -7,6 +7,8 @@ import co.edu.uis.resigest.mantenimiento.dto.IncidenciaDTO;
 import co.edu.uis.resigest.mantenimiento.dto.ResolverIncidenciaRequest;
 import co.edu.uis.resigest.mantenimiento.service.IncidenciaService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,7 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
-import java.util.List;
 
 /**
  * Endpoints de incidencias (RF06 · CU08, CU09).
@@ -38,8 +39,8 @@ public class IncidenciaController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANTENIMIENTO')")
-    public List<IncidenciaDTO> listar() {
-        return incidenciaService.listar();
+    public Page<IncidenciaDTO> listar(Pageable pageable) {
+        return incidenciaService.listar(pageable);
     }
 
     @PostMapping

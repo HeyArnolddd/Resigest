@@ -15,11 +15,11 @@ import co.edu.uis.resigest.usuarios.dto.CrearUsuarioRequest;
 import co.edu.uis.resigest.usuarios.dto.UsuarioDTO;
 import co.edu.uis.resigest.usuarios.mapper.UsuarioMapper;
 import co.edu.uis.resigest.usuarios.repository.UsuarioRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 /**
  * Registro y gestión de usuarios. Crea la subclase correcta según el rol.
@@ -63,11 +63,8 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<UsuarioDTO> listar(Rol rol) {
-        return usuarioRepository.findAll().stream()
-                .filter(u -> rol == null || u.getRol() == rol)
-                .map(UsuarioMapper::toDto)
-                .toList();
+    public Page<UsuarioDTO> listar(Pageable pageable) {
+        return usuarioRepository.findAll(pageable).map(UsuarioMapper::toDto);
     }
 
     @Override

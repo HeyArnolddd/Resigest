@@ -13,11 +13,11 @@ import co.edu.uis.resigest.mantenimiento.storage.AlmacenamientoArchivos;
 import co.edu.uis.resigest.usuarios.domain.TecnicoMantenimiento;
 import co.edu.uis.resigest.usuarios.domain.Usuario;
 import co.edu.uis.resigest.usuarios.repository.UsuarioRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 /**
  * Lógica de incidencias: reportar, adjuntar evidencia, asignar y resolver.
@@ -85,10 +85,8 @@ public class IncidenciaServiceImpl implements IncidenciaService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<IncidenciaDTO> listar() {
-        return incidenciaRepository.findAll().stream()
-                .map(IncidenciaDTO::de)
-                .toList();
+    public Page<IncidenciaDTO> listar(Pageable pageable) {
+        return incidenciaRepository.findAll(pageable).map(IncidenciaDTO::de);
     }
 
     private Incidencia buscarIncidencia(Long id) {
