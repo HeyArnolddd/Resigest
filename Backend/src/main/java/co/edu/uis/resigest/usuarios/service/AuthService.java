@@ -9,4 +9,8 @@ import co.edu.uis.resigest.usuarios.dto.TokenResponse;
 public interface AuthService {
 
     TokenResponse autenticar(LoginRequest request);
+
+    void solicitarRecuperacion(String correo);
+
+    void restablecerContrasena(String token, String nuevaContrasena);
 }
