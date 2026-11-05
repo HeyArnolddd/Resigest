@@ -1,5 +1,6 @@
 package co.edu.uis.resigest.comunicaciones.web;
 
+import co.edu.uis.resigest.comunicaciones.dto.CanalComunidadDTO;
 import co.edu.uis.resigest.comunicaciones.dto.MensajeComunidadRequest;
 import co.edu.uis.resigest.comunicaciones.dto.MensajeComunidadDTO;
 import co.edu.uis.resigest.comunicaciones.dto.ConversacionDTO;
@@ -39,15 +40,22 @@ public class ChatController {
                 autenticado.getId(), request.destinatarioId(), request.contenido()));
     }
 
+    @GetMapping("/comunidad/canales")
+    public List<CanalComunidadDTO> canales(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return chatService.canales(autenticado.getId());
+    }
+
+    /** torreId vacío = chat general del conjunto. */
     @GetMapping("/comunidad")
-    public List<MensajeComunidadDTO> comunidad() {
-        return chatService.mensajesComunidad();
+    public List<MensajeComunidadDTO> comunidad(@RequestParam(required = false) Long torreId,
+                                               @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return chatService.mensajesComunidad(torreId, autenticado.getId());
     }
 
     @PostMapping("/comunidad")
     public ResponseEntity<MensajeComunidadDTO> enviarComunidad(@Valid @RequestBody MensajeComunidadRequest request,
                                                                @AuthenticationPrincipal UsuarioAutenticado autenticado) {
-        return ResponseEntity.ok(chatService.enviarComunidad(autenticado.getId(), request.contenido()));
+        return ResponseEntity.ok(chatService.enviarComunidad(autenticado.getId(), request.torreId(), request.contenido()));
     }
 
     @GetMapping("/conversaciones")

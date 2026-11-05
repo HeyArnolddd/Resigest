@@ -273,7 +273,7 @@ El **correo es el usuario** con el que se inicia sesión; se guarda en minúscul
 
 Para conectar las pantallas de residente, portería y mantenimiento se tocó el backend. Todo lo nuevo está aquí.
 
-**Migraciones nuevas:** `V16` (paquete: `guia`, `tamano`), `V17` (incidencia: `categoria`), `V18` (tablas `archivo`, `mensaje_comunidad`, `evento`; paquete: `foto_url`).
+**Migraciones nuevas:** `V16` (paquete: `guia`, `tamano`), `V17` (incidencia: `categoria`), `V18` (tablas `archivo`, `mensaje_comunidad`, `evento`; paquete: `foto_url`), `V19` (mensaje_comunidad: `torre_id`, chat por torre).
 
 **Archivos (fotos y comprobantes).** Se guardan en la base de datos (tabla `archivo`), no en disco, para que no se pierdan al redesplegar. Solo JPG, PNG, WEBP o PDF, máx. 5 MB.
 
@@ -282,14 +282,17 @@ Para conectar las pantallas de residente, portería y mantenimiento se tocó el 
 | POST | `/api/archivos` | autenticado | multipart `archivo` → `201` `{id, nombre, tipoContenido, tamano, url}` |
 | GET | `/api/archivos/{id}` | autenticado | → el archivo (imagen o PDF) |
 
+**Chats comunitarios:** el general del conjunto lo ven todos; el de cada torre, solo los residentes de esa torre y la administración (la administración ve todos). Portería y mantenimiento solo ven el general. Pedir o escribir en el chat de otra torre responde `403`.
+
 **Nuevos endpoints**
 
 | Método | Ruta | Rol | Body → Response |
 |---|---|---|---|
 | GET | `/api/usuarios/directorio` | autenticado | → `[{id, nombreCompleto, rol, detalle, telefono}]` (teléfono solo de personal y admin) |
 | GET | `/api/chat/conversaciones` | autenticado | → `[{usuarioId, nombre, detalle, ultimoMensaje, fecha, ultimoEsMio}]` |
-| GET | `/api/chat/comunidad` | autenticado | → últimos 100 mensajes del chat del conjunto |
-| POST | `/api/chat/comunidad` | autenticado | `{contenido}` → MensajeComunidadDTO |
+| GET | `/api/chat/comunidad/canales` | autenticado | → `[{torreId, nombre}]` chats a los que tiene acceso (`torreId` null = general) |
+| GET | `/api/chat/comunidad?torreId=` | autenticado | → últimos 100 mensajes del chat (sin `torreId` = general) |
+| POST | `/api/chat/comunidad` | autenticado | `{contenido, torreId}` → MensajeComunidadDTO |
 | GET | `/api/eventos?desde=` | autenticado | → próximos eventos de la agenda (por defecto desde hoy) |
 | POST | `/api/eventos` | ADMIN | `{titulo, descripcion, fecha, horaInicio, horaFin, lugar, tipo}` → `201` (`tipo`: `ASAMBLEA` \| `MANTENIMIENTO` \| `TRAMITE` \| `EVENTO`) |
 | DELETE | `/api/eventos/{id}` | ADMIN | → `204` |
