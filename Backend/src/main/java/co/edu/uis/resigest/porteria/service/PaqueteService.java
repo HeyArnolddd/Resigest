@@ -12,5 +12,11 @@ public interface PaqueteService {
 
     PaqueteDTO entregar(Long id, EntregaPaqueteRequest request);
 
-    List<PaqueteDTO> listarPorApartamento(Long apartamentoId);
+    /** El residente confirma que ya lo recogió en portería. */
+    PaqueteDTO confirmarRecogido(Long id, String nombreResidente);
+
+    Long apartamentoDe(Long id);
+
+    /** Con apartamentoId en null devuelve los paquetes de todo el conjunto (portería y administración). */
+    List<PaqueteDTO> listar(Long apartamentoId);
 }

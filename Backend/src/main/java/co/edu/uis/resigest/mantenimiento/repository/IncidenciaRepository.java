@@ -13,4 +13,8 @@ public interface IncidenciaRepository extends JpaRepository<Incidencia, Long> {
     List<Incidencia> findByReportadoPorId(Long reportadoPorId);
 
     List<Incidencia> findByAsignadoAId(Long asignadoAId);
+
+    List<Incidencia> findByReportadoPorIdOrderByFechaCreacionDesc(Long reportadoPorId);
+
+    List<Incidencia> findByAsignadoAIdOrderByFechaCreacionDesc(Long asignadoAId);
 }

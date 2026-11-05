@@ -21,5 +21,7 @@ public interface PagoService {
 
     List<PagoDTO> listarPendientesValidacion();
 
+    List<PagoDTO> listarPorApartamento(Long apartamentoId);
+
     PagoDTO procesarWebhook(WebhookPagoRequest request);
 }

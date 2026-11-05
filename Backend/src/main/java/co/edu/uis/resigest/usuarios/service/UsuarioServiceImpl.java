@@ -1,5 +1,8 @@
 package co.edu.uis.resigest.usuarios.service;
 
+import java.util.List;
+import java.util.Comparator;
+import co.edu.uis.resigest.usuarios.dto.DirectorioDTO;
 import co.edu.uis.resigest.common.exception.ConflictoException;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.common.exception.ReglaNegocioException;
@@ -73,6 +76,16 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Transactional(readOnly = true)
     public UsuarioDTO obtener(Long id) {
         return UsuarioMapper.toDto(buscar(id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DirectorioDTO> directorio(Long excluirId) {
+        return usuarioRepository.findByActivoTrue().stream()
+                .filter(u -> !u.getId().equals(excluirId))
+                .sorted(Comparator.comparing(Usuario::getNombreCompleto))
+                .map(UsuarioMapper::aDirectorio)
+                .toList();
     }
 
     @Override

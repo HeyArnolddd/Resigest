@@ -51,8 +51,14 @@ public class PorteriaController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/ingresos/dentro")
+    @PreAuthorize("hasAnyRole('PORTERO', 'ADMINISTRADOR')")
+    public List<RegistroIngresoDTO> dentro() {
+        return porteriaService.listarDentro();
+    }
+
     @GetMapping("/bitacora")
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @PreAuthorize("hasAnyRole('PORTERO', 'ADMINISTRADOR')")
     public List<RegistroIngresoDTO> bitacora(@RequestParam LocalDate desde,
                                              @RequestParam LocalDate hasta) {
         return porteriaService.consultarBitacora(desde, hasta);

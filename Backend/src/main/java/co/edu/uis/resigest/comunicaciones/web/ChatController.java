@@ -1,5 +1,8 @@
 package co.edu.uis.resigest.comunicaciones.web;
 
+import co.edu.uis.resigest.comunicaciones.dto.MensajeComunidadRequest;
+import co.edu.uis.resigest.comunicaciones.dto.MensajeComunidadDTO;
+import co.edu.uis.resigest.comunicaciones.dto.ConversacionDTO;
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
 import co.edu.uis.resigest.comunicaciones.dto.ChatMensajeRequest;
 import co.edu.uis.resigest.comunicaciones.dto.MensajeChatDTO;
@@ -34,6 +37,22 @@ public class ChatController {
                                                  @AuthenticationPrincipal UsuarioAutenticado autenticado) {
         return ResponseEntity.ok(chatService.enviar(
                 autenticado.getId(), request.destinatarioId(), request.contenido()));
+    }
+
+    @GetMapping("/comunidad")
+    public List<MensajeComunidadDTO> comunidad() {
+        return chatService.mensajesComunidad();
+    }
+
+    @PostMapping("/comunidad")
+    public ResponseEntity<MensajeComunidadDTO> enviarComunidad(@Valid @RequestBody MensajeComunidadRequest request,
+                                                               @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return ResponseEntity.ok(chatService.enviarComunidad(autenticado.getId(), request.contenido()));
+    }
+
+    @GetMapping("/conversaciones")
+    public List<ConversacionDTO> conversaciones(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return chatService.conversaciones(autenticado.getId());
     }
 
     @GetMapping

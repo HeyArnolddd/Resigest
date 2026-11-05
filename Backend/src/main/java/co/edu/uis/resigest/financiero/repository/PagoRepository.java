@@ -15,6 +15,8 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
 
     List<Pago> findByEstado(EstadoPago estado);
 
+    List<Pago> findByObligacionApartamentoIdOrderByFechaDesc(Long apartamentoId);
+
     @Query(value = "SELECT * FROM pago WHERE id_transaccion_externa = :idTransaccion", nativeQuery = true)
     Optional<Pago> findByIdTransaccionExterna(@Param("idTransaccion") String idTransaccion);
 }

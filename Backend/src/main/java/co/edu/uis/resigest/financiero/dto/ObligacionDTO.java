@@ -15,7 +15,9 @@ public record ObligacionDTO(
         BigDecimal montoTotal,
         BigDecimal saldoPendiente,
         String estado,
-        LocalDate fechaVencimiento
+        LocalDate fechaVencimiento,
+        Long apartamentoId,
+        String apartamento
 ) {
 
     public static ObligacionDTO de(ObligacionFinanciera obligacion) {
@@ -26,7 +28,9 @@ public record ObligacionDTO(
                 obligacion.getMontoTotal(),
                 obligacion.getSaldoPendiente(),
                 obligacion.getEstado().name(),
-                obligacion.getFechaVencimiento()
+                obligacion.getFechaVencimiento(),
+                obligacion.getApartamento().getId(),
+                obligacion.getApartamento().identificadorCompleto()
         );
     }
 }

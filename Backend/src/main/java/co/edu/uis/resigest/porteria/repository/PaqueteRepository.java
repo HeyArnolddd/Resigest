@@ -8,4 +8,8 @@ import java.util.List;
 public interface PaqueteRepository extends JpaRepository<Paquete, Long> {
 
     List<Paquete> findByApartamentoDestinoId(Long apartamentoId);
+
+    List<Paquete> findByApartamentoDestinoIdOrderByFechaRecepcionDesc(Long apartamentoId);
+
+    List<Paquete> findAllByOrderByFechaRecepcionDesc();
 }

@@ -1,5 +1,6 @@
 package co.edu.uis.resigest.financiero.service;
 
+import co.edu.uis.resigest.common.archivos.ArchivoService;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.common.exception.ReglaNegocioException;
 import co.edu.uis.resigest.financiero.domain.EstadoPago;
@@ -77,8 +78,16 @@ public class PagoServiceImpl implements PagoService {
         ObligacionFinanciera obligacion = buscarObligacion(request.obligacionId());
         validarNoSaldada(obligacion);
 
+        if (!ArchivoService.esUrlPropia(request.urlComprobanteAdjunto())) {
+            throw new ReglaNegocioException("Adjunta el comprobante (foto o PDF) de la transferencia");
+        }
+        if (obligacion.estaEnVerificacion()) {
+            throw new ReglaNegocioException("Ya reportaste un pago para esta obligación; está en verificación");
+        }
         PagoManual pago = new PagoManual(
                 obligacion.getSaldoPendiente(), obligacion, request.urlComprobanteAdjunto());
+        pago.setReferencia(request.referencia());
+        obligacion.marcarEnVerificacion();
         pagoRepository.save(pago);
         return PagoDTO.de(pago);
     }
@@ -101,6 +110,7 @@ public class PagoServiceImpl implements PagoService {
                     pago.getObligacion().getApartamento().getId(), pago.getMonto()));
         } else {
             pago.rechazar(request.motivo());
+            pago.getObligacion().reabrir();
             if (pago instanceof PagoManual manual) {
                 manual.setObservacionAdmin(request.motivo());
             }
@@ -142,5 +152,13 @@ public class PagoServiceImpl implements PagoService {
         if (obligacion.estaSaldada()) {
             throw new ReglaNegocioException("La obligación ya está saldada");
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PagoDTO> listarPorApartamento(Long apartamentoId) {
+        return pagoRepository.findByObligacionApartamentoIdOrderByFechaDesc(apartamentoId).stream()
+                .map(PagoDTO::de)
+                .toList();
     }
 }

@@ -1,5 +1,7 @@
 package co.edu.uis.resigest.usuarios.mapper;
 
+import org.hibernate.Hibernate;
+import co.edu.uis.resigest.usuarios.dto.DirectorioDTO;
 import co.edu.uis.resigest.inmueble.domain.Apartamento;
 import co.edu.uis.resigest.usuarios.domain.Portero;
 import co.edu.uis.resigest.usuarios.domain.Residente;
@@ -35,5 +37,23 @@ public final class UsuarioMapper {
                 usuario instanceof TecnicoMantenimiento t ? t.getEspecialidad() : null,
                 usuario.getFechaCreacion()
         );
+    }
+
+    /** Entrada pública del directorio. Acepta proxies de Hibernate (relaciones LAZY). */
+    public static DirectorioDTO aDirectorio(Usuario usuario) {
+        Usuario real = (Usuario) Hibernate.unproxy(usuario);
+        String detalle;
+        if (real instanceof Residente r) {
+            detalle = r.getApartamento().identificadorCompleto();
+        } else if (real instanceof Portero p) {
+            detalle = p.getTurno() != null ? "Portería · turno " + p.getTurno().toLowerCase() : "Portería";
+        } else if (real instanceof TecnicoMantenimiento t) {
+            detalle = t.getEspecialidad() != null ? "Mantenimiento · " + t.getEspecialidad() : "Mantenimiento";
+        } else {
+            detalle = "Administración";
+        }
+        // El teléfono de los residentes es privado
+        String telefono = real instanceof Residente ? null : real.getTelefono();
+        return new DirectorioDTO(real.getId(), real.getNombreCompleto(), real.getRol(), detalle, telefono);
     }
 }

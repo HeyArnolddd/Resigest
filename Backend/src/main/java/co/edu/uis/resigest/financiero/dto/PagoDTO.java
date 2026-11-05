@@ -1,5 +1,6 @@
 package co.edu.uis.resigest.financiero.dto;
 
+import co.edu.uis.resigest.financiero.domain.PagoManual;
 import co.edu.uis.resigest.financiero.domain.Pago;
 
 import java.math.BigDecimal;
@@ -15,7 +16,12 @@ public record PagoDTO(
         String estado,
         LocalDateTime fecha,
         Long obligacionId,
-        String referencia
+        String referencia,
+        String apartamento,
+        String concepto,
+        String periodo,
+        String urlComprobante,
+        String motivoRechazo
 ) {
 
     public static PagoDTO de(Pago pago) {
@@ -26,7 +32,12 @@ public record PagoDTO(
                 pago.getEstado().name(),
                 pago.getFecha(),
                 pago.getObligacion().getId(),
-                pago.getReferencia()
+                pago.getReferencia(),
+                pago.getObligacion().getApartamento().identificadorCompleto(),
+                pago.getObligacion().getConcepto().name(),
+                pago.getObligacion().getPeriodo(),
+                pago instanceof PagoManual manual ? manual.getUrlComprobanteAdjunto() : null,
+                pago.getMotivoRechazo()
         );
     }
 }
