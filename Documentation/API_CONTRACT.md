@@ -268,3 +268,50 @@ El **correo es el usuario** con el que se inicia sesión; se guarda en minúscul
 - Enviar: destino `/app/chat.enviar`, body `{ "remitenteId": 2, "destinatarioId": 3, "contenido": "Hola" }`.
 - Recibir: suscribirse a `/topic/chat/{destinatarioId}`.
 - El mensaje también queda persistido (historial por `GET /api/chat?conUsuarioId=`).
+
+## 13. Cambios del backend hechos desde la rama `frontend`
+
+Para conectar las pantallas de residente, portería y mantenimiento se tocó el backend. Todo lo nuevo está aquí.
+
+**Migraciones nuevas:** `V16` (paquete: `guia`, `tamano`), `V17` (incidencia: `categoria`), `V18` (tablas `archivo`, `mensaje_comunidad`, `evento`; paquete: `foto_url`).
+
+**Archivos (fotos y comprobantes).** Se guardan en la base de datos (tabla `archivo`), no en disco, para que no se pierdan al redesplegar. Solo JPG, PNG, WEBP o PDF, máx. 5 MB.
+
+| Método | Ruta | Rol | Body → Response |
+|---|---|---|---|
+| POST | `/api/archivos` | autenticado | multipart `archivo` → `201` `{id, nombre, tipoContenido, tamano, url}` |
+| GET | `/api/archivos/{id}` | autenticado | → el archivo (imagen o PDF) |
+
+**Nuevos endpoints**
+
+| Método | Ruta | Rol | Body → Response |
+|---|---|---|---|
+| GET | `/api/usuarios/directorio` | autenticado | → `[{id, nombreCompleto, rol, detalle, telefono}]` (teléfono solo de personal y admin) |
+| GET | `/api/chat/conversaciones` | autenticado | → `[{usuarioId, nombre, detalle, ultimoMensaje, fecha, ultimoEsMio}]` |
+| GET | `/api/chat/comunidad` | autenticado | → últimos 100 mensajes del chat del conjunto |
+| POST | `/api/chat/comunidad` | autenticado | `{contenido}` → MensajeComunidadDTO |
+| GET | `/api/eventos?desde=` | autenticado | → próximos eventos de la agenda (por defecto desde hoy) |
+| POST | `/api/eventos` | ADMIN | `{titulo, descripcion, fecha, horaInicio, horaFin, lugar, tipo}` → `201` (`tipo`: `ASAMBLEA` \| `MANTENIMIENTO` \| `TRAMITE` \| `EVENTO`) |
+| DELETE | `/api/eventos/{id}` | ADMIN | → `204` |
+| GET | `/api/incidencias/mias` | RESIDENTE, PORTERO | → las que reportó el usuario |
+| GET | `/api/incidencias/asignadas` | MANTENIMIENTO | → las asignadas al técnico |
+| PATCH | `/api/incidencias/{id}/inicio` | MANTENIMIENTO (asignado) | → ASIGNADA → EN_PROCESO |
+| GET | `/api/porteria/ingresos/dentro` | PORTERO, ADMIN | → quienes no han registrado salida |
+| PATCH | `/api/paquetes/{id}/recogido` | RESIDENTE (dueño) | → el residente confirma que ya lo recogió |
+| GET | `/api/pagos?apartamentoId=` | ADMIN, RESIDENTE (dueño) | → historial de pagos del apartamento |
+
+**Endpoints que cambiaron**
+
+- `GET /api/paquetes`: `apartamentoId` ahora es opcional para PORTERO y ADMIN (todo el conjunto). El residente debe indicarlo.
+- `GET /api/reservas`: `zonaId`, `apartamentoId` y `estado` son opcionales.
+- `GET /api/porteria/bitacora`: ahora también PORTERO.
+- `PATCH /api/incidencias/{id}/solucion`: solo el técnico asignado.
+- `POST /api/incidencias/{id}/evidencias`: también PORTERO; solo quien la reportó. Las evidencias ahora se guardan de verdad.
+- `POST /api/pagos/manual`: `urlComprobanteAdjunto` debe ser una URL de `/api/archivos/{id}`; nuevo campo opcional `referencia`. La obligación pasa a EN_VERIFICACION y vuelve a PENDIENTE/VENCIDA si se rechaza.
+- `POST /api/paquetes`: nuevos campos opcionales `guia`, `tamano`, `fotoUrl`.
+- `POST /api/incidencias`: nuevo campo opcional `categoria`.
+- `TipoIngreso`: nuevo valor `SERVICIO`.
+
+**DTO con campos nuevos:** `PaqueteDTO` (`apartamento`, `guia`, `tamano`, `fotoUrl`), `RegistroIngresoDTO` (`apartamento`, `registradoPorNombre`), `IncidenciaDTO` (`categoria`, `reportadoPorNombre`, `apartamento`, `asignadoANombre`, `fechaReporte`, `evidencias`), `ReservaDTO` (`apartamento`), `PagoDTO` (`apartamento`, `concepto`, `periodo`, `urlComprobante`, `motivoRechazo`), `ObligacionDTO` (`apartamentoId`, `apartamento`), `ComunicadoDTO` (`autorNombre`).
+
+**Notificaciones:** se avisa a todos los residentes del apartamento (antes solo a uno) y se agregaron avisos de paquete recibido, visita en portería, incidencia asignada (al técnico) e incidencia resuelta (a quien la reportó). Cada aviso se guarda en su propia transacción (antes podían perderse).

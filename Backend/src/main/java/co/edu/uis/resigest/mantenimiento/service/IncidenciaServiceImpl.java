@@ -1,5 +1,9 @@
 package co.edu.uis.resigest.mantenimiento.service;
 
+import co.edu.uis.resigest.mantenimiento.event.IncidenciaActualizadaEvento;
+import org.springframework.context.ApplicationEventPublisher;
+import java.util.List;
+import co.edu.uis.resigest.common.exception.AccesoDenegadoException;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.common.exception.ReglaNegocioException;
 import co.edu.uis.resigest.mantenimiento.domain.EvidenciaIncidencia;
@@ -29,9 +33,13 @@ public class IncidenciaServiceImpl implements IncidenciaService {
     private final UsuarioRepository usuarioRepository;
     private final AlmacenamientoArchivos almacenamientoArchivos;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     public IncidenciaServiceImpl(IncidenciaRepository incidenciaRepository,
                                  UsuarioRepository usuarioRepository,
-                                 AlmacenamientoArchivos almacenamientoArchivos) {
+                                 AlmacenamientoArchivos almacenamientoArchivos,
+                                 ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
         this.incidenciaRepository = incidenciaRepository;
         this.usuarioRepository = usuarioRepository;
         this.almacenamientoArchivos = almacenamientoArchivos;
@@ -47,14 +55,18 @@ public class IncidenciaServiceImpl implements IncidenciaService {
         Incidencia incidencia = new Incidencia(
                 request.titulo(), request.descripcion(), request.ubicacion(),
                 request.prioridad(), reportador);
+        incidencia.setCategoria(request.categoria());
         incidenciaRepository.save(incidencia);
         return IncidenciaDTO.de(incidencia);
     }
 
     @Override
     @Transactional
-    public IncidenciaDTO agregarEvidencia(Long incidenciaId, MultipartFile archivo) {
+    public IncidenciaDTO agregarEvidencia(Long incidenciaId, MultipartFile archivo, Long usuarioId) {
         Incidencia incidencia = buscarIncidencia(incidenciaId);
+        if (!incidencia.getReportadoPor().getId().equals(usuarioId)) {
+            throw new AccesoDenegadoException("Solo quien reportó la incidencia puede adjuntar evidencias");
+        }
         String url = almacenamientoArchivos.guardar(archivo);
         incidencia.getEvidencias().add(new EvidenciaIncidencia(
                 incidencia, url, archivo.getOriginalFilename()));
@@ -72,15 +84,51 @@ public class IncidenciaServiceImpl implements IncidenciaService {
             throw new ReglaNegocioException("El usuario asignado no es un técnico de mantenimiento");
         }
         incidencia.asignarA(tecnico);
+        eventPublisher.publishEvent(new IncidenciaActualizadaEvento(
+                IncidenciaActualizadaEvento.Tipo.ASIGNADA, tecnico.getId(), incidencia.getTitulo()));
         return IncidenciaDTO.de(incidencia);
     }
 
     @Override
     @Transactional
-    public IncidenciaDTO resolver(Long incidenciaId, ResolverIncidenciaRequest request) {
+    public IncidenciaDTO resolver(Long incidenciaId, ResolverIncidenciaRequest request, Long tecnicoId) {
         Incidencia incidencia = buscarIncidencia(incidenciaId);
+        verificarAsignada(incidencia, tecnicoId);
         incidencia.resolver(request.solucion());
+        eventPublisher.publishEvent(new IncidenciaActualizadaEvento(
+                IncidenciaActualizadaEvento.Tipo.RESUELTA, incidencia.getReportadoPor().getId(), incidencia.getTitulo()));
         return IncidenciaDTO.de(incidencia);
+    }
+
+    @Override
+    @Transactional
+    public IncidenciaDTO iniciar(Long incidenciaId, Long tecnicoId) {
+        Incidencia incidencia = buscarIncidencia(incidenciaId);
+        verificarAsignada(incidencia, tecnicoId);
+        incidencia.iniciarTrabajo();
+        return IncidenciaDTO.de(incidencia);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<IncidenciaDTO> listarReportadasPor(Long usuarioId) {
+        return incidenciaRepository.findByReportadoPorIdOrderByFechaCreacionDesc(usuarioId).stream()
+                .map(IncidenciaDTO::de)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<IncidenciaDTO> listarAsignadasA(Long tecnicoId) {
+        return incidenciaRepository.findByAsignadoAIdOrderByFechaCreacionDesc(tecnicoId).stream()
+                .map(IncidenciaDTO::de)
+                .toList();
+    }
+
+    private void verificarAsignada(Incidencia incidencia, Long tecnicoId) {
+        if (incidencia.getAsignadoA() == null || !incidencia.getAsignadoA().getId().equals(tecnicoId)) {
+            throw new AccesoDenegadoException("Esta incidencia no está asignada a ti");
+        }
     }
 
     @Override

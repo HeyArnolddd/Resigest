@@ -3,6 +3,7 @@ package co.edu.uis.resigest.reservas.service;
 import co.edu.uis.resigest.common.exception.AccesoDenegadoException;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.inmueble.domain.Apartamento;
+import co.edu.uis.resigest.reservas.domain.EstadoReserva;
 import co.edu.uis.resigest.reservas.domain.Reserva;
 import co.edu.uis.resigest.reservas.domain.ZonaComun;
 import co.edu.uis.resigest.reservas.dto.RechazoRequest;
@@ -97,8 +98,8 @@ public class ReservaServiceImpl implements ReservaService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ReservaDTO> listarPorZona(Long zonaId) {
-        return reservaRepository.findByZonaComunId(zonaId).stream()
+    public List<ReservaDTO> listar(Long zonaId, Long apartamentoId, EstadoReserva estado) {
+        return reservaRepository.filtrar(zonaId, apartamentoId, estado).stream()
                 .map(ReservaDTO::de)
                 .toList();
     }

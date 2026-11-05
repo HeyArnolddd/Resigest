@@ -1,5 +1,6 @@
 package co.edu.uis.resigest.porteria.web;
 
+import co.edu.uis.resigest.common.exception.AccesoDenegadoException;
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
 import co.edu.uis.resigest.common.security.VerificadorPropietario;
 import co.edu.uis.resigest.porteria.dto.EntregaPaqueteRequest;
@@ -47,6 +48,14 @@ public class PaqueteController {
                 .body(creado);
     }
 
+    @PatchMapping("/{id}/recogido")
+    @PreAuthorize("hasRole('RESIDENTE')")
+    public ResponseEntity<PaqueteDTO> confirmarRecogido(@PathVariable Long id,
+                                                        @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        verificadorPropietario.verificarApartamento(paqueteService.apartamentoDe(id), autenticado);
+        return ResponseEntity.ok(paqueteService.confirmarRecogido(id, autenticado.getNombreCompleto()));
+    }
+
     @PatchMapping("/{id}/entrega")
     @PreAuthorize("hasRole('PORTERO')")
     public ResponseEntity<PaqueteDTO> entregar(@PathVariable Long id,
@@ -56,11 +65,15 @@ public class PaqueteController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'PORTERO', 'RESIDENTE')")
-    public List<PaqueteDTO> listar(@RequestParam Long apartamentoId,
+    public List<PaqueteDTO> listar(@RequestParam(required = false) Long apartamentoId,
                                    @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        // El residente solo ve los de su apartamento; portería y administración pueden ver todos
         if (autenticado.getRol() == Rol.RESIDENTE) {
+            if (apartamentoId == null) {
+                throw new AccesoDenegadoException("Indica el apartamento");
+            }
             verificadorPropietario.verificarApartamento(apartamentoId, autenticado);
         }
-        return paqueteService.listarPorApartamento(apartamentoId);
+        return paqueteService.listar(apartamentoId);
     }
 }

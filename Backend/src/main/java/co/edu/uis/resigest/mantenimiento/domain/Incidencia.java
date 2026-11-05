@@ -39,6 +39,9 @@ public class Incidencia extends EntidadBase {
     @Column(length = 200)
     private String ubicacion;
 
+    @Column(length = 40)
+    private String categoria;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private EstadoIncidencia estado;

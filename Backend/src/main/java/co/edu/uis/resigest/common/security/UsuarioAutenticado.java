@@ -25,6 +25,10 @@ public class UsuarioAutenticado implements UserDetails {
         return usuario.getId();
     }
 
+    public String getNombreCompleto() {
+        return usuario.getNombreCompleto();
+    }
+
     public Rol getRol() {
         return usuario.getRol();
     }

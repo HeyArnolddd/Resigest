@@ -13,6 +13,17 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
     List<Reserva> findByZonaComunId(Long zonaComunId);
 
+    /** Filtros opcionales: con ambos en null devuelve todas las reservas. */
+    @Query("""
+            select r from Reserva r
+            where (:zonaId is null or r.zonaComun.id = :zonaId)
+              and (:apartamentoId is null or r.apartamento.id = :apartamentoId)
+              and (:estado is null or r.estado = :estado)
+            order by r.fechaInicio
+            """)
+    List<Reserva> filtrar(@Param("zonaId") Long zonaId, @Param("apartamentoId") Long apartamentoId,
+                          @Param("estado") EstadoReserva estado);
+
     /** Reservas activas (pendientes o aprobadas) que se cruzan con el rango dado. */
     @Query("""
             select r from Reserva r

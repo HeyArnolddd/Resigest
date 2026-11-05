@@ -1,5 +1,7 @@
 package co.edu.uis.resigest.usuarios.web;
 
+import java.util.List;
+import co.edu.uis.resigest.usuarios.dto.DirectorioDTO;
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
 import co.edu.uis.resigest.usuarios.domain.Rol;
 import co.edu.uis.resigest.usuarios.dto.ActualizarUsuarioRequest;
@@ -63,6 +65,11 @@ public class UsuarioController {
     @GetMapping("/me")
     public ResponseEntity<UsuarioDTO> perfil(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
         return ResponseEntity.ok(usuarioService.obtener(autenticado.getId()));
+    }
+
+    @GetMapping("/directorio")
+    public List<DirectorioDTO> directorio(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return usuarioService.directorio(autenticado.getId());
     }
 
     @GetMapping("/{id}")

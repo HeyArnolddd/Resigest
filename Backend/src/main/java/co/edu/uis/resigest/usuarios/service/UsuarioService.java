@@ -1,5 +1,7 @@
 package co.edu.uis.resigest.usuarios.service;
 
+import java.util.List;
+import co.edu.uis.resigest.usuarios.dto.DirectorioDTO;
 import co.edu.uis.resigest.usuarios.domain.Rol;
 import co.edu.uis.resigest.usuarios.dto.ActualizarUsuarioRequest;
 import co.edu.uis.resigest.usuarios.dto.CrearUsuarioRequest;
@@ -16,6 +18,9 @@ public interface UsuarioService {
     UsuarioDTO registrar(CrearUsuarioRequest request);
 
     UsuarioDTO obtener(Long id);
+
+    /** Usuarios activos del conjunto, sin incluir a quien consulta. */
+    List<DirectorioDTO> directorio(Long excluirId);
 
     Page<UsuarioDTO> listar(Rol rol, String texto, Boolean activo, Pageable pageable);
 

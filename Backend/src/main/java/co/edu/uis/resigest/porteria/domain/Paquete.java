@@ -35,6 +35,15 @@ public class Paquete extends EntidadBase {
     @Column(length = 500)
     private String descripcion;
 
+    @Column(length = 60)
+    private String guia;
+
+    @Column(length = 30)
+    private String tamano;
+
+    @Column(length = 300)
+    private String fotoUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private EstadoPaquete estado;

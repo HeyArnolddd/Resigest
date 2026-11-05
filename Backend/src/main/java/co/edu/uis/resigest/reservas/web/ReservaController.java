@@ -1,5 +1,6 @@
 package co.edu.uis.resigest.reservas.web;
 
+import co.edu.uis.resigest.reservas.domain.EstadoReserva;
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
 import co.edu.uis.resigest.reservas.dto.RechazoRequest;
 import co.edu.uis.resigest.reservas.dto.ReservaDTO;
@@ -36,8 +37,10 @@ public class ReservaController {
     }
 
     @GetMapping
-    public List<ReservaDTO> listar(@RequestParam Long zonaId) {
-        return reservaService.listarPorZona(zonaId);
+    public List<ReservaDTO> listar(@RequestParam(required = false) Long zonaId,
+                                   @RequestParam(required = false) Long apartamentoId,
+                                   @RequestParam(required = false) EstadoReserva estado) {
+        return reservaService.listar(zonaId, apartamentoId, estado);
     }
 
     @PostMapping

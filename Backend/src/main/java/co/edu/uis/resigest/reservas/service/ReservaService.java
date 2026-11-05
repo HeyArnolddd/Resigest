@@ -1,5 +1,6 @@
 package co.edu.uis.resigest.reservas.service;
 
+import co.edu.uis.resigest.reservas.domain.EstadoReserva;
 import co.edu.uis.resigest.reservas.dto.RechazoRequest;
 import co.edu.uis.resigest.reservas.dto.ReservaDTO;
 import co.edu.uis.resigest.reservas.dto.SolicitudReservaRequest;
@@ -16,5 +17,6 @@ public interface ReservaService {
 
     void cancelar(Long id, Long residenteId);
 
-    List<ReservaDTO> listarPorZona(Long zonaId);
+    /** Todos los filtros son opcionales. */
+    List<ReservaDTO> listar(Long zonaId, Long apartamentoId, EstadoReserva estado);
 }
