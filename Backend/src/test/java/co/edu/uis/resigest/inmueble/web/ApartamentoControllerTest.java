@@ -1,5 +1,7 @@
 package co.edu.uis.resigest.inmueble.web;
 
+import co.edu.uis.resigest.common.security.VerificadorPropietario;
+import co.edu.uis.resigest.financiero.service.CarteraService;
 import co.edu.uis.resigest.inmueble.dto.ApartamentoDTO;
 import co.edu.uis.resigest.inmueble.service.ApartamentoService;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,12 @@ class ApartamentoControllerTest {
 
     @MockitoBean
     private ApartamentoService apartamentoService;
+
+    @MockitoBean
+    private CarteraService carteraService;
+
+    @MockitoBean
+    private VerificadorPropietario verificadorPropietario;
 
     @Test
     void obtenerDevuelve200YNumero() throws Exception {

@@ -32,7 +32,7 @@ public class ComunicadoController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<ComunicadoDTO> publicar(@Valid @RequestBody CrearComunicadoRequest request,
                                                   @AuthenticationPrincipal UsuarioAutenticado autenticado) {
         ComunicadoDTO creado = comunicadoService.publicar(request, autenticado.getId());

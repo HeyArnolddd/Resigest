@@ -46,7 +46,7 @@ class CarteraServiceImplTest {
 
         when(apartamentoRepository.findByActivoTrue()).thenReturn(List.of(apto1, apto2));
         when(obligacionRepository.existsByApartamentoIdAndConceptoAndPeriodo(
-                anyLong(), any(ConceptoCobro.class), anyString())).thenReturn(false);
+                any(), any(ConceptoCobro.class), anyString())).thenReturn(false);
 
         GenerarObligacionesRequest request = new GenerarObligacionesRequest(
                 "2026-10", ConceptoCobro.ARRIENDO, new BigDecimal("1000.00"),

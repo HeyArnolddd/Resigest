@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.net.URI;
 
 /**
- * Gestión de usuarios (CU05). Registrar y listar requieren rol ADMIN.
+ * Gestión de usuarios (CU05). Registrar y listar requieren rol ADMINISTRADOR.
  */
 @RestController
 @RequestMapping("/api/usuarios")
@@ -32,7 +32,7 @@ public class UsuarioController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<UsuarioDTO> registrar(@Valid @RequestBody CrearUsuarioRequest request) {
         UsuarioDTO creado = usuarioService.registrar(request);
         return ResponseEntity.created(URI.create("/api/usuarios/" + creado.id()))
@@ -40,7 +40,7 @@ public class UsuarioController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public Page<UsuarioDTO> listar(Pageable pageable) {
         return usuarioService.listar(pageable);
     }
