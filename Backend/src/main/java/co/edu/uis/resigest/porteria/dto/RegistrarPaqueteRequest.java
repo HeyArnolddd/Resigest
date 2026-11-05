@@ -13,6 +13,12 @@ public record RegistrarPaqueteRequest(
         String empresaTransportadora,
 
         @Size(max = 500, message = "La descripción no puede superar 500 caracteres")
-        String descripcion
+        String descripcion,
+
+        @Size(max = 50, message = "La guía no puede superar 50 caracteres")
+        String guia,
+
+        @Size(max = 20, message = "El tamaño no puede superar 20 caracteres")
+        String tamano
 ) {
 }

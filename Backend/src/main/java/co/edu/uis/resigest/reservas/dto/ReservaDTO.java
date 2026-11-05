@@ -9,6 +9,7 @@ public record ReservaDTO(
         Long zonaComunId,
         String zonaComunNombre,
         Long apartamentoId,
+        String apartamento,
         LocalDateTime fechaInicio,
         LocalDateTime fechaFin,
         String estado
@@ -20,6 +21,7 @@ public record ReservaDTO(
                 reserva.getZonaComun().getId(),
                 reserva.getZonaComun().getNombre(),
                 reserva.getApartamento().getId(),
+                reserva.getApartamento().identificadorCompleto(),
                 reserva.getFechaInicio(),
                 reserva.getFechaFin(),
                 reserva.getEstado().name()

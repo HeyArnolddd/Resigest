@@ -51,8 +51,15 @@ public class PorteriaController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Visitantes que están dentro (sin salida registrada). */
+    @GetMapping("/ingresos")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'PORTERO')")
+    public List<RegistroIngresoDTO> ingresosActivos() {
+        return porteriaService.listarActivos();
+    }
+
     @GetMapping("/bitacora")
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'PORTERO')")
     public List<RegistroIngresoDTO> bitacora(@RequestParam LocalDate desde,
                                              @RequestParam LocalDate hasta) {
         return porteriaService.consultarBitacora(desde, hasta);

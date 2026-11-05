@@ -73,6 +73,14 @@ public class PorteriaServiceImpl implements PorteriaService {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<RegistroIngresoDTO> listarActivos() {
+        return registroIngresoRepository.findByFechaSalidaIsNullOrderByFechaIngresoDesc().stream()
+                .map(RegistroIngresoDTO::de)
+                .toList();
+    }
+
     private RegistroIngreso buscarRegistro(Long id) {
         return registroIngresoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException(

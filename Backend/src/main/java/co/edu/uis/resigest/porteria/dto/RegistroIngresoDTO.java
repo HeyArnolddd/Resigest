@@ -11,7 +11,9 @@ public record RegistroIngresoDTO(
         String tipo,
         String empresa,
         Long apartamentoDestinoId,
+        String apartamento,
         Long registradoPorId,
+        String registradoPorNombre,
         LocalDateTime fechaIngreso,
         LocalDateTime fechaSalida
 ) {
@@ -24,7 +26,9 @@ public record RegistroIngresoDTO(
                 registro.getTipo().name(),
                 registro.getEmpresa(),
                 registro.getApartamentoDestino().getId(),
+                registro.getApartamentoDestino().identificadorCompleto(),
                 registro.getRegistradoPor().getId(),
+                registro.getRegistradoPor().getNombreCompleto(),
                 registro.getFechaIngreso(),
                 registro.getFechaSalida()
         );

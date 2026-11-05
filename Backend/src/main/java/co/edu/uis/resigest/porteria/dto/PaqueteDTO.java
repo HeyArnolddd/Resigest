@@ -7,6 +7,9 @@ import java.time.LocalDateTime;
 public record PaqueteDTO(
         Long id,
         Long apartamentoDestinoId,
+        String apartamento,
+        String guia,
+        String tamano,
         String empresaTransportadora,
         String descripcion,
         String estado,
@@ -19,6 +22,9 @@ public record PaqueteDTO(
         return new PaqueteDTO(
                 paquete.getId(),
                 paquete.getApartamentoDestino().getId(),
+                paquete.getApartamentoDestino().identificadorCompleto(),
+                paquete.getGuia(),
+                paquete.getTamano(),
                 paquete.getEmpresaTransportadora(),
                 paquete.getDescripcion(),
                 paquete.getEstado().name(),

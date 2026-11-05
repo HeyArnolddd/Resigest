@@ -19,9 +19,12 @@ import co.edu.uis.resigest.financiero.gateway.SolicitudPago;
 import co.edu.uis.resigest.financiero.repository.ObligacionRepository;
 import co.edu.uis.resigest.financiero.repository.PagoRepository;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -106,6 +109,28 @@ public class PagoServiceImpl implements PagoService {
             }
         }
         return PagoDTO.de(pago);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PagoDTO> listar(EstadoPago estado, Long apartamentoId, LocalDate desde, LocalDate hasta) {
+        Specification<Pago> spec = (root, q, cb) -> cb.conjunction();
+        if (estado != null) {
+            spec = spec.and((root, q, cb) -> cb.equal(root.get("estado"), estado));
+        }
+        if (apartamentoId != null) {
+            spec = spec.and((root, q, cb) ->
+                    cb.equal(root.get("obligacion").get("apartamento").get("id"), apartamentoId));
+        }
+        if (desde != null) {
+            spec = spec.and((root, q, cb) -> cb.greaterThanOrEqualTo(root.get("fecha"), desde.atStartOfDay()));
+        }
+        if (hasta != null) {
+            spec = spec.and((root, q, cb) -> cb.lessThan(root.get("fecha"), hasta.plusDays(1).atStartOfDay()));
+        }
+        return pagoRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "fecha")).stream()
+                .map(PagoDTO::de)
+                .toList();
     }
 
     @Override

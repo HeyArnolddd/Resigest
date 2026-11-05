@@ -10,5 +10,7 @@ public interface RegistroIngresoRepository extends JpaRepository<RegistroIngreso
 
     List<RegistroIngreso> findByFechaIngresoBetween(LocalDateTime desde, LocalDateTime hasta);
 
+    List<RegistroIngreso> findByFechaSalidaIsNullOrderByFechaIngresoDesc();
+
     List<RegistroIngreso> findByApartamentoDestinoId(Long apartamentoId);
 }
