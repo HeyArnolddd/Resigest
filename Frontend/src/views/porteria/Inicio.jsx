@@ -5,7 +5,9 @@ import { ArrowRight, Clock } from 'lucide-react'
 import { Titulo, VerMas } from '../../components/ui/Panel'
 import EscenaPorteria from '../../components/porteria/EscenaPorteria'
 import IlustracionPaquete from '../../components/paquetes/IlustracionPaquete'
-import { actividadPorteria, ingresos, paquetesPorteria } from '../../data/mock'
+import { aVistaIngreso, aVistaPaqueteEstante, hoyLocal } from '../../lib/porteria'
+import { useApi } from '../../lib/useApi'
+import { useSesion } from '../../lib/sesion'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { estiloTipo } from '../../lib/porteria'
 import { useAhora } from '../../lib/useAhora'
@@ -71,8 +73,34 @@ Accion.propTypes = {
 export default function Inicio({ onNavigate }) {
   const [modalVisitante, setModalVisitante] = useState(false)
   const [modalPaquete, setModalPaquete] = useState(false)
-  const [ingresosLista, setIngresosLista] = useState(ingresos)
-  const [paquetesLista, setPaquetesLista] = useState(paquetesPorteria)
+  const { sesion } = useSesion()
+  const ingresosApi = useApi('/api/porteria/bitacora', { desde: hoyLocal(), hasta: hoyLocal() }, [])
+  const paquetesApi = useApi('/api/paquetes', undefined, [])
+  const ingresosLista = ingresosApi.datos.map(aVistaIngreso)
+  const paquetesLista = paquetesApi.datos.map(aVistaPaqueteEstante)
+  const recargar = () => {
+    ingresosApi.recargar()
+    paquetesApi.recargar()
+  }
+  // Actividad de la jornada: ingresos de hoy y paquetes recibidos hoy, del más reciente al más antiguo.
+  const actividadPorteria = [
+    ...ingresosApi.datos.map((r) => ({
+      hora: r.fechaIngreso.slice(11, 16),
+      accion: r.tipo === 'DOMICILIO' ? 'Entrega rápida' : 'Ingreso de visitante',
+      detalle: `${r.nombreVisitante} → ${r.apartamento}`,
+      tipo: r.tipo === 'DOMICILIO' ? 'Domicilio' : 'Visitante',
+    })),
+    ...paquetesApi.datos
+      .filter((p) => p.fechaRecepcion.slice(0, 10) === hoyLocal())
+      .map((p) => ({
+        hora: p.fechaRecepcion.slice(11, 16),
+        accion: 'Paquete registrado',
+        detalle: `${p.empresaTransportadora} → ${p.apartamento}`,
+        tipo: 'Paquete',
+      })),
+  ]
+    .sort((a, b) => b.hora.localeCompare(a.hora))
+    .slice(0, 5)
   const ahora = useAhora()
 
   const enPorteria = ingresosLista.filter((i) => i.estado === 'En portería').length
@@ -92,7 +120,7 @@ export default function Inicio({ onNavigate }) {
       <motion.section {...aparecer(0)} className={cn(tarjeta, 'grid overflow-hidden md:grid-cols-[1fr_minmax(0,380px)]')}>
         <div className="p-6">
           <p className="text-sm font-semibold text-brand-700 first-letter:uppercase">{fecha}</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{saludo(ahora)}, Daniel</h1>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{saludo(ahora)}, {sesion.usuario.split(' ')[0]}</h1>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
             <Clock className="size-4" /> Turno mañana · Portería principal ·{' '}
             <span className="font-semibold text-slate-700 tabular-nums">{hora}</span>
@@ -224,12 +252,12 @@ export default function Inicio({ onNavigate }) {
       <RegistrarVisitante
         open={modalVisitante}
         onClose={() => setModalVisitante(false)}
-        onRegistrado={(d) => setIngresosLista((l) => [{ ...d, id: Date.now() }, ...l])}
+        onRegistrado={recargar}
       />
       <RegistrarPaquete
         open={modalPaquete}
         onClose={() => setModalPaquete(false)}
-        onRegistrado={(d) => setPaquetesLista((l) => [d, ...l])}
+        onRegistrado={recargar}
       />
     </div>
   )

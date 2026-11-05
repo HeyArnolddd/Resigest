@@ -5,9 +5,10 @@ import { BellRing, HandHelping, PackageCheck, PackagePlus, Search, X } from 'luc
 import { Button } from '../../components/ui'
 import { Titulo } from '../../components/ui/Panel'
 import IlustracionPaquete from '../../components/paquetes/IlustracionPaquete'
-import { paquetesPorteria } from '../../data/mock'
+import { api } from '../../lib/api'
+import { aVistaPaqueteEstante } from '../../lib/porteria'
+import { useApi } from '../../lib/useApi'
 import { aparecer, tarjeta } from '../../lib/panel'
-import { horaActual } from '../../lib/porteria'
 import { cn } from '../../lib/utils'
 import RegistrarPaquete from './RegistrarPaquete'
 
@@ -95,7 +96,9 @@ PaqueteEnRepisa.propTypes = {
 
 export default function Paquetes() {
   const [modal, setModal] = useState(false)
-  const [lista, setLista] = useState(paquetesPorteria)
+  const { datos, error, recargar } = useApi('/api/paquetes', undefined, [])
+  const lista = datos.map(aVistaPaqueteEstante)
+  const [errorAccion, setErrorAccion] = useState('')
   const [ultimo, setUltimo] = useState(null)
   const [busqueda, setBusqueda] = useState('')
 
@@ -113,14 +116,27 @@ export default function Paquetes() {
 
   const registrado = (d) => {
     setUltimo(d)
-    setLista((l) => [d, ...l])
+    recargar()
   }
 
-  const entregar = (id) =>
-    setLista(lista.map((p) => (p.id === id ? { ...p, estado: 'Entregado', entregadoA: horaActual() } : p)))
+  const entregar = async (id) => {
+    const paquete = lista.find((p) => p.id === id)
+    setErrorAccion('')
+    try {
+      await api.patch(`/api/paquetes/${id}/entrega`, { entregadoA: `Residente de ${paquete.apartamento}` })
+      recargar()
+    } catch (e) {
+      setErrorAccion(e.message)
+    }
+  }
 
   return (
     <div className="space-y-5">
+      {(error || errorAccion) && (
+        <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
+          {(error ?? { message: errorAccion }).message}
+        </p>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Paquetes</h1>
