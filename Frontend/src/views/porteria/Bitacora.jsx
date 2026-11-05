@@ -1,34 +1,36 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { aparecer, tarjeta } from '../../lib/panel'
-import { aVistaIngreso, ayerLocal, estiloTipo, hoyLocal } from '../../lib/porteria'
-import { useApi } from '../../lib/useApi'
+import { estiloTipo } from '../../lib/porteria'
 import { cn } from '../../lib/utils'
 
+const registrosBitacora = [
+  { id: 1, hora: '22:41', persona: 'María Camila Reyes', apartamento: 'T2 · 305', tipo: 'Visitante', estado: 'Completado', dia: 'Ayer' },
+  { id: 2, hora: '21:05', persona: 'Repartidor Rappi', apartamento: 'T1 · 204', tipo: 'Domicilio', estado: 'Completado', dia: 'Ayer' },
+  { id: 3, hora: '19:33', persona: 'Carlos Medina', apartamento: 'T3 · 501', tipo: 'Visitante', estado: 'Completado', dia: 'Ayer' },
+  { id: 4, hora: '18:12', persona: 'Técnico de internet', apartamento: 'T2 · 208', tipo: 'Servicio', estado: 'Completado', dia: 'Ayer' },
+  { id: 5, hora: '10:24', persona: 'Laura Martínez', apartamento: 'T2 · 305', tipo: 'Visitante', estado: 'En portería', dia: 'Hoy' },
+  { id: 6, hora: '09:58', persona: 'Repartidor Rappi', apartamento: 'T3 · 501', tipo: 'Domicilio', estado: 'Completado', dia: 'Hoy' },
+  { id: 7, hora: '09:31', persona: 'Pedro Sánchez', apartamento: 'T1 · 103', tipo: 'Visitante', estado: 'Completado', dia: 'Hoy' },
+  { id: 8, hora: '09:12', persona: 'Repartidor Uber Eats', apartamento: 'T2 · 208', tipo: 'Domicilio', estado: 'Completado', dia: 'Hoy' },
+  { id: 9, hora: '08:47', persona: 'Técnico de TV', apartamento: 'T3 · 410', tipo: 'Servicio', estado: 'Completado', dia: 'Hoy' },
+  { id: 10, hora: '08:02', persona: 'Valentina López', apartamento: 'T1 · 201', tipo: 'Visitante', estado: 'Completado', dia: 'Hoy' },
+]
+
 const filtros = ['Hoy', 'Ayer', 'Todos']
-const largo = (d) => d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
-const titulosDia = {
-  Hoy: `Hoy · ${largo(new Date())}`,
-  Ayer: `Ayer · ${largo(new Date(Date.now() - 86400000))}`,
-}
+// Los mocks toman el 09/09/2026 como "hoy"
+const titulosDia = { Hoy: 'Hoy · miércoles 9 de septiembre', Ayer: 'Ayer · martes 8 de septiembre' }
 
 const LINEA = 'bg-[repeating-linear-gradient(180deg,transparent_0_43px,rgb(14_116_144/0.14)_43px_44px)]'
 
 export default function Bitacora() {
   const [filtro, setFiltro] = useState('Hoy')
-  const { datos: registros, error } = useApi('/api/porteria/bitacora', { desde: ayerLocal(), hasta: hoyLocal() }, [])
-  const registrosBitacora = registros.map(aVistaIngreso)
   const datos = filtro === 'Todos' ? registrosBitacora : registrosBitacora.filter((r) => r.dia === filtro)
   const dias = ['Hoy', 'Ayer'].filter((d) => datos.some((r) => r.dia === d))
   const contar = (t) => datos.filter((r) => r.tipo === t).length
 
   return (
     <div className="space-y-5">
-      {error && (
-        <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
-          {error.message}
-        </p>
-      )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Bitácora</h1>

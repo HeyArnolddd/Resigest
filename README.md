@@ -3,7 +3,7 @@
 Sistema de gestión para edificios residenciales.
 
 - **Backend** (`Backend/`): **Java 17 + Spring Boot 4** con Spring Data JPA, Flyway, Spring Security (JWT) y PostgreSQL.
-- **Frontend** (`Frontend/`): React 19 + Vite + Tailwind CSS 4, con pantallas para residente, portería, mantenimiento y administrador.
+- **Frontend** (`Frontend/`): React 19 + Vite + Tailwind CSS 4, con pantallas para residente, portería, mantenimiento y administrador (por ahora con datos de prueba).
 
 ## Requisitos
 
@@ -42,10 +42,10 @@ Flyway aplica el esquema y los datos demo automáticamente (V1–V19).
 ```bash
 cd Frontend
 npm install
-npm run dev   # http://localhost:5173, redirige /api y /ws al backend en :8080
+npm run dev   # http://localhost:5173
 ```
 
-Inicia sesión con las credenciales demo de abajo; el login del frontend usa el API real.
+El frontend todavía no está conectado al API; el acceso rápido del login usa usuarios de demostración.
 
 ## Credenciales demo (contraseña: `admin123`; hay residentes adicionales: `valentina@`, `carlos@`, `marta@`, `andres@resigest.com`)
 

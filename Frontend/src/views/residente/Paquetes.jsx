@@ -1,14 +1,14 @@
+import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarDays, CheckCircle2, Clock, MapPin, PackageOpen } from 'lucide-react'
+import { CalendarDays, CheckCircle2, Clock, MapPin, PackageCheck, PackageOpen, Truck } from 'lucide-react'
+import { Button } from '../../components/ui'
 import { Titulo } from '../../components/ui/Panel'
 import EscenaPaquetes from '../../components/inicio/EscenaPaquetes'
 import IlustracionPaquete from '../../components/paquetes/IlustracionPaquete'
+import { paquetes } from '../../data/mock'
 import { aparecer, tarjeta } from '../../lib/panel'
-import { aVistaPaquete as aVista } from '../../lib/datos'
-import { useApi } from '../../lib/useApi'
 import { useAhora } from '../../lib/useAhora'
-import { useSesion } from '../../lib/sesion'
 import { cn } from '../../lib/utils'
 
 const APERTURA = 6
@@ -35,7 +35,7 @@ function CodigoBarras({ guia }) {
 CodigoBarras.propTypes = { guia: PropTypes.string.isRequired }
 
 // Paquete en portería como etiqueta de envío
-function Etiqueta({ paquete }) {
+function Etiqueta({ paquete, onConfirmar }) {
   return (
     <motion.article
       layout
@@ -60,7 +60,7 @@ function Etiqueta({ paquete }) {
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Remitente</p>
           <h3 className="truncate text-lg font-bold leading-tight text-slate-900">{paquete.empresa}</h3>
-          <p className="mt-1 text-sm text-slate-600">{paquete.detalle ?? paquete.descripcion}</p>
+          <p className="mt-1 text-sm text-slate-600">{paquete.descripcion}</p>
           <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
             <CalendarDays className="size-3.5" /> Llegó el {paquete.fecha}
           </p>
@@ -75,7 +75,9 @@ function Etiqueta({ paquete }) {
           <CodigoBarras guia={paquete.guia} />
           <p className="mt-1 font-mono text-[11px] tracking-[0.2em] text-slate-500">{paquete.guia}</p>
         </div>
-        <p className="text-xs font-medium text-slate-500">La portería registra la entrega</p>
+        <Button size="sm" icon={PackageCheck} onClick={() => onConfirmar(paquete.id)}>
+          Ya lo recogí
+        </Button>
       </div>
     </motion.article>
   )
@@ -87,21 +89,22 @@ Etiqueta.propTypes = {
     empresa: PropTypes.string.isRequired,
     guia: PropTypes.string.isRequired,
     descripcion: PropTypes.string,
-    detalle: PropTypes.string,
     fecha: PropTypes.string.isRequired,
   }).isRequired,
+  onConfirmar: PropTypes.func.isRequired,
 }
 
 export default function Paquetes() {
-  const { sesion } = useSesion()
-  const apartamentoId = sesion.perfil.residente?.apartamentoId
-  const { datos, cargando, error } = useApi('/api/paquetes', { apartamentoId }, [])
+  const [lista, setLista] = useState(paquetes)
   const ahora = useAhora()
 
-  const lista = datos.map(aVista)
-  const enPorteria = lista.filter((p) => !p.entregado)
-  const entregados = lista.filter((p) => p.entregado)
+  const enPorteria = lista.filter((p) => p.estado === 'Ha llegado')
+  const enCamino = lista.filter((p) => p.estado === 'No ha llegado')
+  const entregados = lista.filter((p) => p.estado === 'Entregado')
   const abierta = ahora.getHours() >= APERTURA && ahora.getHours() < CIERRE
+
+  const confirmarEntrega = (id) =>
+    setLista(lista.map((p) => (p.id === id ? { ...p, estado: 'Entregado', fecha: 'Hoy' } : p)))
 
   return (
     <div className="space-y-5">
@@ -109,13 +112,6 @@ export default function Paquetes() {
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Paquetes</h1>
         <p className="mt-1 text-sm text-slate-500">Correspondencia y paquetes recibidos en portería</p>
       </div>
-
-      {error && (
-        <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
-          {error.message}
-        </p>
-      )}
-      {cargando && datos.length === 0 && <p className="text-sm text-slate-500">Cargando paquetes…</p>}
 
       {/* Resumen de portería */}
       <motion.section {...aparecer(0)} className={cn(tarjeta, 'relative grid overflow-hidden sm:grid-cols-[1fr_minmax(0,320px)]')}>
@@ -164,7 +160,7 @@ export default function Paquetes() {
             <div className="grid gap-5 md:grid-cols-2">
               <AnimatePresence mode="popLayout">
                 {enPorteria.map((p) => (
-                  <Etiqueta key={p.id} paquete={p} />
+                  <Etiqueta key={p.id} paquete={p} onConfirmar={confirmarEntrega} />
                 ))}
               </AnimatePresence>
             </div>
@@ -180,6 +176,29 @@ export default function Paquetes() {
         </div>
 
         <div className="flex flex-col gap-5">
+          {/* En camino */}
+          {enCamino.length > 0 && (
+            <motion.section {...aparecer(1)} className={cn(tarjeta, 'p-5')}>
+              <Titulo>En camino</Titulo>
+              <ul className="mt-3 space-y-2">
+                {enCamino.map((p) => (
+                  <li key={p.id} className="flex items-center gap-3 rounded-xl bg-sky-50/70 p-3 ring-1 ring-sky-100">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-sky-600 ring-1 ring-sky-100">
+                      <Truck className="size-4" strokeWidth={2} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-800">{p.empresa}</p>
+                      <p className="truncate text-xs text-slate-500">
+                        {p.descripcion} · <span className="font-mono">{p.guia}</span>
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-[11px] font-semibold text-sky-700">Aún no llega</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.section>
+          )}
+
           {/* Historial */}
           <motion.section {...aparecer(2)} className={cn(tarjeta, 'p-5')}>
             <Titulo>Ya recogidos</Titulo>

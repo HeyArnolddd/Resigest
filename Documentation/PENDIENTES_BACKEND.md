@@ -1,6 +1,6 @@
-# Estado de la integración frontend ↔ backend
+# Estado del backend para conectar el frontend
 
-La mayoría de los pendientes que estaban aquí ya se resolvieron; los cambios de API están en `API_CONTRACT.md` (sección 13). Todas las pantallas de los cuatro roles consumen el API; `Frontend/src/data/mock.js` ya no existe.
+La mayoría de los pendientes que estaban aquí ya se resolvieron; los cambios de API están en `API_CONTRACT.md` (sección 13). El frontend sigue con datos de prueba (`Frontend/src/data/mock.js`): su conexión al API le corresponde a quien lo mantiene, y este documento sirve de guía para esa conexión.
 
 ## Resuelto
 
@@ -14,9 +14,9 @@ La mayoría de los pendientes que estaban aquí ya se resolvieron; los cambios d
 
 ## Pendiente
 
-- **Fotos de las incidencias en pantalla.** El API ya devuelve las URLs en `evidencias[]`, pero ninguna vista las muestra todavía.
-- **Chat en tiempo real con STOMP.** El backend lo soporta; la pantalla de Comunidad consulta cada 4 segundos. Falta el cliente STOMP si se quiere inmediatez.
-- **Administrador.** Crear usuarios, torres y apartamentos, el prorrateo de servicios y «generar obligaciones del mes» tienen endpoint pero no pantalla. Los comunicados no guardan categoría ni destinatarios.
-- **Residente.** No puede confirmar «solucionada» una incidencia ni marcar un paquete como recogido (no hay endpoint). La pantalla de pagos manuales no guarda el banco ni la fecha de la transferencia.
+- **Conectar el frontend.** Hace falta un cliente HTTP con el token, el login real (`POST /api/auth/login` + `GET /api/usuarios/me`) y migrar las pantallas de datos de prueba al API. Los endpoints y DTO están en `API_CONTRACT.md` (sección 13).
+- **Chat en tiempo real.** El backend soporta STOMP (con el token en el `CONNECT`) y también consulta por REST (`/api/chat/*`).
+- **Sin endpoint todavía:** confirmar «solucionada» una incidencia, que el residente marque un paquete como recogido, rechazar una incidencia, y categoría o destinatarios en los comunicados. El pago manual no guarda banco, fecha ni referencia de la transferencia.
+- **Sin pantalla en el frontend:** crear usuarios, torres y apartamentos, el prorrateo de servicios y generar las obligaciones del mes.
 - **Wompi real.** El webhook usa la firma propia descrita en el contrato; hay que adaptarlo al checksum nativo de Wompi al integrar el widget.
-- **Pruebas.** Faltan pruebas de integración de los filtros nuevos y pruebas automatizadas del frontend.
+- **Pruebas.** Faltan pruebas de integración de los filtros nuevos.

@@ -4,8 +4,6 @@ import { motion } from 'motion/react'
 import { BellRing, DoorOpen, Zap } from 'lucide-react'
 import { Avatar, Button, Field, Input, Modal, Select } from '../../components/ui'
 import CheckAnimado from '../../components/porteria/CheckAnimado'
-import { api } from '../../lib/api'
-import { useApartamentos } from '../../lib/inmuebles'
 import { estiloTipo, horaActual } from '../../lib/porteria'
 import { cn } from '../../lib/utils'
 
@@ -18,9 +16,6 @@ export default function RegistrarVisitante({ open, onClose, onRegistrado }) {
   const [registrado, setRegistrado] = useState(null)
   const [tipo, setTipo] = useState('Visitante')
   const [entregaRapida, setEntregaRapida] = useState(false)
-  const [error, setError] = useState('')
-  const [enviando, setEnviando] = useState(false)
-  const { torres, buscar } = useApartamentos()
 
   const cerrar = () => {
     onClose()
@@ -28,43 +23,20 @@ export default function RegistrarVisitante({ open, onClose, onRegistrado }) {
       setRegistrado(null)
       setTipo('Visitante')
       setEntregaRapida(false)
-      setError('')
     }, 200)
   }
 
-  const registrar = async (e) => {
+  const registrar = (e) => {
     e.preventDefault()
-    const formulario = e.target
-    const apartamento = buscar(formulario.torre.value, formulario.apartamento.value)
-    if (!apartamento) {
-      setError(`No existe el apartamento ${formulario.apartamento.value} en la torre ${formulario.torre.value}.`)
-      return
+    const datos = {
+      hora: horaActual(),
+      persona: e.target.nombre.value,
+      apartamento: `${e.target.torre.value} · ${e.target.apartamento.value}`,
+      tipo,
+      estado: tipo === 'Domicilio' && entregaRapida ? 'Completado' : 'En portería',
     }
-    setError('')
-    setEnviando(true)
-    try {
-      const creado = await api.post('/api/porteria/ingresos', {
-        nombreVisitante: formulario.nombre.value.trim(),
-        documento: formulario.cedula.value.trim(),
-        tipo: tipo === 'Domicilio' ? 'DOMICILIO' : 'VISITANTE',
-        empresa: tipo === 'Domicilio' ? formulario.empresa?.value : null,
-        apartamentoDestinoId: apartamento.id,
-      })
-      const completado = tipo === 'Domicilio' && entregaRapida
-      if (completado) await api.patch(`/api/porteria/ingresos/${creado.id}/salida`)
-      setRegistrado({
-        hora: horaActual(),
-        persona: creado.nombreVisitante,
-        apartamento: creado.apartamento,
-        tipo,
-        estado: completado ? 'Completado' : 'En portería',
-      })
-      onRegistrado?.()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setEnviando(false)
-    }
+    setRegistrado(datos)
+    onRegistrado?.(datos)
   }
 
   return (
@@ -82,8 +54,8 @@ export default function RegistrarVisitante({ open, onClose, onRegistrado }) {
             <Button type="button" variant="secondary" onClick={cerrar}>
               Cancelar
             </Button>
-            <Button type="submit" form="form-visitante" disabled={enviando}>
-              {enviando ? 'Registrando…' : 'Registrar ingreso'}
+            <Button type="submit" form="form-visitante">
+              Registrar ingreso
             </Button>
           </>
         )
@@ -158,12 +130,10 @@ export default function RegistrarVisitante({ open, onClose, onRegistrado }) {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Torre" required>
-              <Select name="torre" defaultValue={torres[0]}>
-                {torres.map((t) => (
-                  <option key={t} value={t}>
-                    Torre {t}
-                  </option>
-                ))}
+              <Select name="torre" defaultValue="T1">
+                <option value="T1">Torre 1</option>
+                <option value="T2">Torre 2</option>
+                <option value="T3">Torre 3</option>
               </Select>
             </Field>
             <Field label="Apartamento" required>
@@ -203,11 +173,6 @@ export default function RegistrarVisitante({ open, onClose, onRegistrado }) {
                 </Select>
               </Field>
             </motion.div>
-          )}
-        {error && (
-            <p role="alert" className="rounded-lg bg-danger-bg px-3 py-2 text-sm font-medium text-danger-strong">
-              {error}
-            </p>
           )}
         </form>
       )}
