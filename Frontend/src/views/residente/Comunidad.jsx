@@ -3,8 +3,8 @@ import { Building2, Clock, MapPin, Phone, Shield, Siren, Wrench } from 'lucide-r
 import { Titulo } from '../../components/ui/Panel'
 import CarteleraComunicados from '../../components/comunidad/CarteleraComunicados'
 import Mensajeria from '../../components/comunidad/Mensajeria'
+import { aComunicado } from '../../lib/datos'
 import { useApi } from '../../lib/useApi'
-import { formatFecha } from '../../lib/utils'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
 
@@ -34,13 +34,6 @@ const iconoContacto = { porteria: Shield, administracion: Building2, mantenimien
 
 // Adaptadores: DTO del API → forma que usan las tarjetas.
 const TIPO_EVENTO = { MANTENIMIENTO: 'mantenimiento', ASAMBLEA: 'asamblea', TRAMITE: 'tramite' }
-const aComunicado = (c) => ({
-  id: c.id,
-  titulo: c.titulo,
-  categoria: c.fijado ? 'Aviso' : 'Comunicado',
-  fecha: formatFecha(c.fechaPublicacion),
-  contenido: c.cuerpo,
-})
 const aEvento = (e) => ({
   id: e.id,
   tipo: TIPO_EVENTO[e.tipo] ?? 'evento',

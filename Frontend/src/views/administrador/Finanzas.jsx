@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import { AnimatePresence, motion } from 'motion/react'
 import { Building2, CalendarDays, Check, FileSearch, Hash, Landmark, X } from 'lucide-react'
 import { Avatar, Button, Field, Modal, Textarea } from '../../components/ui'
 import { Titulo } from '../../components/ui/Panel'
 import { GraficoRecaudo } from '../../components/admin/Graficos'
-import { carteraConjunto, pagosManuales, recaudoMensual } from '../../data/mock'
+import { api } from '../../lib/api'
+import { aCartera, aPagoManual, aRecaudoMensual } from '../../lib/admin'
+import { useApi } from '../../lib/useApi'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn, formatCOP } from '../../lib/utils'
 
@@ -83,7 +85,7 @@ function Recibo({ pago, onRevisar }) {
 
 Recibo.propTypes = {
   pago: PropTypes.shape({
-    id: PropTypes.string.isRequired,
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     residente: PropTypes.string.isRequired,
     apartamento: PropTypes.string.isRequired,
     valor: PropTypes.number.isRequired,
@@ -94,29 +96,48 @@ Recibo.propTypes = {
   onRevisar: PropTypes.func.isRequired,
 }
 
-// Vista previa simulada del comprobante
+// Comprobante adjunto por el residente (imagen o PDF), descargado con la sesión del administrador.
 function Comprobante({ pago }) {
+  const [archivo, setArchivo] = useState({ url: null, tipo: '', error: false })
+
+  useEffect(() => {
+    let objeto = null
+    let activo = true
+    if (!pago.comprobante) return undefined
+    api
+      .get(pago.comprobante)
+      .then((blob) => {
+        if (!activo) return
+        objeto = URL.createObjectURL(blob)
+        setArchivo({ url: objeto, tipo: blob.type, error: false })
+      })
+      .catch(() => activo && setArchivo({ url: null, tipo: '', error: true }))
+    return () => {
+      activo = false
+      if (objeto) URL.revokeObjectURL(objeto)
+    }
+  }, [pago.comprobante])
+
   return (
-    <div className="mx-auto w-full max-w-xs rotate-[-1deg] rounded-xl bg-white p-4 shadow-lg ring-1 ring-slate-200">
-      <div className="flex items-center justify-between">
-        <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-bold', colorBanco[pago.banco] ?? 'bg-slate-600 text-white')}>{pago.banco}</span>
-        <Check className="size-5 rounded-full bg-success p-1 text-white" strokeWidth={3} />
-      </div>
-      <p className="mt-3 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">Transferencia exitosa</p>
-      <p className="text-center text-2xl font-extrabold text-slate-900 tabular-nums">{formatCOP(pago.valor)}</p>
-      <dl className="mt-3 space-y-1 border-t border-dashed border-slate-200 pt-3 text-[11px]">
-        {[
-          ['Para', 'Conjunto Los Robles'],
-          ['Referencia', pago.numeroConsignacion],
-          ['Fecha', pago.fecha],
-        ].map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-3">
-            <dt className="text-slate-400">{k}</dt>
-            <dd className="font-semibold text-slate-700">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="mt-3 truncate text-center text-[10px] text-slate-400">{pago.comprobante}</p>
+    <div className="mx-auto w-full max-w-xs overflow-hidden rounded-xl bg-white p-2 shadow-lg ring-1 ring-slate-200">
+      {archivo.url && archivo.tipo === 'application/pdf' && (
+        <iframe title="Comprobante" src={archivo.url} className="h-72 w-full rounded-lg" />
+      )}
+      {archivo.url && archivo.tipo !== 'application/pdf' && (
+        <img src={archivo.url} alt="Comprobante de la transferencia" className="max-h-72 w-full rounded-lg object-contain" />
+      )}
+      {!archivo.url && (
+        <p className="px-4 py-10 text-center text-xs text-slate-500">
+          {!pago.comprobante
+            ? 'El residente no adjuntó comprobante.'
+            : archivo.error
+              ? 'No se pudo cargar el comprobante.'
+              : 'Cargando comprobante…'}
+        </p>
+      )}
+      <p className="mt-2 text-center text-[11px] text-slate-400">
+        Referencia <span className="font-semibold text-slate-600">{pago.numeroConsignacion}</span>
+      </p>
     </div>
   )
 }
@@ -124,14 +145,56 @@ function Comprobante({ pago }) {
 Comprobante.propTypes = { pago: PropTypes.object.isRequired }
 
 export default function Finanzas() {
-  const [lista, setLista] = useState(pagosManuales)
+  const dash = useApi('/api/reportes/dashboard', undefined, null)
+  const pagos = useApi('/api/pagos', undefined, null)
+  const error = dash.error ?? pagos.error
+  if (error) {
+    return (
+      <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
+        {error.message}
+      </p>
+    )
+  }
+  if (!dash.datos || !pagos.datos) return <p className="text-sm text-slate-500">Cargando finanzas…</p>
+
+  return (
+    <FinanzasVista
+      lista={pagos.datos.filter((p) => p.metodo === 'TRANSFERENCIA').map(aPagoManual)}
+      recaudoMensual={aRecaudoMensual(dash.datos.recaudoMensual)}
+      carteraConjunto={aCartera(dash.datos.cartera)}
+      alCambiar={() => {
+        pagos.recargar()
+        dash.recargar()
+      }}
+    />
+  )
+}
+
+function FinanzasVista({ lista, recaudoMensual, carteraConjunto, alCambiar }) {
   const [revisado, setRevisado] = useState(null)
   const [modalRechazo, setModalRechazo] = useState(false)
+  const [motivo, setMotivo] = useState('')
+  const [errorAccion, setErrorAccion] = useState('')
+  const [enviando, setEnviando] = useState(false)
 
-  const decidir = (estado) => {
-    setLista(lista.map((p) => (p.id === revisado.id ? { ...p, estado } : p)))
-    setRevisado(null)
-    setModalRechazo(false)
+  const decidir = async (aprobar) => {
+    if (!aprobar && !motivo.trim()) {
+      setErrorAccion('Escribe el motivo del rechazo.')
+      return
+    }
+    setEnviando(true)
+    setErrorAccion('')
+    try {
+      await api.patch(`/api/pagos/${revisado.id}/validacion`, { aprobar, motivo: aprobar ? null : motivo.trim() })
+      setRevisado(null)
+      setModalRechazo(false)
+      setMotivo('')
+      alCambiar()
+    } catch (e) {
+      setErrorAccion(e.message)
+    } finally {
+      setEnviando(false)
+    }
   }
 
   const pendientes = lista.filter((p) => p.estado === PENDIENTE)
@@ -151,9 +214,9 @@ export default function Finanzas() {
         <motion.section {...aparecer(0)} className={cn(tarjeta, 'grid grid-cols-2 gap-3 p-5 lg:grid-cols-1')}>
           {[
             ['Por revisar', formatCOP(porRevisar), `${pendientes.length} comprobantes`, 'bg-warning'],
-            ['Aprobados hoy', String(aprobados), 'Pagos abonados', 'bg-success'],
+            ['Aprobados', String(aprobados), 'Pagos abonados', 'bg-success'],
             ['Cartera en mora', formatCOP(carteraConjunto.saldoMora), `${carteraConjunto.enMora} apartamentos`, 'bg-danger'],
-            ['Recaudo de sep', millones(recaudoMensual.at(-1).valor), 'Cuotas de administración', 'bg-brand-500'],
+            [`Recaudo de ${recaudoMensual.at(-1).mes.toLowerCase()}`, millones(recaudoMensual.at(-1).valor), 'Cuotas de administración', 'bg-brand-500'],
           ].map(([etiqueta, valor, sub, punto]) => (
             <div key={etiqueta} className="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
               <p className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
@@ -203,7 +266,7 @@ export default function Finanzas() {
             <Button variant="danger" onClick={() => setModalRechazo(true)} icon={X}>
               Rechazar
             </Button>
-            <Button variant="success" onClick={() => decidir('Aprobada')} icon={Check}>
+            <Button variant="success" onClick={() => decidir(true)} icon={Check} disabled={enviando}>
               Aprobar pago
             </Button>
           </>
@@ -243,6 +306,11 @@ export default function Finanzas() {
             </dl>
           </div>
         )}
+        {errorAccion && !modalRechazo && (
+          <p role="alert" className="mt-3 rounded-lg bg-danger-bg px-3 py-2 text-sm font-medium text-danger-strong">
+            {errorAccion}
+          </p>
+        )}
       </Modal>
 
       <Modal
@@ -256,7 +324,7 @@ export default function Finanzas() {
             <Button variant="secondary" onClick={() => setModalRechazo(false)}>
               Volver
             </Button>
-            <Button variant="danger" onClick={() => decidir('Rechazada')}>
+            <Button variant="danger" onClick={() => decidir(false)} disabled={enviando}>
               Confirmar rechazo
             </Button>
           </>
@@ -264,11 +332,23 @@ export default function Finanzas() {
       >
         <div className="space-y-4">
           <Field label="Motivo del rechazo" required>
-            <Textarea placeholder="Ej. El comprobante no coincide con el valor de la obligación…" />
+            <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ej. El comprobante no coincide con el valor de la obligación…" />
           </Field>
+          {errorAccion && (
+            <p role="alert" className="rounded-lg bg-danger-bg px-3 py-2 text-sm font-medium text-danger-strong">
+              {errorAccion}
+            </p>
+          )}
           <p className="text-xs text-slate-500">El residente recibirá una notificación con el motivo del rechazo.</p>
         </div>
       </Modal>
     </div>
   )
+}
+
+FinanzasVista.propTypes = {
+  lista: PropTypes.array.isRequired,
+  recaudoMensual: PropTypes.array.isRequired,
+  carteraConjunto: PropTypes.object.isRequired,
+  alCambiar: PropTypes.func.isRequired,
 }

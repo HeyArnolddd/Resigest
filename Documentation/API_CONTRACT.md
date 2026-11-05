@@ -26,7 +26,7 @@ Authorization: Bearer <token>
 ```
 
 **Credenciales demo** (todas con contraseña `admin123`):
-`admin@resigest.com` (ADMIN) · `residente@resigest.com` (RESIDENTE) · `portero@resigest.com` (PORTERO) · `tecnico@resigest.com` (MANTENIMIENTO)
+`admin@resigest.com` (ADMINISTRADOR) · `residente@resigest.com` (RESIDENTE) · `portero@resigest.com` (PORTERO) · `tecnico@resigest.com` (MANTENIMIENTO)
 
 ## 2. Convenciones
 
@@ -56,8 +56,8 @@ Authorization: Bearer <token>
 
 | Método | Ruta | Rol | Body → Response |
 |---|---|---|---|
-| POST | `/api/usuarios` | ADMIN | Crear usuario → `201` UsuarioDTO |
-| GET | `/api/usuarios?rol=RESIDENTE` | ADMIN | → `[UsuarioDTO]` |
+| POST | `/api/usuarios` | ADMINISTRADOR | Crear usuario → `201` UsuarioDTO |
+| GET | `/api/usuarios?rol=RESIDENTE` | ADMINISTRADOR | → `[UsuarioDTO]` |
 | GET | `/api/usuarios/me` | autenticado | → UsuarioDTO |
 
 ```json
@@ -68,7 +68,9 @@ Authorization: Bearer <token>
 
 // UsuarioDTO
 { "id": 2, "nombreCompleto": "Ana", "correo": "ana@x.com", "documento": "123",
-  "telefono": "300", "activo": true, "rol": "RESIDENTE" }
+  "telefono": "300", "activo": true, "rol": "RESIDENTE",
+  "residente": { "tipo": "ARRENDATARIO", "apartamentoId": 2, "apartamento": "Torre 1 – Apto 102", "alDia": true } }
+// "residente" solo viene cuando rol = RESIDENTE; "alDia" solo en el listado (GET /api/usuarios)
 ```
 
 ## 4. Inmueble (torres y apartamentos)
@@ -76,12 +78,12 @@ Authorization: Bearer <token>
 | Método | Ruta | Rol | Body → Response |
 |---|---|---|---|
 | GET | `/api/torres` | autenticado | → `[TorreDTO]` |
-| POST | `/api/torres` | ADMIN | `{nombre, numeroPisos}` → `201` TorreDTO |
+| POST | `/api/torres` | ADMINISTRADOR | `{nombre, numeroPisos}` → `201` TorreDTO |
 | GET | `/api/torres/{id}` | autenticado | → TorreDTO |
 | GET | `/api/apartamentos` | autenticado | → `[ApartamentoDTO]` |
-| POST | `/api/apartamentos` | ADMIN | `{torreId, numero, piso, coeficienteCopropiedad}` → `201` ApartamentoDTO |
+| POST | `/api/apartamentos` | ADMINISTRADOR | `{torreId, numero, piso, coeficienteCopropiedad}` → `201` ApartamentoDTO |
 | GET | `/api/apartamentos/{id}` | autenticado | → ApartamentoDTO |
-| GET | `/api/apartamentos/{id}/estado-cuenta` | ADMIN, RESIDENTE (dueño) | → EstadoCuentaDTO |
+| GET | `/api/apartamentos/{id}/estado-cuenta` | ADMINISTRADOR, RESIDENTE (dueño) | → EstadoCuentaDTO |
 
 ```json
 // TorreDTO
@@ -100,9 +102,9 @@ Authorization: Bearer <token>
 
 | Método | Ruta | Rol | Body → Response |
 |---|---|---|---|
-| GET | `/api/obligaciones?apartamentoId=1&estado=PENDIENTE` | ADMIN, RESIDENTE | → `[ObligacionDTO]` |
-| POST | `/api/obligaciones/generar` | ADMIN | `{periodo, concepto, monto, fechaVencimiento}` → `[ObligacionDTO]` |
-| POST | `/api/obligaciones/marcar-vencidas` | ADMIN | → `204` |
+| GET | `/api/obligaciones?apartamentoId=1&estado=PENDIENTE` | ADMINISTRADOR, RESIDENTE | → `[ObligacionDTO]` |
+| POST | `/api/obligaciones/generar` | ADMINISTRADOR | `{periodo, concepto, monto, fechaVencimiento}` → `[ObligacionDTO]` |
+| POST | `/api/obligaciones/marcar-vencidas` | ADMINISTRADOR | → `204` |
 
 ```json
 // ObligacionDTO
@@ -119,10 +121,10 @@ Authorization: Bearer <token>
 |---|---|---|---|
 | POST | `/api/pagos/pasarela` | RESIDENTE | `{obligacionId}` → `200` PagoDTO |
 | POST | `/api/pagos/manual` | RESIDENTE | `{obligacionId, urlComprobanteAdjunto}` → `201` PagoDTO |
-| GET | `/api/pagos/pendientes-validacion` | ADMIN | → `[PagoDTO]` |
-| PATCH | `/api/pagos/{id}/validacion` | ADMIN | `{aprobar: true, motivo: null}` → PagoDTO |
+| GET | `/api/pagos/pendientes-validacion` | ADMINISTRADOR | → `[PagoDTO]` |
+| PATCH | `/api/pagos/{id}/validacion` | ADMINISTRADOR | `{aprobar: true, motivo: null}` → PagoDTO |
 | POST | `/api/pagos/webhook` | público | `{idTransaccion, aprobada}` → 200 |
-| GET | `/api/pagos/{id}/comprobante` | ADMIN, RESIDENTE | → PDF (application/pdf) |
+| GET | `/api/pagos/{id}/comprobante` | ADMINISTRADOR, RESIDENTE | → PDF (application/pdf) |
 
 ```json
 // PagoDTO
@@ -136,8 +138,8 @@ Authorization: Bearer <token>
 
 | Método | Ruta | Rol | Body → Response |
 |---|---|---|---|
-| POST | `/api/servicios/prorrateo/preview` | ADMIN | `{tipo, periodo, total}` → `[ProrrateoDetalleDTO]` |
-| POST | `/api/servicios/prorrateo/confirmar` | ADMIN | `{tipo, periodo, total}` → ProrrateoResultadoDTO |
+| POST | `/api/servicios/prorrateo/preview` | ADMINISTRADOR | `{tipo, periodo, total}` → `[ProrrateoDetalleDTO]` |
+| POST | `/api/servicios/prorrateo/confirmar` | ADMINISTRADOR | `{tipo, periodo, total}` → ProrrateoResultadoDTO |
 
 ```json
 // ProrrateoDetalleDTO
@@ -152,11 +154,11 @@ Authorization: Bearer <token>
 | Método | Ruta | Rol | Body → Response |
 |---|---|---|---|
 | GET | `/api/zonas-comunes` | autenticado | → `[ZonaComunDTO]` |
-| POST | `/api/zonas-comunes` | ADMIN | `{nombre, descripcion, capacidad}` → `201` ZonaComunDTO |
+| POST | `/api/zonas-comunes` | ADMINISTRADOR | `{nombre, descripcion, capacidad}` → `201` ZonaComunDTO |
 | GET | `/api/reservas?zonaId=1` | autenticado | → `[ReservaDTO]` |
 | POST | `/api/reservas` | RESIDENTE | `{zonaComunId, fechaInicio, fechaFin}` → `201` ReservaDTO |
-| PATCH | `/api/reservas/{id}/aprobar` | ADMIN | → ReservaDTO |
-| PATCH | `/api/reservas/{id}/rechazar` | ADMIN | `{justificacion}` → ReservaDTO |
+| PATCH | `/api/reservas/{id}/aprobar` | ADMINISTRADOR | → ReservaDTO |
+| PATCH | `/api/reservas/{id}/rechazar` | ADMINISTRADOR | `{justificacion}` → ReservaDTO |
 | DELETE | `/api/reservas/{id}` | RESIDENTE | → `204` |
 
 ```json
@@ -174,10 +176,10 @@ Authorization: Bearer <token>
 
 | Método | Ruta | Rol | Body → Response |
 |---|---|---|---|
-| GET | `/api/incidencias` | ADMIN, MANTENIMIENTO | → `[IncidenciaDTO]` |
+| GET | `/api/incidencias` | ADMINISTRADOR, MANTENIMIENTO | → `[IncidenciaDTO]` |
 | POST | `/api/incidencias` | RESIDENTE, PORTERO | `{titulo, descripcion, ubicacion, prioridad}` → `201` IncidenciaDTO |
 | POST | `/api/incidencias/{id}/evidencias` | RESIDENTE | `multipart/form-data` campo `archivo` (máx 5MB) → IncidenciaDTO |
-| PATCH | `/api/incidencias/{id}/asignacion` | ADMIN | `{tecnicoId}` → IncidenciaDTO |
+| PATCH | `/api/incidencias/{id}/asignacion` | ADMINISTRADOR | `{tecnicoId}` → IncidenciaDTO |
 | PATCH | `/api/incidencias/{id}/solucion` | MANTENIMIENTO | `{solucion}` → IncidenciaDTO |
 
 ```json
@@ -194,10 +196,10 @@ Authorization: Bearer <token>
 |---|---|---|---|
 | POST | `/api/porteria/ingresos` | PORTERO | `{nombreVisitante, documento, tipo, empresa, apartamentoDestinoId}` → `201` RegistroIngresoDTO |
 | PATCH | `/api/porteria/ingresos/{id}/salida` | PORTERO | → `204` |
-| GET | `/api/porteria/bitacora?desde=2026-10-01&hasta=2026-10-31` | ADMIN | → `[RegistroIngresoDTO]` |
+| GET | `/api/porteria/bitacora?desde=2026-10-01&hasta=2026-10-31` | ADMINISTRADOR | → `[RegistroIngresoDTO]` |
 | POST | `/api/paquetes` | PORTERO | `{apartamentoDestinoId, empresaTransportadora, descripcion}` → `201` PaqueteDTO |
 | PATCH | `/api/paquetes/{id}/entrega` | PORTERO | `{entregadoA}` → PaqueteDTO |
-| GET | `/api/paquetes?apartamentoId=1` | ADMIN, PORTERO, RESIDENTE | → `[PaqueteDTO]` |
+| GET | `/api/paquetes?apartamentoId=1` | ADMINISTRADOR, PORTERO, RESIDENTE | → `[PaqueteDTO]` |
 
 `tipo` ingreso: `VISITANTE` | `DOMICILIO` · `estado` paquete: `RECIBIDO` | `NOTIFICADO` | `ENTREGADO`
 
@@ -205,7 +207,7 @@ Authorization: Bearer <token>
 
 | Método | Ruta | Rol | Body → Response |
 |---|---|---|---|
-| POST | `/api/comunicados` | ADMIN | `{titulo, cuerpo, urlAdjunto}` → `201` ComunicadoDTO |
+| POST | `/api/comunicados` | ADMINISTRADOR | `{titulo, cuerpo, urlAdjunto}` → `201` ComunicadoDTO |
 | GET | `/api/comunicados?fijados=true` | autenticado | → `[ComunicadoDTO]` |
 | GET | `/api/notificaciones/no-leidas` | autenticado | → `[NotificacionDTO]` |
 | PATCH | `/api/notificaciones/{id}/leida` | autenticado | → `204` |
@@ -243,7 +245,42 @@ Authorization: Bearer <token>
 
 **Chat en tiempo real (WebSocket/STOMP):**
 
-- Conexión: `ws://localhost:8080/ws` (sin token; el front enviará el `remitenteId` en el payload).
-- Enviar: destino `/app/chat.enviar`, body `{ "remitenteId": 2, "destinatarioId": 3, "contenido": "Hola" }`.
-- Recibir: suscribirse a `/topic/chat/{destinatarioId}`.
+- Conexión: `ws://localhost:8080/ws`. El frame STOMP `CONNECT` **debe** llevar el header `Authorization: Bearer <token>`.
+- Enviar: destino `/app/chat.enviar`, body `{ "destinatarioId": 3, "contenido": "Hola" }`. El remitente se toma del token (el `remitenteId` del cuerpo se ignora).
+- Recibir: suscribirse a `/topic/chat/{miUsuarioId}`; solo se permite el canal propio.
 - El mensaje también queda persistido (historial por `GET /api/chat?conUsuarioId=`).
+
+## 13. Cambios de la integración con el frontend
+
+**Seguridad.** Los roles son `RESIDENTE`, `ADMINISTRADOR`, `PORTERO` y `MANTENIMIENTO` (un rol sin permiso responde `403`). CORS permite el origen de `app.cors.origins` (por defecto `http://localhost:5173`). `POST /api/pagos/webhook` exige la cabecera `X-Signature` = HMAC-SHA256 (hex) de `"{idTransaccion}:{aprobada}"` con `app.webhook.secret`; sin ella responde `401`.
+
+**Filtros y listados** (todos opcionales; fechas `yyyy-MM-dd`):
+
+| Ruta | Rol | Parámetros |
+|---|---|---|
+| `GET /api/incidencias` | los 4 (residente y portero ven solo las suyas) | `estado`, `asignadoA=me`, `desde`, `hasta`, `page`, `size` |
+| `PATCH /api/incidencias/{id}/inicio` | MANTENIMIENTO (técnico asignado) | pasa a `EN_PROCESO` |
+| `GET /api/reservas` | autenticado | `zonaId`, `estado`, `mias=true`, `desde`, `hasta` |
+| `PATCH /api/reservas/{id}/rechazar` | ADMINISTRADOR | `{ "justificacion": "..." }` (se guarda y viaja en `ReservaDTO`) |
+| `GET /api/pagos` | ADMINISTRADOR; RESIDENTE (con su `apartamentoId`) | `estado`, `apartamentoId`, `desde`, `hasta` |
+| `GET /api/paquetes` | ADMINISTRADOR, PORTERO; RESIDENTE (con su `apartamentoId`) | `apartamentoId`, `estado` |
+| `GET /api/porteria/ingresos` | ADMINISTRADOR, PORTERO | visitantes que siguen dentro |
+| `GET /api/porteria/bitacora` | ADMINISTRADOR, PORTERO | `desde`, `hasta` |
+| `GET /api/usuarios` | ADMINISTRADOR | `rol` (`RESIDENTE`, `PORTERO`, ...) |
+
+**DTO enriquecidos.** `IncidenciaDTO` (`categoria`, `fechaReporte`, `reportadoPorNombre`, `apartamento`, `asignadoANombre`, `evidencias[]`), `PagoDTO` (`apartamento`, `concepto`, `periodo`, `urlComprobanteAdjunto`, `motivoRechazo`), `ReservaDTO` (`apartamento`, `justificacionRechazo`), `PaqueteDTO` (`apartamento`, `guia`, `tamano`: `SOBRE|PEQUENO|MEDIANO|GRANDE`), `RegistroIngresoDTO` (`apartamento`, `registradoPorNombre`), `MensajeChatDTO` (`remitenteNombre`, `remitenteApartamento`, `destinatarioId` null en el chat comunitario). `CrearIncidenciaRequest` acepta `categoria`; `RegistrarPaqueteRequest` acepta `guia` y `tamano`.
+
+**Archivos.** `POST /api/archivos` (multipart, campo `archivo`; JPG, PNG o PDF, máx. 5 MB) → `{ "url": "/api/archivos/<id>.<ext>" }`. `GET /api/archivos/{nombre}` descarga con token. Para un pago manual: subir el comprobante y enviar esa `url` en `POST /api/pagos/manual` (`urlComprobanteAdjunto`).
+
+**Nuevos endpoints.**
+
+| Método | Ruta | Rol | Respuesta |
+|---|---|---|---|
+| GET | `/api/reportes/dashboard` | ADMINISTRADOR | `{ periodo, facturado, recaudado, recaudoMensual[], cartera{apartamentos,alDia,enMora,saldoEnMora}, incidenciasPorEstado{}, usoZonas[], pendientes{} }` |
+| GET | `/api/eventos?desde=&hasta=` | autenticado | `[{ id, titulo, descripcion, fecha, lugar, tipo }]` (por defecto, los próximos 3 meses) |
+| POST | `/api/eventos` | ADMINISTRADOR | `{ titulo, descripcion, fecha, lugar, tipo }` → `201` |
+| GET | `/api/contactos` | autenticado | `[{ id, nombre, detalle, telefono, categoria }]` |
+| GET | `/api/chat/comunidad` | autenticado | últimos 100 mensajes del chat comunitario |
+| POST | `/api/chat/comunidad` | autenticado | `{ "contenido": "..." }` |
+| GET | `/api/chat/contactos` | autenticado | residentes con los que se puede conversar |
+| GET | `/api/chat/conversaciones` | autenticado | contactos con los que ya hay mensajes |

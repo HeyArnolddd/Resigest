@@ -62,3 +62,11 @@ export function aResumenCuotas(obligaciones) {
       }
     })
 }
+
+export const aComunicado = (c) => ({
+  id: c.id,
+  titulo: c.titulo,
+  categoria: c.fijado ? 'Aviso' : 'Comunicado',
+  fecha: formatFecha(c.fechaPublicacion),
+  contenido: c.cuerpo,
+})

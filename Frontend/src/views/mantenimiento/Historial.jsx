@@ -1,14 +1,14 @@
 import { motion } from 'motion/react'
 import { CalendarDays, CheckCircle2, MapPin } from 'lucide-react'
 import IlustracionIncidencia from '../../components/incidencias/IlustracionIncidencia'
-import { puntoPrioridad } from '../../lib/incidencias'
-import { incidencias } from '../../data/mock'
+import { puntoPrioridad, useIncidenciasAsignadas } from '../../lib/incidencias'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 export default function Historial() {
+  const { incidencias } = useIncidenciasAsignadas()
   const resueltas = incidencias.filter((i) => i.estado === 'Resuelta')
 
   // Agrupadas por mes (fechas dd/mm/aaaa), en el orden en que llegan

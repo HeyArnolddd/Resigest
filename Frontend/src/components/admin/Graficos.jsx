@@ -23,7 +23,7 @@ function curva(puntos) {
 export function GraficoRecaudo({ datos, formato, className }) {
   const [activo, setActivo] = useState(datos.length - 1)
   const max = Math.max(...datos.map((d) => d.facturado))
-  const pct = (d) => Math.round((d.valor / d.facturado) * 100)
+  const pct = (d) => (d.facturado ? Math.round((d.valor / d.facturado) * 100) : 0)
   const promedio = Math.round(datos.reduce((s, d) => s + pct(d), 0) / datos.length)
   const d = datos[activo]
 
