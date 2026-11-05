@@ -3,6 +3,7 @@ package co.edu.uis.resigest.reservas.service;
 import co.edu.uis.resigest.common.exception.AccesoDenegadoException;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.inmueble.domain.Apartamento;
+import co.edu.uis.resigest.reservas.domain.EstadoReserva;
 import co.edu.uis.resigest.reservas.domain.Reserva;
 import co.edu.uis.resigest.reservas.domain.ZonaComun;
 import co.edu.uis.resigest.reservas.dto.RechazoRequest;
@@ -15,9 +16,12 @@ import co.edu.uis.resigest.reservas.validation.ValidadorReserva;
 import co.edu.uis.resigest.usuarios.domain.Residente;
 import co.edu.uis.resigest.usuarios.repository.ResidenteRepository;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -97,8 +101,30 @@ public class ReservaServiceImpl implements ReservaService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ReservaDTO> listarPorZona(Long zonaId) {
-        return reservaRepository.findByZonaComunId(zonaId).stream()
+    public List<ReservaDTO> listar(Long zonaId, EstadoReserva estado, boolean mias,
+                                   LocalDate desde, LocalDate hasta, Long usuarioId) {
+        Specification<Reserva> spec = (root, q, cb) -> cb.conjunction();
+        if (zonaId != null) {
+            spec = spec.and((root, q, cb) -> cb.equal(root.get("zonaComun").get("id"), zonaId));
+        }
+        if (estado != null) {
+            spec = spec.and((root, q, cb) -> cb.equal(root.get("estado"), estado));
+        }
+        if (mias) {
+            Residente residente = residenteRepository.findById(usuarioId)
+                    .orElseThrow(() -> new AccesoDenegadoException("Solo un residente tiene reservas propias"));
+            Long apartamentoId = residente.getApartamento().getId();
+            spec = spec.and((root, q, cb) -> cb.equal(root.get("apartamento").get("id"), apartamentoId));
+        }
+        if (desde != null) {
+            spec = spec.and((root, q, cb) ->
+                    cb.greaterThanOrEqualTo(root.get("fechaFin"), desde.atStartOfDay()));
+        }
+        if (hasta != null) {
+            spec = spec.and((root, q, cb) ->
+                    cb.lessThan(root.get("fechaInicio"), hasta.plusDays(1).atStartOfDay()));
+        }
+        return reservaRepository.findAll(spec, Sort.by("fechaInicio")).stream()
                 .map(ReservaDTO::de)
                 .toList();
     }

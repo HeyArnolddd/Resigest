@@ -51,6 +51,21 @@ public class Paquete extends EntidadBase {
         // Constructor sin argumentos para JPA.
     }
 
+    @Column(length = 50)
+    private String guia;
+
+    @Column(nullable = false, length = 20)
+    private String tamano = "MEDIANO";
+
+    public Paquete(Apartamento apartamentoDestino, String empresaTransportadora, String descripcion,
+                   String guia, String tamano) {
+        this(apartamentoDestino, empresaTransportadora, descripcion);
+        this.guia = guia;
+        if (tamano != null && !tamano.isBlank()) {
+            this.tamano = tamano.trim().toUpperCase();
+        }
+    }
+
     public Paquete(Apartamento apartamentoDestino, String empresaTransportadora, String descripcion) {
         this.apartamentoDestino = apartamentoDestino;
         this.empresaTransportadora = empresaTransportadora;

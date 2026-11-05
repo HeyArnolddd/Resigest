@@ -4,6 +4,7 @@ import co.edu.uis.resigest.porteria.dto.EntregaPaqueteRequest;
 import co.edu.uis.resigest.porteria.dto.PaqueteDTO;
 import co.edu.uis.resigest.porteria.dto.RegistrarPaqueteRequest;
 
+import co.edu.uis.resigest.porteria.domain.EstadoPaquete;
 import java.util.List;
 
 public interface PaqueteService {
@@ -13,4 +14,7 @@ public interface PaqueteService {
     PaqueteDTO entregar(Long id, EntregaPaqueteRequest request);
 
     List<PaqueteDTO> listarPorApartamento(Long apartamentoId);
+
+    /** Filtros opcionales: apartamento y estado. */
+    List<PaqueteDTO> listar(Long apartamentoId, EstadoPaquete estado);
 }

@@ -3,6 +3,7 @@ package co.edu.uis.resigest.porteria.service;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.inmueble.domain.Apartamento;
 import co.edu.uis.resigest.inmueble.repository.ApartamentoRepository;
+import co.edu.uis.resigest.porteria.domain.EstadoPaquete;
 import co.edu.uis.resigest.porteria.domain.Paquete;
 import co.edu.uis.resigest.porteria.dto.EntregaPaqueteRequest;
 import co.edu.uis.resigest.porteria.dto.PaqueteDTO;
@@ -36,7 +37,8 @@ public class PaqueteServiceImpl implements PaqueteService {
                         "No existe el apartamento con id " + request.apartamentoDestinoId()));
 
         Paquete paquete = new Paquete(
-                apartamento, request.empresaTransportadora(), request.descripcion());
+                apartamento, request.empresaTransportadora(), request.descripcion(),
+                request.guia(), request.tamano());
         paqueteRepository.save(paquete);
         return PaqueteDTO.de(paquete);
     }
@@ -55,6 +57,22 @@ public class PaqueteServiceImpl implements PaqueteService {
         return paqueteRepository.findByApartamentoDestinoId(apartamentoId).stream()
                 .map(PaqueteDTO::de)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaqueteDTO> listar(Long apartamentoId, EstadoPaquete estado) {
+        List<Paquete> paquetes;
+        if (apartamentoId != null && estado != null) {
+            paquetes = paqueteRepository.findByApartamentoDestinoIdAndEstado(apartamentoId, estado);
+        } else if (apartamentoId != null) {
+            paquetes = paqueteRepository.findByApartamentoDestinoId(apartamentoId);
+        } else if (estado != null) {
+            paquetes = paqueteRepository.findByEstadoOrderByFechaRecepcionDesc(estado);
+        } else {
+            paquetes = paqueteRepository.findAll();
+        }
+        return paquetes.stream().map(PaqueteDTO::de).toList();
     }
 
     private Paquete buscarPaquete(Long id) {

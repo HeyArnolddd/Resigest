@@ -3,13 +3,14 @@ package co.edu.uis.resigest.reservas.repository;
 import co.edu.uis.resigest.reservas.domain.EstadoReserva;
 import co.edu.uis.resigest.reservas.domain.Reserva;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-public interface ReservaRepository extends JpaRepository<Reserva, Long> {
+public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpecificationExecutor<Reserva> {
 
     List<Reserva> findByZonaComunId(Long zonaComunId);
 
