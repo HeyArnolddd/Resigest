@@ -44,7 +44,8 @@ public class Paquete extends EntidadBase {
 
     private LocalDateTime fechaEntrega;
 
-    @Column(length = 200)
+    // Nombre explícito: la estrategia de Spring convierte "entregadoA" en "entregadoa", sin guion bajo
+    @Column(name = "entregado_a", length = 200)
     private String entregadoA;
 
     protected Paquete() {

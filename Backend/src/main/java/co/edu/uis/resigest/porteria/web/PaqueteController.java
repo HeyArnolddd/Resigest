@@ -55,7 +55,7 @@ public class PaqueteController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'PORTERO', 'RESIDENTE')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'PORTERO', 'RESIDENTE')")
     public List<PaqueteDTO> listar(@RequestParam Long apartamentoId,
                                    @AuthenticationPrincipal UsuarioAutenticado autenticado) {
         if (autenticado.getRol() == Rol.RESIDENTE) {

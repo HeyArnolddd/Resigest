@@ -36,7 +36,7 @@ public class ObligacionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESIDENTE')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'RESIDENTE')")
     public List<ObligacionDTO> listar(@RequestParam(required = false) Long apartamentoId,
                                       @RequestParam(required = false) EstadoObligacion estado,
                                       @AuthenticationPrincipal UsuarioAutenticado autenticado) {
@@ -47,7 +47,7 @@ public class ObligacionController {
     }
 
     @PostMapping("/generar")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<List<ObligacionDTO>> generar(
             @Valid @RequestBody GenerarObligacionesRequest request) {
         List<ObligacionDTO> creadas = carteraService.generarObligacionesMensuales(request);
@@ -56,7 +56,7 @@ public class ObligacionController {
 
     /** Útil para probar el vencimiento sin esperar al cron de las 3 AM. */
     @PostMapping("/marcar-vencidas")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<Void> marcarVencidas() {
         carteraService.marcarVencidas();
         return ResponseEntity.noContent().build();

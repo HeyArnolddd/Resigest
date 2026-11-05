@@ -34,7 +34,7 @@ public class ZonaComunController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<ZonaComunDTO> crear(@Valid @RequestBody CrearZonaComunRequest request) {
         ZonaComunDTO creada = zonaComunService.crear(request);
         return ResponseEntity.created(URI.create("/api/zonas-comunes/" + creada.id()))
