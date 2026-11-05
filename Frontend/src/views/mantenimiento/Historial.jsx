@@ -10,7 +10,7 @@ const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', '
 
 export default function Historial() {
   const { datos } = useCarga(incidenciasApi.asignadas, 'mant:asignadas')
-  const resueltas = (datos ?? []).filter((i) => i.estado === 'Resuelta')
+  const resueltas = (datos ?? []).filter((i) => i.terminada)
 
   // Agrupadas por mes (fechas dd/mm/aaaa), en el orden en que llegan
   const porMes = resueltas.reduce((acc, i) => {
@@ -89,6 +89,9 @@ export default function Historial() {
                       </p>
                       <p className="mt-1.5 font-bold leading-snug text-slate-900">{inc.titulo}</p>
                       {inc.solucion && <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{inc.solucion}</p>}
+                      <p className={cn('mt-1 text-[11px] font-semibold', inc.estado === 'Confirmada' ? 'text-brand-700' : 'text-warning-strong')}>
+                        {inc.estado === 'Confirmada' ? '✓ Confirmada por el residente' : 'Esperando confirmación del residente'}
+                      </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                       <span className="flex items-center gap-1">

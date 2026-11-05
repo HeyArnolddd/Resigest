@@ -80,7 +80,7 @@ const cargarTodo = () =>
     pagos,
     reservas,
     incidencias,
-    zonas,
+    zonas: zonas.filter((z) => z.activa),
   }))
 
 function Esqueleto() {
@@ -135,7 +135,8 @@ export default function Dashboard({ onNavigate }) {
   const estadoCartera = cartera(obligaciones, apartamentos.length)
 
   const reservasPendientes = reservas.filter((r) => r.estado === 'PENDIENTE')
-  const activas = incidencias.filter((i) => i.estado !== 'RESUELTA')
+  // Activas: las que mantenimiento todavía no termina
+  const activas = incidencias.filter((i) => !['RESUELTA', 'CERRADA'].includes(i.estado))
   const altas = activas.filter((i) => i.prioridad === 'ALTA').length
 
   // Reservas aprobadas por zona en el mes actual

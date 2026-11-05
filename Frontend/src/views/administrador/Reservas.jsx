@@ -18,7 +18,7 @@ const fmtHorario = (r) => `${r.fechaInicio.slice(11, 16)} – ${r.fechaFin.slice
 // El calendario muestra quién reservó; la reserva solo trae el apartamento
 const cargarTodo = () =>
   Promise.all([adminApi.zonas(), adminApi.reservas()]).then(([zonas, reservas]) => ({
-    zonas,
+    zonas: zonas.filter((z) => z.activa),
     reservas: reservas.map((r) => ({ ...r, residente: r.apartamento })),
   }))
 

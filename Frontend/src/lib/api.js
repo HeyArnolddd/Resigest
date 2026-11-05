@@ -38,7 +38,9 @@ const MENSAJES = {
 
 // En desarrollo el API va por el proxy de Vite (mismo origen). En producción, VITE_API_URL
 // apunta al backend desplegado, p. ej. https://resigest-api.onrender.com
-const BASE_API = import.meta.env.VITE_API_URL || window.location.origin
+// Render entrega solo el dominio (resigest-api.onrender.com): se completa con https://
+const URL_API = import.meta.env.VITE_API_URL
+const BASE_API = URL_API ? (URL_API.startsWith('http') ? URL_API : `https://${URL_API}`) : window.location.origin
 
 // Sube un archivo (foto o PDF) y devuelve { id, nombre, tipoContenido, tamano, url }
 export const subirArchivo = (archivo) => enviarArchivo('/archivos', archivo)

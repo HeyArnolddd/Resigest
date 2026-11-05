@@ -18,7 +18,7 @@ export default function Inicio({ onNavigate }) {
   const incidencias = datos ?? []
   const mesActual = ahora.toISOString().slice(0, 7)
   const contar = (estado) => incidencias.filter((i) => i.estado === estado).length
-  const abiertas = incidencias.filter((i) => i.estado !== 'Resuelta')
+  const abiertas = incidencias.filter((i) => !i.terminada)
   const urgentes = abiertas.filter((i) => i.prioridad === 'Alta')
   const porEmpezar = incidencias.filter((i) => i.estado === 'Asignada').slice(0, 5)
   const fecha = ahora.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -27,7 +27,7 @@ export default function Inicio({ onNavigate }) {
   const resumen = [
     ['Por empezar', valor(contar('Asignada')), 'bg-violet-500', 'Asignadas a ti'],
     ['En proceso', valor(contar('En proceso')), 'bg-warning', 'Trabajo en curso'],
-    ['Resueltas', valor(incidencias.filter((i) => i.estado === 'Resuelta' && i.fechaReporte?.startsWith(mesActual)).length), 'bg-success', 'Este mes'],
+    ['Resueltas', valor(incidencias.filter((i) => i.terminada && i.fechaReporte?.startsWith(mesActual)).length), 'bg-success', 'Este mes'],
   ]
 
   // Abiertas por categoría, de mayor a menor
