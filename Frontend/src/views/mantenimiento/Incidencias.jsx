@@ -1,15 +1,16 @@
 import { useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { AlertCircle, CalendarDays, Check, CheckCircle2, ClipboardList, MapPin, Paperclip, Play, RotateCcw } from 'lucide-react'
-import { ArchivoProtegido, Avatar, Button, EmptyState, Field, Modal, Textarea } from '../../components/ui'
+import { ArchivoProtegido, Avatar, Button, CampoArchivo, EmptyState, Field, Modal, Textarea } from '../../components/ui'
 import IlustracionIncidencia from '../../components/incidencias/IlustracionIncidencia'
 import Avance from '../../components/incidencias/Avance'
+import { subirArchivo } from '../../lib/api'
 import { estilosEstado, incidenciasApi, puntoEstado, puntoPrioridad } from '../../lib/incidencias'
 import { useCarga } from '../../lib/useCarga'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
 
-const FILTROS = ['Todas', 'Asignada', 'En proceso', 'Resuelta']
+const FILTROS = ['Todas', 'Asignada', 'En proceso', 'Por confirmar', 'Confirmada']
 const etiquetaFiltro = { Asignada: 'Por empezar' }
 
 export default function Incidencias() {
@@ -18,6 +19,7 @@ export default function Incidencias() {
   const [seleccionada, setSeleccionada] = useState(null)
   const [resolviendo, setResolviendo] = useState(false)
   const [solucion, setSolucion] = useState('')
+  const [fotoSolucion, setFotoSolucion] = useState(null)
   const [errorAccion, setErrorAccion] = useState('')
   const [trabajando, setTrabajando] = useState(false)
   const detalle = useRef(null)
@@ -41,6 +43,7 @@ export default function Incidencias() {
       await accion()
       setResolviendo(false)
       setSolucion('')
+      setFotoSolucion(null)
       recargar()
     } catch (e) {
       setErrorAccion(e.message)
@@ -54,7 +57,15 @@ export default function Incidencias() {
       setErrorAccion('Cuenta brevemente qué hiciste para solucionarlo.')
       return
     }
-    ejecutar(() => incidenciasApi.resolver(actual.id, solucion.trim()))
+    if (!fotoSolucion) {
+      setErrorAccion('Adjunta una foto del trabajo terminado para que el residente pueda confirmarlo.')
+      return
+    }
+    // La foto se sube primero; la solución guarda su dirección
+    ejecutar(async () => {
+      const { url } = await subirArchivo(fotoSolucion)
+      await incidenciasApi.resolver(actual.id, solucion.trim(), url)
+    })
   }
 
   const encabezado = (
@@ -253,6 +264,11 @@ export default function Incidencias() {
                         </Button>
                       </div>
                     )}
+                    {actual.estado === 'En proceso' && actual.observacion && (
+                      <p className="mt-5 rounded-xl bg-warning-bg px-4 py-3 text-sm text-warning-strong">
+                        <span className="font-semibold">El residente la reabrió:</span> {actual.observacion}
+                      </p>
+                    )}
                     {actual.estado === 'En proceso' && (
                       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 p-3.5 ring-1 ring-brand-100">
                         <p className="text-sm font-semibold text-brand-800">¿Terminaste el trabajo?</p>
@@ -261,12 +277,16 @@ export default function Incidencias() {
                         </Button>
                       </div>
                     )}
-                    {actual.estado === 'Resuelta' && (
-                      <div className="mt-5 rounded-xl bg-success-bg px-4 py-3 text-sm text-success-strong">
-                        <p className="flex items-center gap-2 font-semibold">
-                          <CheckCircle2 className="size-4 shrink-0" /> Resuelta. Se le avisó a quien la reportó.
-                        </p>
-                        {actual.solucion && <p className="mt-1.5 pl-6 text-[13px]">{actual.solucion}</p>}
+                    {actual.terminada && (
+                      <div className="mt-5 flex gap-3 rounded-xl bg-success-bg px-4 py-3 text-sm text-success-strong">
+                        {actual.fotoSolucionUrl && <ArchivoProtegido url={actual.fotoSolucionUrl} alt="Foto del trabajo terminado" className="size-20 shrink-0" />}
+                        <div>
+                          <p className="flex items-center gap-2 font-semibold">
+                            <CheckCircle2 className="size-4 shrink-0" />
+                            {actual.estado === 'Confirmada' ? `${actual.solicitante.split(' ')[0]} confirmó que quedó solucionada.` : `Esperando que ${actual.solicitante.split(' ')[0]} confirme la solución.`}
+                          </p>
+                          {actual.solucion && <p className="mt-1.5 text-[13px]">{actual.solucion}</p>}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -294,7 +314,8 @@ export default function Incidencias() {
           </>
         }
       >
-        <Field label="¿Qué hiciste?" htmlFor="m-solucion" required error={errorAccion} hint="Quien reportó la incidencia verá este mensaje.">
+        <div className="space-y-4">
+        <Field label="¿Qué hiciste?" htmlFor="m-solucion" required hint="Quien reportó la incidencia verá este mensaje.">
           <Textarea
             id="m-solucion"
             value={solucion}
@@ -305,6 +326,19 @@ export default function Incidencias() {
             placeholder="Ej. Se cambió el empaque de la llave y se revisó que no haya más goteo"
           />
         </Field>
+        <Field label="Foto del trabajo terminado" htmlFor="m-foto" required error={errorAccion} hint="El residente la verá para confirmar que quedó bien.">
+          <CampoArchivo
+            id="m-foto"
+            value={fotoSolucion}
+            onChange={(f) => {
+              setFotoSolucion(f)
+              setErrorAccion('')
+            }}
+            texto="Toca para tomar o elegir la foto"
+            invalido={Boolean(errorAccion) && !fotoSolucion}
+          />
+        </Field>
+        </div>
       </Modal>
     </div>
   )

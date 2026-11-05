@@ -51,7 +51,8 @@ export const estadoIncidencia = {
   ABIERTA: { label: 'Abierta', punto: 'bg-sky-500', chip: 'bg-sky-50 text-sky-700 ring-sky-200', paso: 'Nueva' },
   ASIGNADA: { label: 'Asignada', punto: 'bg-violet-500', chip: 'bg-violet-50 text-violet-700 ring-violet-200', paso: 'En proceso' },
   EN_PROCESO: { label: 'En proceso', punto: 'bg-warning', chip: 'bg-warning-bg text-warning-strong ring-amber-200', paso: 'En proceso' },
-  RESUELTA: { label: 'Resuelta', punto: 'bg-success', chip: 'bg-success-bg text-success-strong ring-green-200', paso: 'Resuelta' },
+  RESUELTA: { label: 'Por confirmar', punto: 'bg-success', chip: 'bg-success-bg text-success-strong ring-green-200', paso: 'Resuelta' },
+  CERRADA: { label: 'Confirmada', punto: 'bg-brand-700', chip: 'bg-brand-600 text-white ring-brand-600', paso: 'Confirmada' },
 }
 
 export const prioridadIncidencia = {

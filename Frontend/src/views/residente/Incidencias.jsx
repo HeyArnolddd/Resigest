@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { AlertCircle, Calendar, CheckCircle2, MapPin, Plus, RotateCcw, Wrench } from 'lucide-react'
+import { AlertCircle, Calendar, Check, CheckCircle2, MapPin, Plus, RotateCcw, Wrench } from 'lucide-react'
 import { ArchivoProtegido, Button, CampoArchivo, EmptyState, Field, Input, Modal, Select, Textarea } from '../../components/ui'
 import IlustracionIncidencia from '../../components/incidencias/IlustracionIncidencia'
 import Avance from '../../components/incidencias/Avance'
@@ -33,13 +33,38 @@ export default function Incidencias() {
   const [errorGeneral, setErrorGeneral] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [reportada, setReportada] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
+  const [reabriendo, setReabriendo] = useState(null)
+  const [comentario, setComentario] = useState('')
+  const [errorConfirmacion, setErrorConfirmacion] = useState('')
+
+  // Sí: la incidencia queda confirmada. No: vuelve a mantenimiento con el comentario
+  const confirmar = async (inc, solucionado, texto) => {
+    if (!solucionado && !texto?.trim()) {
+      setErrorConfirmacion('Cuéntale a mantenimiento qué sigue fallando.')
+      return
+    }
+    setConfirmando(true)
+    setErrorConfirmacion('')
+    try {
+      await incidenciasApi.confirmar(inc.id, solucionado, solucionado ? null : texto.trim())
+      setReabriendo(null)
+      setComentario('')
+      recargar()
+    } catch (e) {
+      setErrorConfirmacion(e.message)
+    } finally {
+      setConfirmando(false)
+    }
+  }
 
   const incidencias = lista ?? []
   const contar = (...estados) => incidencias.filter((i) => estados.includes(i.estado)).length
   const resumen = [
     ['Nuevas', contar('Nueva', 'Asignada'), 'bg-sky-500'],
     ['En proceso', contar('En proceso'), 'bg-warning'],
-    ['Resueltas', contar('Resuelta'), 'bg-success'],
+    ['Por confirmar', contar('Por confirmar'), 'bg-success'],
+    ['Confirmadas', contar('Confirmada'), 'bg-brand-700'],
   ]
 
   const cambiar = (campo) => (valor) => {
@@ -197,17 +222,42 @@ export default function Incidencias() {
                   <Avance estado={inc.paso} />
                 </div>
 
-                {inc.tecnico && inc.estado !== 'Resuelta' && (
+                {inc.tecnico && !inc.terminada && (
                   <p className="mt-3 flex items-center gap-2 text-xs text-slate-500">
                     <Wrench className="size-3.5" /> A cargo de <span className="font-semibold text-slate-700">{inc.tecnico}</span>
                   </p>
                 )}
-                {inc.estado === 'Resuelta' && (
-                  <div className="mt-4 rounded-xl bg-success-bg px-3.5 py-2.5 text-xs text-success-strong">
-                    <p className="flex items-center gap-2 font-semibold">
-                      <CheckCircle2 className="size-4 shrink-0" /> Resuelta{inc.tecnico ? ` por ${inc.tecnico}` : ''}
-                    </p>
-                    {inc.solucion && <p className="mt-1 pl-6">{inc.solucion}</p>}
+                {inc.estado === 'En proceso' && inc.observacion && (
+                  <p className="mt-3 rounded-xl bg-warning-bg px-3.5 py-2.5 text-xs text-warning-strong">
+                    <span className="font-semibold">La reabriste:</span> {inc.observacion}
+                  </p>
+                )}
+                {inc.terminada && (
+                  <div className={cn('mt-4 rounded-xl p-3.5', inc.estado === 'Por confirmar' ? 'bg-brand-50 ring-1 ring-brand-100' : 'bg-success-bg')}>
+                    <div className="flex gap-3">
+                      {inc.fotoSolucionUrl && <ArchivoProtegido url={inc.fotoSolucionUrl} alt="Foto del trabajo terminado" className="size-20 shrink-0" />}
+                      <div className="min-w-0 text-xs">
+                        <p className="font-semibold text-slate-800">{inc.tecnico ? `${inc.tecnico} la resolvió` : 'Mantenimiento la resolvió'}</p>
+                        {inc.solucion && <p className="mt-1 text-slate-600">{inc.solucion}</p>}
+                      </div>
+                    </div>
+                    {inc.estado === 'Por confirmar' ? (
+                      <div className="mt-3 border-t border-brand-100 pt-3">
+                        <p className="text-sm font-semibold text-brand-800">¿Quedó solucionado el problema?</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Button size="sm" icon={Check} disabled={confirmando} onClick={() => confirmar(inc, true)}>
+                            Sí, quedó bien
+                          </Button>
+                          <Button size="sm" variant="secondary" icon={RotateCcw} disabled={confirmando} onClick={() => setReabriendo(inc)}>
+                            No, sigue el problema
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-success-strong">
+                        <CheckCircle2 className="size-4 shrink-0" /> Confirmaste que quedó solucionada. ¡Gracias!
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -215,6 +265,37 @@ export default function Incidencias() {
           ))}
         </div>
       )}
+
+      <Modal
+        open={Boolean(reabriendo)}
+        onClose={() => setReabriendo(null)}
+        title="El problema sigue"
+        subtitle={reabriendo?.titulo}
+        icon={RotateCcw}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setReabriendo(null)}>
+              Cancelar
+            </Button>
+            <Button disabled={confirmando} onClick={() => confirmar(reabriendo, false, comentario)}>
+              {confirmando ? 'Enviando…' : 'Devolver a mantenimiento'}
+            </Button>
+          </>
+        }
+      >
+        <Field label="¿Qué sigue fallando?" htmlFor="inc-reabrir" required error={errorConfirmacion} hint="Mantenimiento recibirá este comentario y volverá a revisarla.">
+          <Textarea
+            id="inc-reabrir"
+            maxLength={500}
+            value={comentario}
+            onChange={(e) => {
+              setComentario(e.target.value)
+              setErrorConfirmacion('')
+            }}
+            placeholder="Ej. Ya no gotea el lavamanos, pero ahora sale agua por debajo del mueble"
+          />
+        </Field>
+      </Modal>
 
       <Modal
         open={modalAbierto}

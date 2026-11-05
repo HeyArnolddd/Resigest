@@ -34,7 +34,7 @@ import { colorZona } from '../../lib/zonas'
 const POR_PAGAR = ['PENDIENTE', 'VENCIDA']
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
-const PASOS_INCIDENCIA = ['Nueva', 'En proceso', 'Resuelta']
+const PASOS_INCIDENCIA = ['Nueva', 'En proceso', 'Resuelta', 'Confirmada']
 
 const fechaLarga = (d) => `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`
 const horaCorta = (d) => d.toTimeString().slice(0, 5)
@@ -145,11 +145,11 @@ function PasosIncidencia({ estado }) {
             className={cn(
               'flex size-5 items-center justify-center rounded-full text-[10px] font-bold',
               i < actual && 'bg-brand-600 text-white',
-              i === actual && (estado === 'Resuelta' ? 'bg-brand-600 text-white' : 'bg-brand-100 text-brand-700 ring-2 ring-brand-500'),
+              i === actual && (estado === 'Confirmada' ? 'bg-brand-600 text-white' : 'bg-brand-100 text-brand-700 ring-2 ring-brand-500'),
               i > actual && 'bg-slate-100 text-slate-400',
             )}
           >
-            {i < actual || estado === 'Resuelta' ? <Check className="size-3" strokeWidth={3} /> : i + 1}
+            {i < actual || estado === 'Confirmada' ? <Check className="size-3" strokeWidth={3} /> : i + 1}
           </span>
           {i < PASOS_INCIDENCIA.length - 1 && (
             <span className={cn('h-0.5 w-4 rounded-full', i < actual ? 'bg-brand-600' : 'bg-slate-200')} />
@@ -238,7 +238,7 @@ export default function Inicio({ onNavigate }) {
     .sort((a, b) => a.periodo.localeCompare(b.periodo))
     .slice(-6)
     .map((o) => ({ id: o.id, periodo: nombrePeriodo(o.periodo, true), valor: o.montoTotal, estado: o.estado === 'PAGADA' ? 'Pagada' : 'Pendiente' }))
-  const abiertas = misIncidencias.filter((i) => i.estado !== 'Resuelta')
+  const abiertas = misIncidencias.filter((i) => i.estado !== 'Confirmada')
   const enPorteria = paquetes.filter((p) => p.enPorteria)
   const sinLeer = notificaciones.length
   const vencida = pendientes.find((o) => o.estado === 'VENCIDA')
@@ -387,7 +387,8 @@ export default function Inicio({ onNavigate }) {
                   className={cn(
                     paso === 'Nueva' && 'bg-brand-300',
                     paso === 'En proceso' && 'bg-warning',
-                    paso === 'Resuelta' && 'bg-brand-600',
+                    paso === 'Resuelta' && 'bg-success',
+                    paso === 'Confirmada' && 'bg-brand-600',
                   )}
                 />
               )
@@ -401,7 +402,8 @@ export default function Inicio({ onNavigate }) {
                     'size-2 rounded-full',
                     paso === 'Nueva' && 'bg-brand-300',
                     paso === 'En proceso' && 'bg-warning',
-                    paso === 'Resuelta' && 'bg-brand-600',
+                    paso === 'Resuelta' && 'bg-success',
+                    paso === 'Confirmada' && 'bg-brand-600',
                   )}
                 />
                 {paso} {misIncidencias.filter((i) => i.paso === paso).length}

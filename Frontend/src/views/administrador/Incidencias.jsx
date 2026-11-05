@@ -239,8 +239,19 @@ export default function Incidencias() {
                             <Wrench className="size-3.5" /> A cargo de <span className="font-semibold text-slate-700">{inc.asignadoANombre}</span>
                           </p>
                         )}
-                        {inc.estado === 'RESUELTA' && inc.solucion && (
-                          <p className="mt-3 rounded-xl bg-success-bg px-3 py-2 text-xs text-success-strong">Solución: {inc.solucion}</p>
+                        {['RESUELTA', 'CERRADA'].includes(inc.estado) && inc.solucion && (
+                          <div className="mt-3 flex gap-3 rounded-xl bg-success-bg px-3 py-2 text-xs text-success-strong">
+                            {inc.fotoSolucionUrl && <ArchivoProtegido url={inc.fotoSolucionUrl} alt="Foto del trabajo terminado" className="size-14 shrink-0" />}
+                            <p>
+                              <span className="font-semibold">{inc.estado === 'CERRADA' ? 'Confirmada por el residente. ' : 'Esperando que el residente confirme. '}</span>
+                              Solución: {inc.solucion}
+                            </p>
+                          </div>
+                        )}
+                        {inc.estado === 'EN_PROCESO' && inc.observacionConfirmacion && (
+                          <p className="mt-3 rounded-xl bg-warning-bg px-3 py-2 text-xs text-warning-strong">
+                            <span className="font-semibold">Reabierta por el residente:</span> {inc.observacionConfirmacion}
+                          </p>
                         )}
                         {inc.estado === 'ABIERTA' && (
                           <div className="mt-3">
