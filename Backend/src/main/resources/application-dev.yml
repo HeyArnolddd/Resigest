@@ -6,7 +6,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     open-in-view: false
   flyway:
     enabled: true
@@ -18,6 +18,10 @@ app:
   jwt:
     secret: resigest-dev-secret-key-para-desarrollo-cambiar-en-produccion-2026
     expiracion-horas: 8
+  cors:
+    origins: http://localhost:5173
+  webhook:
+    secret: resigest-dev-webhook-secret
   pasarela: simulada
   wompi:
     url: https://sandbox.wompi.co/v1

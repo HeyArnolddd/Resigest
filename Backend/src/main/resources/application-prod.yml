@@ -6,3 +6,17 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiracion-horas: ${JWT_EXPIRACION_HORAS:8}
+  cors:
+    origins: ${CORS_ORIGINS}
+  webhook:
+    secret: ${WEBHOOK_SECRET}
+  pasarela: ${PASARELA:simulada}
+  wompi:
+    url: ${WOMPI_URL:https://api.wompi.co/v1}
+    llave-publica: ${WOMPI_PUBLIC_KEY:}
+    llave-privada: ${WOMPI_PRIVATE_KEY:}

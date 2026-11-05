@@ -52,7 +52,7 @@ public class PorteriaController {
     }
 
     @GetMapping("/bitacora")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public List<RegistroIngresoDTO> bitacora(@RequestParam LocalDate desde,
                                              @RequestParam LocalDate hasta) {
         return porteriaService.consultarBitacora(desde, hasta);

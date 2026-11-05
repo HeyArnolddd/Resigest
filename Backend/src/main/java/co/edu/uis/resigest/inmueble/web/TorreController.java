@@ -30,7 +30,7 @@ public class TorreController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<TorreDTO> crear(@Valid @RequestBody CrearTorreRequest request) {
         TorreDTO creada = torreService.crear(request);
         return ResponseEntity.created(URI.create("/api/torres/" + creada.id()))

@@ -38,7 +38,7 @@ public class IncidenciaController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANTENIMIENTO')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'MANTENIMIENTO')")
     public Page<IncidenciaDTO> listar(Pageable pageable) {
         return incidenciaService.listar(pageable);
     }
@@ -60,7 +60,7 @@ public class IncidenciaController {
     }
 
     @PatchMapping("/{id}/asignacion")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<IncidenciaDTO> asignar(@PathVariable Long id,
                                                  @Valid @RequestBody AsignarRequest request) {
         return ResponseEntity.ok(incidenciaService.asignar(id, request));

@@ -28,13 +28,13 @@ public class ProrrateoController {
     }
 
     @PostMapping("/preview")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public List<ProrrateoDetalleDTO> preview(@Valid @RequestBody ProrrateoRequest request) {
         return prorrateoService.preview(request);
     }
 
     @PostMapping("/confirmar")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<ProrrateoResultadoDTO> confirmar(@Valid @RequestBody ProrrateoRequest request) {
         return ResponseEntity.ok(prorrateoService.confirmar(request));
     }

@@ -12,6 +12,7 @@ public record UsuarioDTO(
         String documento,
         String telefono,
         boolean activo,
-        Rol rol
+        Rol rol,
+        ResidenteInfoDTO residente
 ) {
 }
