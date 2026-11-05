@@ -80,7 +80,7 @@ public class ReservaServiceImpl implements ReservaService {
     @Transactional
     public ReservaDTO rechazar(Long id, RechazoRequest request) {
         Reserva reserva = buscarReserva(id);
-        reserva.rechazar();
+        reserva.rechazar(request.justificacion());
         eventPublisher.publishEvent(new ReservaResueltaEvento(
                 reserva.getApartamento().getId(), reserva.getZonaComun().getNombre(), false));
         return ReservaDTO.de(reserva);

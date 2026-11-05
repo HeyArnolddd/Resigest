@@ -15,7 +15,15 @@ import co.edu.uis.resigest.usuarios.dto.CrearUsuarioRequest;
 import co.edu.uis.resigest.usuarios.dto.UsuarioDTO;
 import co.edu.uis.resigest.usuarios.mapper.UsuarioMapper;
 import co.edu.uis.resigest.usuarios.repository.UsuarioRepository;
+import co.edu.uis.resigest.financiero.domain.EstadoObligacion;
+import co.edu.uis.resigest.financiero.repository.ObligacionRepository;
+import co.edu.uis.resigest.usuarios.domain.Administrador;
+import co.edu.uis.resigest.usuarios.domain.Portero;
+import co.edu.uis.resigest.usuarios.domain.Residente;
+import co.edu.uis.resigest.usuarios.domain.Rol;
+import co.edu.uis.resigest.usuarios.domain.TecnicoMantenimiento;
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,12 +36,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class UsuarioServiceImpl implements UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
+    private final ObligacionRepository obligacionRepository;
     private final ApartamentoRepository apartamentoRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UsuarioServiceImpl(UsuarioRepository usuarioRepository,
                               ApartamentoRepository apartamentoRepository,
-                              PasswordEncoder passwordEncoder) {
+                              PasswordEncoder passwordEncoder,
+                              ObligacionRepository obligacionRepository) {
+        this.obligacionRepository = obligacionRepository;
         this.usuarioRepository = usuarioRepository;
         this.apartamentoRepository = apartamentoRepository;
         this.passwordEncoder = passwordEncoder;
@@ -63,8 +74,20 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<UsuarioDTO> listar(Pageable pageable) {
-        return usuarioRepository.findAll(pageable).map(UsuarioMapper::toDto);
+    public Page<UsuarioDTO> listar(Rol rol, Pageable pageable) {
+        Specification<Usuario> spec = (root, q, cb) -> cb.conjunction();
+        if (rol != null) {
+            Class<? extends Usuario> tipo = switch (rol) {
+                case RESIDENTE -> Residente.class;
+                case ADMINISTRADOR -> Administrador.class;
+                case PORTERO -> Portero.class;
+                case MANTENIMIENTO -> TecnicoMantenimiento.class;
+            };
+            spec = spec.and((root, q, cb) -> cb.equal(root.type(), tipo));
+        }
+        return usuarioRepository.findAll(spec, pageable).map(
+                u -> UsuarioMapper.toDto(u, apartamentoId -> obligacionRepository
+                        .existsByApartamentoIdAndEstado(apartamentoId, EstadoObligacion.VENCIDA)));
     }
 
     @Override

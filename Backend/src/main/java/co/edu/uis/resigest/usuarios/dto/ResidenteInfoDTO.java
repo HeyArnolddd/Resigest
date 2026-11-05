@@ -8,6 +8,7 @@ import co.edu.uis.resigest.usuarios.domain.TipoResidente;
 public record ResidenteInfoDTO(
         TipoResidente tipo,
         Long apartamentoId,
-        String apartamento
+        String apartamento,
+        Boolean alDia
 ) {
 }

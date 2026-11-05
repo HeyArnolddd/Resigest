@@ -45,6 +45,9 @@ public class Reserva extends EntidadBase {
     @Column(nullable = false, length = 20)
     private EstadoReserva estado;
 
+    @Column(length = 500)
+    private String justificacionRechazo;
+
     @Version
     private Long version;
 
@@ -73,11 +76,12 @@ public class Reserva extends EntidadBase {
         estado = EstadoReserva.APROBADA;
     }
 
-    public void rechazar() {
+    public void rechazar(String justificacion) {
         if (estado != EstadoReserva.PENDIENTE) {
             throw new ReglaNegocioException("Solo se puede rechazar una reserva PENDIENTE");
         }
         estado = EstadoReserva.RECHAZADA;
+        justificacionRechazo = justificacion;
     }
 
     public void cancelar() {
