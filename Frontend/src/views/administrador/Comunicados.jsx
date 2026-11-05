@@ -1,46 +1,50 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CheckCircle2, Megaphone, Send, Users, Waves } from 'lucide-react'
+import { CheckCircle2, Send } from 'lucide-react'
 import { Button, Field, Input, Textarea } from '../../components/ui'
+import { api } from '../../lib/api'
+import { aComunicado } from '../../lib/datos'
+import { useApi } from '../../lib/useApi'
 import { Titulo } from '../../components/ui/Panel'
 import CarteleraComunicados from '../../components/comunidad/CarteleraComunicados'
-import { comunicados } from '../../data/mock'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
 
-const destinatarios = ['Todos los residentes', 'Torre 1', 'Torre 2', 'Torre 3']
-const categorias = [
-  ['Aviso', Megaphone, 'bg-brand-50 text-brand-700 ring-brand-500'],
-  ['Asamblea', Users, 'bg-violet-50 text-violet-700 ring-violet-500'],
-  ['Zonas comunes', Waves, 'bg-sky-50 text-sky-700 ring-sky-500'],
-]
 const hoy = () => new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
 export default function Comunicados() {
-  const [publicados, setPublicados] = useState(() => comunicados.map((c) => ({ ...c, destino: 'Todos los residentes' })))
+  const { datos, recargar } = useApi('/api/comunicados', undefined, [])
+  const publicados = datos.map(aComunicado)
   const [publicado, setPublicado] = useState(false)
-  const [destino, setDestino] = useState(destinatarios[0])
-  const [categoria, setCategoria] = useState('Aviso')
+  const [error, setError] = useState('')
+  const [enviando, setEnviando] = useState(false)
   const [titulo, setTitulo] = useState('')
   const [contenido, setContenido] = useState('')
 
-  const publicar = (e) => {
+  const publicar = async (e) => {
     e.preventDefault()
-    const nuevo = { id: Date.now(), titulo, categoria, fecha: hoy(), contenido, destino }
-    setPublicados((p) => [nuevo, ...p])
-    setPublicado(true)
-    setTitulo('')
-    setContenido('')
-    setTimeout(() => setPublicado(false), 4000)
+    setError('')
+    setEnviando(true)
+    try {
+      await api.post('/api/comunicados', { titulo: titulo.trim(), cuerpo: contenido.trim() })
+      setPublicado(true)
+      setTitulo('')
+      setContenido('')
+      recargar()
+      setTimeout(() => setPublicado(false), 4000)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setEnviando(false)
+    }
   }
 
   const borrador = {
     id: 'borrador',
     titulo: titulo || 'Título del comunicado',
-    categoria,
+    categoria: 'Aviso',
     fecha: hoy(),
     contenido: contenido || 'Aquí verás el contenido tal como lo leerán los residentes en la cartelera.',
-    destino,
   }
 
   return (
@@ -69,26 +73,6 @@ export default function Comunicados() {
         <motion.section {...aparecer(0)} className={cn(tarjeta, 'p-5 sm:p-6')}>
           <Titulo>Nuevo comunicado</Titulo>
           <form onSubmit={publicar} className="mt-4 space-y-4">
-            <Field label="Categoría" required>
-              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Categoría">
-                {categorias.map(([c, Icono, tono]) => (
-                  <button
-                    key={c}
-                    type="button"
-                    role="radio"
-                    aria-checked={categoria === c}
-                    onClick={() => setCategoria(c)}
-                    className={cn(
-                      'flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-xs font-semibold outline-none ring-1 transition-all focus-visible:ring-2 focus-visible:ring-brand-500',
-                      categoria === c ? cn(tono, 'ring-2') : 'text-slate-600 ring-slate-200 hover:bg-slate-50',
-                    )}
-                  >
-                    <Icono className="size-5" strokeWidth={2} />
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </Field>
             <Field label="Título" required>
               <Input name="titulo" required value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ej. Corte de agua este sábado" />
             </Field>
@@ -102,28 +86,14 @@ export default function Comunicados() {
                 placeholder="Escribe el contenido del comunicado…"
               />
             </Field>
-            <Field label="Destinatarios" required>
-              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Destinatarios">
-                {destinatarios.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    role="radio"
-                    aria-checked={destino === d}
-                    onClick={() => setDestino(d)}
-                    className={cn(
-                      'rounded-full px-3 py-1.5 text-xs font-semibold outline-none ring-1 transition-colors focus-visible:ring-2 focus-visible:ring-brand-500',
-                      destino === d ? 'bg-brand-600 text-white ring-brand-600' : 'text-slate-600 ring-slate-300 hover:bg-slate-50',
-                    )}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            </Field>
+            {error && (
+              <p role="alert" className="rounded-lg bg-danger-bg px-3 py-2 text-sm font-medium text-danger-strong">
+                {error}
+              </p>
+            )}
             <div className="flex justify-end">
-              <Button type="submit" icon={Send}>
-                Publicar comunicado
+              <Button type="submit" icon={Send} disabled={enviando}>
+                {enviando ? 'Publicando…' : 'Publicar comunicado'}
               </Button>
             </div>
           </form>

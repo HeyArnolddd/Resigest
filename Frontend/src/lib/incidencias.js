@@ -1,3 +1,5 @@
+import { useApi } from './useApi'
+
 // Pasos de una incidencia y colores de estado y prioridad (residente y mantenimiento).
 
 export const PASOS = ['Nueva', 'En proceso', 'Resuelta']
@@ -41,7 +43,18 @@ export const aVistaIncidencia = (i) => ({
   fecha: i.fechaReporte ? i.fechaReporte.slice(0, 10).split('-').reverse().join('/') : '',
   prioridad: PRIORIDAD[i.prioridad] ?? 'Media',
   estado: ESTADO[i.estado] ?? 'Nueva',
+  estadoApi: i.estado,
   solicitante: i.reportadoPorNombre,
   asignadoA: i.asignadoANombre,
   solucion: i.solucion,
 })
+
+// Incidencias asignadas al técnico autenticado (pantallas de mantenimiento).
+export function useIncidenciasAsignadas() {
+  const { datos, cargando, error, recargar } = useApi(
+    '/api/incidencias',
+    { asignadoA: 'me', size: 200, sort: 'id,desc' },
+    { content: [] },
+  )
+  return { incidencias: datos.content.map(aVistaIncidencia), cargando, error, recargar }
+}

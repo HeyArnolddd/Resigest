@@ -1,17 +1,35 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Calendar, MapPin, Siren } from 'lucide-react'
-import { Avatar } from '../../components/ui'
+import { Avatar, Button, Select } from '../../components/ui'
 import IlustracionIncidencia from '../../components/incidencias/IlustracionIncidencia'
 import Avance from '../../components/incidencias/Avance'
-import { incidencias } from '../../data/mock'
-import { estilosEstado, puntoEstado, puntoPrioridad } from '../../lib/incidencias'
+import { api } from '../../lib/api'
+import { aVistaIncidencia, estilosEstado, puntoEstado, puntoPrioridad } from '../../lib/incidencias'
+import { useApi } from '../../lib/useApi'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
 
 const filtros = ['Todas', 'Nueva', 'En proceso', 'Resuelta']
 
 export default function Incidencias() {
+  const { datos, error, recargar } = useApi('/api/incidencias', { size: 200, sort: 'id,desc' }, { content: [] })
+  const tecnicos = useApi('/api/usuarios', { rol: 'MANTENIMIENTO', size: 100 }, { content: [] }).datos.content
+  const incidencias = datos.content.map(aVistaIncidencia)
+  const [elegido, setElegido] = useState({})
+  const [errorAccion, setErrorAccion] = useState('')
+
+  const asignar = async (inc) => {
+    const tecnicoId = Number(elegido[inc.idApi] ?? tecnicos[0]?.id)
+    setErrorAccion('')
+    try {
+      await api.patch(`/api/incidencias/${inc.idApi}/asignacion`, { tecnicoId })
+      recargar()
+    } catch (e) {
+      setErrorAccion(e.message)
+    }
+  }
+
   const [filtro, setFiltro] = useState('Todas')
   const [soloAlta, setSoloAlta] = useState(false)
 
@@ -25,6 +43,12 @@ export default function Incidencias() {
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Incidencias</h1>
         <p className="mt-1 text-sm text-slate-500">Todas las solicitudes del conjunto y su avance</p>
       </div>
+
+      {(error || errorAccion) && (
+        <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
+          {error?.message ?? errorAccion}
+        </p>
+      )}
 
       {/* Resumen */}
       <motion.div {...aparecer(0)} className={cn(tarjeta, 'flex flex-wrap items-center gap-x-8 gap-y-3 px-6 py-4')}>
@@ -119,6 +143,30 @@ export default function Incidencias() {
                   <div className="mt-4 border-t border-slate-100 pt-4">
                     <Avance estado={inc.estado} />
                   </div>
+                  {inc.estadoApi === 'ABIERTA' && tecnicos.length > 0 && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Select
+                        aria-label="Técnico"
+                        className="h-9 w-auto min-w-40 flex-1"
+                        value={elegido[inc.idApi] ?? tecnicos[0].id}
+                        onChange={(e) => setElegido({ ...elegido, [inc.idApi]: e.target.value })}
+                      >
+                        {tecnicos.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.nombreCompleto}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button size="sm" onClick={() => asignar(inc)}>
+                        Asignar
+                      </Button>
+                    </div>
+                  )}
+                  {inc.asignadoA && (
+                    <p className="mt-3 text-xs text-slate-500">
+                      Asignada a <span className="font-semibold text-slate-700">{inc.asignadoA}</span>
+                    </p>
+                  )}
                   <p className="mt-3 flex items-center gap-2 text-xs text-slate-500">
                     <Avatar nombre={inc.solicitante} size="sm" className="size-6 text-[10px]" />
                     Reportó <span className="font-semibold text-slate-700">{inc.solicitante}</span>

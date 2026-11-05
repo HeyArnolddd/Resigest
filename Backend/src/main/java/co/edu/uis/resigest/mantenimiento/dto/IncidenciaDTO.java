@@ -4,6 +4,8 @@ import co.edu.uis.resigest.mantenimiento.domain.EvidenciaIncidencia;
 import co.edu.uis.resigest.mantenimiento.domain.Incidencia;
 import co.edu.uis.resigest.usuarios.domain.Residente;
 
+import org.hibernate.Hibernate;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -27,7 +29,8 @@ public record IncidenciaDTO(
 ) {
 
     public static IncidenciaDTO de(Incidencia incidencia) {
-        String apartamento = incidencia.getReportadoPor() instanceof Residente r
+        // El reportante llega como proxy LAZY de Usuario: hay que desenvolverlo para saber si es residente.
+        String apartamento = Hibernate.unproxy(incidencia.getReportadoPor()) instanceof Residente r
                 ? r.getApartamento().identificadorCompleto() : null;
         return new IncidenciaDTO(
                 incidencia.getId(),

@@ -26,8 +26,9 @@ public class MensajeChat extends EntidadBase {
     @JoinColumn(name = "remitente_id", nullable = false)
     private Usuario remitente;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "destinatario_id", nullable = false)
+    /** Null cuando el mensaje es del chat comunitario. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "destinatario_id")
     private Usuario destinatario;
 
     @Column(nullable = false, length = 1000)

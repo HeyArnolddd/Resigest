@@ -3,19 +3,36 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Building2, Phone, Search } from 'lucide-react'
 import { Avatar } from '../../components/ui'
 import { Isotipo } from '../../components/ui/Logo'
-import { carteraConjunto, residentes } from '../../data/mock'
+import { useApi } from '../../lib/useApi'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
 
-const TORRES = ['Todas', 'T1', 'T2', 'T3']
+// Residente del API → tarjeta. "Torre 1 – Apto 101" se muestra como "T1 · 101".
+const aResidente = (u) => {
+  const [, torre, apto] = (u.residente?.apartamento ?? '').match(/Torre (\S+) . Apto (\S+)/) ?? []
+  return {
+    id: u.id,
+    nombre: u.nombreCompleto,
+    apartamento: torre ? `T${torre} · ${apto}` : '—',
+    celular: u.telefono ?? 'Sin teléfono',
+    alDia: u.residente?.alDia !== false,
+  }
+}
 const CUENTAS = ['Todos', 'Al día', 'En mora']
 
 export default function Residentes() {
+  const { datos, error } = useApi('/api/usuarios', { rol: 'RESIDENTE', size: 500 }, { content: [] })
+  const residentes = datos.content.map(aResidente)
+  const TORRES = ['Todas', ...[...new Set(residentes.map((r) => r.apartamento.split(' ')[0]))].sort()]
+  const carteraConjunto = {
+    alDia: residentes.filter((r) => r.alDia).length,
+    enMora: residentes.filter((r) => !r.alDia).length,
+  }
   const [query, setQuery] = useState('')
   const [torre, setTorre] = useState('Todas')
   const [cuenta, setCuenta] = useState('Todos')
 
-  const alDia = (r) => r.estadoCuenta === 'Al día'
+  const alDia = (r) => r.alDia
   const texto = query.trim().toLowerCase()
   const filtrados = residentes.filter(
     (r) =>
@@ -29,8 +46,14 @@ export default function Residentes() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Residentes</h1>
-        <p className="mt-1 text-sm text-slate-500">128 registrados en 3 torres · 120 apartamentos</p>
+        <p className="mt-1 text-sm text-slate-500">{residentes.length} registrados en {TORRES.length - 1} {TORRES.length === 2 ? 'torre' : 'torres'}</p>
       </div>
+
+      {error && (
+        <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
+          {error.message}
+        </p>
+      )}
 
       {/* Resumen por torre */}
       <div className="grid gap-5 sm:grid-cols-3">
@@ -52,7 +75,7 @@ export default function Residentes() {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-bold text-slate-900">Torre {t.slice(1)}</span>
-              <span className="block text-xs text-slate-500">40 apartamentos</span>
+              <span className="block text-xs text-slate-500">Residentes registrados</span>
             </span>
             <span className="text-right">
               <span className="block text-2xl font-extrabold text-slate-900 tabular-nums">{n}</span>
@@ -104,7 +127,6 @@ export default function Residentes() {
           <AnimatePresence mode="popLayout">
             {filtrados.map((r) => {
               const alDiaR = alDia(r)
-              const [saldo, meses] = r.estadoCuenta.split(' · ')
               return (
                 <motion.article
                   key={r.id}
@@ -129,7 +151,7 @@ export default function Residentes() {
                         <p className="rounded-xl bg-success-bg px-3 py-2 text-xs font-semibold text-success-strong">Al día con la administración</p>
                       ) : (
                         <p className="rounded-xl bg-warning-bg px-3 py-2 text-xs text-warning-strong">
-                          <span className="font-bold">{saldo}</span> en mora · {meses}
+                          <span className="font-bold">Cartera vencida</span> · pendiente de pago
                         </p>
                       )}
                     </div>

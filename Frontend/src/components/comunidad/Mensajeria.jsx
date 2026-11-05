@@ -3,44 +3,87 @@ import PropTypes from 'prop-types'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowLeft, CheckCheck, Lock, PenSquare, Search, Send, Users, X } from 'lucide-react'
 import { Avatar, Button } from '../ui'
-import { mensajesComunidad, mensajesPrivados, vecinosChat } from '../../data/mock'
-import { cn } from '../../lib/utils'
+import { api } from '../../lib/api'
+import { useSesion } from '../../lib/sesion'
+import { useApi } from '../../lib/useApi'
+import { cn, iniciales } from '../../lib/utils'
 
 // Chat del residente: la conversación comunitaria y los mensajes privados con otros
 // residentes. A la izquierda la lista de conversaciones; a la derecha la conversación abierta.
-// En pantallas angostas se ve una cosa a la vez.
+// En pantallas angostas se ve una cosa a la vez. Los mensajes se actualizan cada pocos segundos.
 
-const YO = { id: 1, nombre: 'Juan Pérez', apartamento: 'T2 · 304' }
 const COMUNIDAD = 'comunidad'
-// Los mocks toman el 09/09/2026 como "hoy"
-const HOY = '2026-09-09'
+const REFRESCO_MS = 4000
 
 const hora = (iso) => iso.slice(11, 16)
-const dia = (iso) => (iso.startsWith(HOY) ? 'Hoy' : 'Ayer')
-const ahoraIso = () => {
+const hoyISO = () => {
   const d = new Date()
-  return `${HOY}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:00`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-// El chat comunitario del mock solo trae la hora; se ubica en el día de hoy
-const comunidadInicial = mensajesComunidad.map((m) => ({ ...m, fecha: `${HOY}T${m.hora}:00` }))
+const dia = (iso) => (iso.startsWith(hoyISO()) ? 'Hoy' : iso.slice(0, 10).split('-').reverse().join('/'))
+
+// Ejecuta `fn` cada `ms` mientras el componente esté montado.
+function useIntervalo(fn, ms) {
+  const ultima = useRef(fn)
+  useEffect(() => {
+    ultima.current = fn
+  })
+  useEffect(() => {
+    const id = setInterval(() => ultima.current(), ms)
+    return () => clearInterval(id)
+  }, [ms])
+}
 
 export default function Mensajeria() {
-  const [grupo, setGrupo] = useState(comunidadInicial)
-  const [privados, setPrivados] = useState(mensajesPrivados)
+  const { sesion } = useSesion()
+  const YO = { id: sesion.perfil.id, nombre: sesion.usuario, apartamento: sesion.perfil.residente?.apartamento ?? '' }
+
+  const comunidad = useApi('/api/chat/comunidad', undefined, [])
+  const contactos = useApi('/api/chat/contactos', undefined, [])
+  const previas = useApi('/api/chat/conversaciones', undefined, [])
+  const grupo = comunidad.datos.map((m) => ({
+    id: m.id,
+    autor: m.remitenteNombre,
+    torre: m.remitenteApartamento ?? '',
+    texto: m.contenido,
+    fecha: m.fecha,
+  }))
+  const vecinosChat = contactos.datos
+    .map((c) => ({ id: c.id, nombre: c.nombre, apartamento: c.apartamento ?? '' }))
+  const [privados, setPrivados] = useState([])
   const [activa, setActiva] = useState(COMUNIDAD)
-  const [sinLeer, setSinLeer] = useState({ [COMUNIDAD]: 0, 8: 2 })
+  const [sinLeer, setSinLeer] = useState({})
   const [abiertas, setAbiertas] = useState([])
   const [eligiendo, setEligiendo] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [enChat, setEnChat] = useState(false) // solo afecta a pantallas angostas
   const [borrador, setBorrador] = useState('')
+  const [error, setError] = useState('')
   const caja = useRef(null)
 
-  const vecino = (id) => vecinosChat.find((v) => v.id === id)
+  const vecino = (id) => vecinosChat.find((v) => v.id === id) ?? { id, nombre: 'Vecino', apartamento: '' }
   const conQuien = (m) => (m.remitenteId === YO.id ? m.destinatarioId : m.remitenteId)
 
+  // Mensajes privados de cada conversación conocida (previas, abiertas y la activa)
+  const idsPrivados = [...new Set([...previas.datos.map((c) => c.id), ...abiertas, ...(activa === COMUNIDAD ? [] : [activa])])]
+  const clavePrivados = idsPrivados.join(',')
+  const cargarPrivados = async () => {
+    const respuestas = await Promise.allSettled(idsPrivados.map((id) => api.get('/api/chat', { conUsuarioId: id })))
+    const todos = respuestas.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
+    setPrivados(todos)
+  }
+  useEffect(() => {
+    if (idsPrivados.length) cargarPrivados()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clavePrivados])
+  useIntervalo(() => {
+    comunidad.recargar()
+    if (idsPrivados.length) cargarPrivados()
+  }, REFRESCO_MS)
+
   // Conversaciones privadas: con quien haya mensajes o se haya abierto una nueva, la más reciente arriba
-  const conversaciones = [...new Set([...privados.map(conQuien), ...abiertas])]
+  const conversaciones = idsPrivados
+    .filter((id) => id !== COMUNIDAD)
     .map((id) => ({ ...vecino(id), ultimo: privados.filter((m) => conQuien(m) === id).at(-1) }))
     // Los ids crecen con cada mensaje; las conversaciones nuevas sin mensajes van arriba
     .sort((a, b) => (b.ultimo?.id ?? Number.MAX_SAFE_INTEGER) - (a.ultimo?.id ?? Number.MAX_SAFE_INTEGER))
@@ -67,6 +110,7 @@ export default function Mensajeria() {
     setEligiendo(false)
     setBusqueda('')
     setBorrador('')
+    setError('')
   }
 
   const nuevoPrivado = (id) => {
@@ -74,16 +118,23 @@ export default function Mensajeria() {
     abrir(id)
   }
 
-  const enviar = (e) => {
+  const enviar = async (e) => {
     e.preventDefault()
     const texto = borrador.trim()
     if (!texto) return
-    if (esGrupo) {
-      setGrupo((g) => [...g, { id: Date.now(), autor: YO.nombre, torre: YO.apartamento, hora: ahoraIso().slice(11, 16), texto, fecha: ahoraIso() }])
-    } else {
-      setPrivados((p) => [...p, { id: Date.now(), remitenteId: YO.id, destinatarioId: activa, contenido: texto, fecha: ahoraIso() }])
+    setError('')
+    try {
+      if (esGrupo) {
+        await api.post('/api/chat/comunidad', { contenido: texto })
+        comunidad.recargar()
+      } else {
+        const creado = await api.post('/api/chat', { destinatarioId: activa, contenido: texto })
+        setPrivados((p) => [...p, creado])
+      }
+      setBorrador('')
+    } catch (err) {
+      setError(err.message)
     }
-    setBorrador('')
   }
 
   const texto = busqueda.trim().toLowerCase()
@@ -155,9 +206,9 @@ export default function Mensajeria() {
                     </span>
                   }
                   titulo="Chat comunitario"
-                  detalle={`${grupo.at(-1).autor.split(' ')[0]}: ${grupo.at(-1).texto}`}
-                  hora={hora(grupo.at(-1).fecha)}
-                  sinLeer={sinLeer[COMUNIDAD]}
+                  detalle={grupo.length ? `${grupo.at(-1).autor.split(' ')[0]}: ${grupo.at(-1).texto}` : 'Sé el primero en escribir'}
+                  hora={grupo.length ? hora(grupo.at(-1).fecha) : ''}
+                  sinLeer={sinLeer[COMUNIDAD] ?? 0}
                 />
               </li>
               <li className="px-2 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Privados</li>
@@ -169,7 +220,7 @@ export default function Mensajeria() {
                     icono={<Avatar nombre={c.nombre} size="md" />}
                     titulo={c.nombre}
                     detalle={c.ultimo ? `${c.ultimo.remitenteId === YO.id ? 'Tú: ' : ''}${c.ultimo.contenido}` : 'Nueva conversación'}
-                    hora={c.ultimo ? (dia(c.ultimo.fecha) === 'Hoy' ? hora(c.ultimo.fecha) : 'Ayer') : ''}
+                    hora={c.ultimo ? (dia(c.ultimo.fecha) === 'Hoy' ? hora(c.ultimo.fecha) : dia(c.ultimo.fecha)) : ''}
                     sinLeer={sinLeer[c.id] ?? 0}
                   />
                 </li>
@@ -191,7 +242,7 @@ export default function Mensajeria() {
               <h3 className="font-bold">Chat comunitario</h3>
               <p className="flex items-center gap-1.5 text-xs text-brand-100">
                 <span className="size-2 rounded-full bg-lime-300 ring-2 ring-lime-300/30" />
-                12 en línea · 128 residentes
+                {vecinosChat.length + 1} residentes
               </p>
             </div>
           </header>
@@ -215,11 +266,23 @@ export default function Mensajeria() {
         >
           {hilo.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-              <Avatar nombre={contacto.nombre} size="lg" />
-              <p className="text-sm font-semibold text-slate-800">Escríbele a {contacto.nombre.split(' ')[0]}</p>
-              <p className="flex items-center gap-1 text-xs text-slate-500">
-                <Lock className="size-3" /> Solo ustedes dos verán esta conversación.
-              </p>
+              {esGrupo ? (
+                <>
+                  <span className="flex size-12 items-center justify-center rounded-full bg-brand-600 text-white">
+                    <Users className="size-5" />
+                  </span>
+                  <p className="text-sm font-semibold text-slate-800">Todavía no hay mensajes</p>
+                  <p className="text-xs text-slate-500">Escribe el primero para saludar a tus vecinos.</p>
+                </>
+              ) : (
+                <>
+                  <Avatar nombre={contacto.nombre} size="lg" />
+                  <p className="text-sm font-semibold text-slate-800">Escríbele a {contacto.nombre.split(' ')[0]}</p>
+                  <p className="flex items-center gap-1 text-xs text-slate-500">
+                    <Lock className="size-3" /> Solo ustedes dos verán esta conversación.
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             dias.map((d) => (
@@ -243,7 +306,7 @@ export default function Mensajeria() {
                           className={cn('flex items-end gap-2.5', m.mio && 'flex-row-reverse')}
                         >
                           {m.mio ? (
-                            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">JP</span>
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">{iniciales(YO.nombre)}</span>
                           ) : continua ? (
                             <span className="size-8 shrink-0" />
                           ) : (
@@ -277,6 +340,11 @@ export default function Mensajeria() {
           )}
         </div>
 
+        {error && (
+          <p role="alert" className="border-t border-danger/20 bg-danger-bg px-4 py-2 text-xs font-medium text-danger-strong">
+            {error}
+          </p>
+        )}
         <form onSubmit={enviar} className="flex items-center gap-2 border-t border-slate-100 bg-white p-3">
           <label htmlFor="mensaje-chat" className="sr-only">
             {esGrupo ? 'Mensaje para la comunidad' : `Mensaje privado para ${contacto.nombre}`}

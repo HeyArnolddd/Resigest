@@ -2,6 +2,8 @@ package co.edu.uis.resigest.comunicaciones.web;
 
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
 import co.edu.uis.resigest.comunicaciones.dto.ChatMensajeRequest;
+import co.edu.uis.resigest.comunicaciones.dto.ComunidadMensajeRequest;
+import co.edu.uis.resigest.comunicaciones.dto.ContactoChatDTO;
 import co.edu.uis.resigest.comunicaciones.dto.MensajeChatDTO;
 import co.edu.uis.resigest.comunicaciones.service.ChatService;
 import jakarta.validation.Valid;
@@ -34,6 +36,27 @@ public class ChatController {
                                                  @AuthenticationPrincipal UsuarioAutenticado autenticado) {
         return ResponseEntity.ok(chatService.enviar(
                 autenticado.getId(), request.destinatarioId(), request.contenido()));
+    }
+
+    @GetMapping("/comunidad")
+    public List<MensajeChatDTO> comunidad() {
+        return chatService.comunidad();
+    }
+
+    @PostMapping("/comunidad")
+    public ResponseEntity<MensajeChatDTO> enviarComunidad(@Valid @RequestBody ComunidadMensajeRequest request,
+                                                          @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return ResponseEntity.ok(chatService.enviarComunidad(autenticado.getId(), request.contenido()));
+    }
+
+    @GetMapping("/contactos")
+    public List<ContactoChatDTO> contactos(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return chatService.contactos(autenticado.getId());
+    }
+
+    @GetMapping("/conversaciones")
+    public List<ContactoChatDTO> conversaciones(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return chatService.conversaciones(autenticado.getId());
     }
 
     @GetMapping
