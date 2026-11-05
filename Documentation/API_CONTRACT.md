@@ -26,11 +26,11 @@ Authorization: Bearer <token>
 ```
 
 **Credenciales demo** (todas con contraseña `admin123`):
-`admin@resigest.com` (ADMIN) · `residente@resigest.com` (RESIDENTE) · `portero@resigest.com` (PORTERO) · `tecnico@resigest.com` (MANTENIMIENTO)
+`admin@resigest.com` (ADMINISTRADOR) · `residente@resigest.com` (RESIDENTE) · `portero@resigest.com` (PORTERO) · `tecnico@resigest.com` (MANTENIMIENTO)
 
 ## 2. Convenciones
 
-**Roles:** `ADMINISTRADOR`, `RESIDENTE`, `PORTERO`, `MANTENIMIENTO`
+**Roles:** `ADMINISTRADOR`, `RESIDENTE`, `PORTERO`, `MANTENIMIENTO`. En las tablas, "ADMIN" es abreviatura de `ADMINISTRADOR` (en el código: `hasRole('ADMINISTRADOR')`).
 
 **Formato de error** (siempre esta forma):
 
@@ -56,19 +56,40 @@ Authorization: Bearer <token>
 
 | Método | Ruta | Rol | Body → Response |
 |---|---|---|---|
-| POST | `/api/usuarios` | ADMIN | Crear usuario → `201` UsuarioDTO |
-| GET | `/api/usuarios?rol=RESIDENTE` | ADMIN | → `[UsuarioDTO]` |
+| POST | `/api/usuarios` | ADMIN | CrearUsuarioRequest → `201` UsuarioDTO (`409` si el correo ya existe) |
+| GET | `/api/usuarios?rol=&q=&activo=&page=0&size=20` | ADMIN | → `Page<UsuarioDTO>` (orden por defecto: nombre) |
 | GET | `/api/usuarios/me` | autenticado | → UsuarioDTO |
+| GET | `/api/usuarios/{id}` | ADMIN | → UsuarioDTO |
+| PUT | `/api/usuarios/{id}` | ADMIN | ActualizarUsuarioRequest → UsuarioDTO |
+| PATCH | `/api/usuarios/{id}/activar` | ADMIN | → `204` |
+| PATCH | `/api/usuarios/{id}/desactivar` | ADMIN | → `204` (`422` si es la propia cuenta) |
+| DELETE | `/api/usuarios/{id}` | ADMIN | → `204` (`409` si tiene historial: desactivar en su lugar) |
+| PATCH | `/api/usuarios/{id}/contrasena` | ADMIN | `{ "contrasena": "..." }` → `204` |
+| GET | `/api/usuarios/{id}/credenciales` | ADMIN | → CredencialesDTO (solo PORTERO y MANTENIMIENTO; `422` para otros roles) |
+
+Filtros del listado (todos opcionales): `rol` (enum), `q` (busca en nombre, correo y documento), `activo` (`true`/`false`).
+
+El **correo es el usuario** con el que se inicia sesión; se guarda en minúscula. Una cuenta desactivada no puede iniciar sesión y su token deja de servir de inmediato.
+
+**Credenciales del personal:** al crear o cambiar la contraseña de un usuario de portería o mantenimiento, el backend guarda, además del hash BCrypt, una copia cifrada (AES-256-GCM, clave `app.credenciales.clave` / variable `RESIGEST_CLAVE_CREDENCIALES`) que el administrador puede consultar. La de residentes y administradores **no** se puede consultar, solo reemplazar.
 
 ```json
-// CrearUsuarioRequest
+// CrearUsuarioRequest (turno solo para PORTERO, especialidad para MANTENIMIENTO,
+// tipoResidente y apartamentoId obligatorios para RESIDENTE)
 { "nombreCompleto": "Ana", "correo": "ana@x.com", "contrasena": "secreto1",
   "documento": "123", "telefono": "300", "rol": "RESIDENTE",
-  "tipoResidente": "ARRENDATARIO", "apartamentoId": 2 }
+  "tipoResidente": "ARRENDATARIO", "apartamentoId": 2, "turno": null, "especialidad": null }
 
-// UsuarioDTO
+// ActualizarUsuarioRequest: igual que crear, sin rol ni contrasena (el rol no cambia)
+
+// UsuarioDTO (los campos que no aplican al rol vienen en null)
 { "id": 2, "nombreCompleto": "Ana", "correo": "ana@x.com", "documento": "123",
-  "telefono": "300", "activo": true, "rol": "RESIDENTE" }
+  "telefono": "300", "activo": true, "rol": "RESIDENTE",
+  "tipoResidente": "ARRENDATARIO", "apartamentoId": 2, "apartamento": "Torre 1 – Apto 102",
+  "turno": null, "especialidad": null, "fechaCreacion": "2026-11-04T20:00:00" }
+
+// CredencialesDTO (contrasena = null si la cuenta se creó antes de esta función)
+{ "correo": "portero@resigest.com", "contrasena": "Kx7mPq2nRt" }
 ```
 
 ## 4. Inmueble (torres y apartamentos)
@@ -238,7 +259,7 @@ Authorization: Bearer <token>
 
 **Paginación** (ahora devuelven `Page`: `content`, `totalElements`, `totalPages`, `number`, `size`):
 
-- `GET /api/usuarios?page=0&size=10`
+- `GET /api/usuarios?page=0&size=10` (ver sección 3 para los filtros)
 - `GET /api/incidencias?page=0&size=10`
 
 **Chat en tiempo real (WebSocket/STOMP):**

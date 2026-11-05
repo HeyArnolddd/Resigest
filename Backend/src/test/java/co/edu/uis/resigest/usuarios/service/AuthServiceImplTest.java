@@ -36,6 +36,9 @@ class AuthServiceImplTest {
     @Mock
     private co.edu.uis.resigest.usuarios.repository.TokenRecuperacionRepository tokenRecuperacionRepository;
 
+    @Mock
+    private co.edu.uis.resigest.common.security.CifradorContrasenas cifrador;
+
     @InjectMocks
     private AuthServiceImpl authService;
 
