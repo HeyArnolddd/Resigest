@@ -132,7 +132,7 @@ function Fila({ etiqueta, valor }) {
 
 export default function Reservas() {
   const { usuario } = useSesion()
-  const { datos, error, recargar } = useCarga(cargarTodo)
+  const { datos, error, recargar } = useCarga(cargarTodo, 'res:reservas')
   const [ahora] = useState(() => new Date())
   const [zonaId, setZonaId] = useState(null)
   const [dia, setDia] = useState(null)

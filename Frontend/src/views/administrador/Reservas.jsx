@@ -70,7 +70,7 @@ Solicitud.propTypes = {
 }
 
 export default function Reservas() {
-  const { datos, error, recargar } = useCarga(cargarTodo)
+  const { datos, error, recargar } = useCarga(cargarTodo, 'admin:reservas')
   const [detalle, setDetalle] = useState(null)
   const [rechazo, setRechazo] = useState(null)
   const [motivo, setMotivo] = useState('')

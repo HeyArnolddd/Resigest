@@ -101,7 +101,7 @@ export default function Dashboard({ onNavigate }) {
   const { usuario } = useSesion()
   const ahora = useAhora()
   const fecha = ahora.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
-  const { datos, error, recargar } = useCarga(cargarTodo)
+  const { datos, error, recargar } = useCarga(cargarTodo, 'admin:dashboard')
 
   const encabezado = (
     <>

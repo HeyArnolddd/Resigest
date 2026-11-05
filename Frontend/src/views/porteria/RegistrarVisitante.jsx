@@ -21,7 +21,7 @@ const EMPRESAS = {
 const inicial = { nombre: '', documento: '', apartamentoId: '', empresa: '' }
 
 export default function RegistrarVisitante({ open, onClose, onRegistrado }) {
-  const { datos: apartamentos } = useCarga(porteriaApi.apartamentos)
+  const { datos: apartamentos } = useCarga(porteriaApi.apartamentos, 'apartamentos')
   const [tipo, setTipo] = useState('Visitante')
   const [entregaRapida, setEntregaRapida] = useState(false)
   const [datos, setDatos] = useState(inicial)

@@ -222,7 +222,7 @@ export default function Inicio({ onNavigate }) {
   const modo = new URLSearchParams(window.location.search).get('modo')
   const noche = modo ? modo === 'noche' : esDeNoche(ahora)
   const primerNombre = usuario.nombreCompleto.split(' ')[0]
-  const { datos } = useCarga(() => cargarTodo(usuario.apartamentoId))
+  const { datos } = useCarga(() => cargarTodo(usuario.apartamentoId), 'res:inicio')
   const { obligaciones = [], reservas = [], incidencias: misIncidencias = [], paquetes = [], notificaciones = [] } = datos ?? {}
 
   const misReservas = reservas

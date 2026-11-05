@@ -26,7 +26,7 @@ function Chinche({ className }) {
 
 Chinche.propTypes = { className: PropTypes.string }
 
-export default function CarteleraComunicados({ comunicados, titulo = 'Cartelera de la administración', columnas = 'sm:grid-cols-3', contador = true }) {
+export default function CarteleraComunicados({ comunicados, titulo = 'Cartelera de la administración', columnas = 'sm:grid-cols-3', contador = true, cargando = false }) {
   return (
     <div className="h-full rounded-xl bg-[#a8875a] p-1 shadow-[0_18px_36px_-18px_rgb(15_23_42/0.45)]">
       <div className="h-full rounded-lg bg-[#c9a877] p-2.5 sm:p-3">
@@ -35,14 +35,29 @@ export default function CarteleraComunicados({ comunicados, titulo = 'Cartelera 
             <h2 className="rounded-md bg-white/85 px-3 py-1 text-sm font-bold text-slate-900 shadow-sm">
               {titulo}
             </h2>
-            {contador && (
+            {contador && !cargando && (
               <span className="rounded-md bg-brand-700 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
                 {comunicados.length} {comunicados.length === 1 ? 'comunicado' : 'comunicados'}
               </span>
             )}
           </div>
 
-          {comunicados.length === 0 && (
+          {/* Mientras carga: el mismo corcho con hojas en blanco, para que la página no salte */}
+          {cargando && (
+            <ul className={cn('mt-6 grid gap-6 sm:gap-5', columnas)} role="status" aria-label="Cargando comunicados">
+              {[0, 1, 2].map((i) => (
+                <li key={i} className={cn('relative rounded-sm bg-white/90 p-4 shadow-[0_10px_18px_-10px_rgb(60_40_10/0.55)]', giros[i % giros.length], i > 0 && 'max-sm:hidden')}>
+                  <Chinche className={porDefecto.chinche} />
+                  <span className="block h-3 w-2/3 animate-pulse rounded bg-slate-200" />
+                  <span className="mt-3 block h-2.5 w-full animate-pulse rounded bg-slate-100" />
+                  <span className="mt-2 block h-2.5 w-5/6 animate-pulse rounded bg-slate-100" />
+                  <span className="mt-2 block h-2.5 w-1/2 animate-pulse rounded bg-slate-100" />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!cargando && comunicados.length === 0 && (
             <div className="relative mx-auto mt-6 max-w-sm rounded-sm bg-white px-5 py-6 text-center shadow-[0_10px_18px_-10px_rgb(60_40_10/0.55)] sm:-rotate-[1deg]">
               <Chinche className={porDefecto.chinche} />
               <p className="text-sm font-bold text-slate-900">Todavía no hay comunicados</p>
@@ -50,7 +65,7 @@ export default function CarteleraComunicados({ comunicados, titulo = 'Cartelera 
             </div>
           )}
 
-          <ul className={cn('mt-6 grid gap-6 sm:gap-5', columnas, comunicados.length === 0 && 'hidden')}>
+          <ul className={cn('mt-6 grid gap-6 sm:gap-5', columnas, (cargando || comunicados.length === 0) && 'hidden')}>
             {comunicados.map((c, i) => {
               const estilo = estiloCategoria[c.categoria] ?? porDefecto
               const Icono = estilo.icono
@@ -112,4 +127,5 @@ CarteleraComunicados.propTypes = {
   titulo: PropTypes.string,
   columnas: PropTypes.string,
   contador: PropTypes.bool,
+  cargando: PropTypes.bool,
 }

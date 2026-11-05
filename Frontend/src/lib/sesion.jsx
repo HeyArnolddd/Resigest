@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import PropTypes from 'prop-types'
 import { EVENTO_SESION_EXPIRADA, api, borrarToken, guardarToken, leerToken } from './api'
+import { limpiarCache } from './useCarga'
 
 const SesionContext = createContext(null)
 
@@ -13,6 +14,7 @@ export function SesionProvider({ children }) {
 
   const cerrarSesion = useCallback((mensaje = '') => {
     borrarToken()
+    limpiarCache()
     setUsuario(null)
     setAviso(mensaje)
   }, [])
@@ -34,6 +36,7 @@ export function SesionProvider({ children }) {
   const iniciarSesion = useCallback(async (correo, contrasena, recordar) => {
     const { token } = await api('/auth/login', { method: 'POST', body: { correo: correo.trim(), contrasena } })
     guardarToken(token, recordar)
+    limpiarCache()
     try {
       const perfil = await api('/usuarios/me')
       setAviso('')

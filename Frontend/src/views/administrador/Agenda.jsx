@@ -14,7 +14,7 @@ const nuevo = () => ({ titulo: '', descripcion: '', fecha: '', horaInicio: '', h
 // Agenda del conjunto: la administración publica asambleas, mantenimientos programados, trámites y eventos.
 // Los residentes la ven en Comunidad.
 export default function Agenda() {
-  const { datos: eventos, error, recargar } = useCarga(agendaApi.proximos)
+  const { datos: eventos, error, recargar } = useCarga(agendaApi.proximos, 'admin:agenda')
   const [form, setForm] = useState(nuevo)
   const [errores, setErrores] = useState({})
   const [errorGeneral, setErrorGeneral] = useState('')

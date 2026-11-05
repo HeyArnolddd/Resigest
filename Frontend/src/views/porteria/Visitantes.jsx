@@ -94,7 +94,7 @@ GafeteVisitante.propTypes = {
 }
 
 export default function Visitantes() {
-  const { datos: lista, error, recargar } = useCarga(ingresosDelDia)
+  const { datos: lista, error, recargar } = useCarga(ingresosDelDia, 'port:visitantes')
   const [modal, setModal] = useState(false)
   const [filtro, setFiltro] = useState('Todos')
   const [busqueda, setBusqueda] = useState('')

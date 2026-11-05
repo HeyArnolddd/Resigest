@@ -237,7 +237,7 @@ function RevisarPago({ pago, onClose, onDecidido }) {
 RevisarPago.propTypes = { pago: PropTypes.object.isRequired, onClose: PropTypes.func.isRequired, onDecidido: PropTypes.func.isRequired }
 
 export default function Finanzas() {
-  const { datos, error, recargar } = useCarga(cargarTodo)
+  const { datos, error, recargar } = useCarga(cargarTodo, 'admin:finanzas')
   const [modal, setModal] = useState(null)
   const [aviso, setAviso] = useState('')
   const [periodoTabla, setPeriodoTabla] = useState('')
