@@ -45,9 +45,7 @@ services:
       # Vite 8 necesita Node 20.19 o superior
       - key: NODE_VERSION
         value: "22"
-      # Dirección del backend; la llena Render sola
+      # Dirección pública del backend (fromService/host entrega el nombre interno, que el navegador no alcanza).
+      # Si el backend queda con otro nombre en Render, cambiarla aquí.
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: resigest-api
-          property: host
+        value: https://resigest-api.onrender.com
