@@ -1,6 +1,7 @@
 package co.edu.uis.resigest.usuarios.web;
 
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
+import co.edu.uis.resigest.usuarios.domain.Rol;
 import co.edu.uis.resigest.usuarios.dto.CrearUsuarioRequest;
 import co.edu.uis.resigest.usuarios.dto.UsuarioDTO;
 import co.edu.uis.resigest.usuarios.service.UsuarioService;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
@@ -41,8 +43,8 @@ public class UsuarioController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMINISTRADOR')")
-    public Page<UsuarioDTO> listar(Pageable pageable) {
-        return usuarioService.listar(pageable);
+    public Page<UsuarioDTO> listar(@RequestParam(required = false) Rol rol, Pageable pageable) {
+        return usuarioService.listar(rol, pageable);
     }
 
     @GetMapping("/me")
