@@ -42,7 +42,15 @@ export default function CarteleraComunicados({ comunicados, titulo = 'Cartelera 
             )}
           </div>
 
-          <ul className={cn('mt-6 grid gap-6 sm:gap-5', columnas)}>
+          {comunicados.length === 0 && (
+            <div className="relative mx-auto mt-6 max-w-sm rounded-sm bg-white px-5 py-6 text-center shadow-[0_10px_18px_-10px_rgb(60_40_10/0.55)] sm:-rotate-[1deg]">
+              <Chinche className={porDefecto.chinche} />
+              <p className="text-sm font-bold text-slate-900">Todavía no hay comunicados</p>
+              <p className="mt-1 text-xs text-slate-500">Los avisos de la administración aparecerán clavados aquí.</p>
+            </div>
+          )}
+
+          <ul className={cn('mt-6 grid gap-6 sm:gap-5', columnas, comunicados.length === 0 && 'hidden')}>
             {comunicados.map((c, i) => {
               const estilo = estiloCategoria[c.categoria] ?? porDefecto
               const Icono = estilo.icono
@@ -58,22 +66,26 @@ export default function CarteleraComunicados({ comunicados, titulo = 'Cartelera 
                   <span className={cn('h-1.5 rounded-t-sm', estilo.franja)} />
                   <div className="flex flex-1 flex-col p-4">
                     <div className="flex items-center justify-between gap-2">
-                      <span className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold', estilo.chip)}>
-                        <Icono className="size-3.5" strokeWidth={2} />
-                        {c.categoria}
-                      </span>
+                      {c.categoria ? (
+                        <span className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold', estilo.chip)}>
+                          <Icono className="size-3.5" strokeWidth={2} />
+                          {c.categoria}
+                        </span>
+                      ) : (
+                        <span />
+                      )}
                       {i === 0 && (
                         <span className="rounded-full bg-danger-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-danger-strong">
                           Nuevo
                         </span>
                       )}
                     </div>
-                    <h3 className="mt-3 text-sm font-bold leading-snug text-slate-900">{c.titulo}</h3>
-                    <p className="mt-1.5 flex-1 text-[13px] leading-relaxed text-slate-600">{c.contenido}</p>
+                    <h3 className={cn('text-sm font-bold leading-snug text-slate-900', (c.categoria || i === 0) && 'mt-3')}>{c.titulo}</h3>
+                    <p className="mt-1.5 flex-1 whitespace-pre-line text-[13px] leading-relaxed text-slate-600">{c.contenido}</p>
                     <p className="mt-3 flex items-center gap-1.5 border-t border-dashed border-slate-200 pt-2.5 text-[11px] font-medium text-slate-400">
                       <CalendarDays className="size-3.5" />
                       Publicado el {c.fecha}
-                      {c.destino && <span className="ml-auto truncate">· {c.destino}</span>}
+                      {c.autor && <span className="ml-auto truncate">· {c.autor}</span>}
                     </p>
                   </div>
                 </li>
@@ -91,10 +103,10 @@ CarteleraComunicados.propTypes = {
     PropTypes.shape({
       id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
       titulo: PropTypes.string.isRequired,
-      categoria: PropTypes.string.isRequired,
+      categoria: PropTypes.string,
       fecha: PropTypes.string.isRequired,
       contenido: PropTypes.string.isRequired,
-      destino: PropTypes.string,
+      autor: PropTypes.string,
     }),
   ).isRequired,
   titulo: PropTypes.string,

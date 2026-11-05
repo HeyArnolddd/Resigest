@@ -4,8 +4,8 @@ import { ArrowRight, MapPin, Siren } from 'lucide-react'
 import { Titulo, VerMas } from '../../components/ui/Panel'
 import EscenaTaller from '../../components/mantenimiento/EscenaTaller'
 import IlustracionIncidencia from '../../components/incidencias/IlustracionIncidencia'
-import { estilosEstado, puntoPrioridad } from '../../lib/incidencias'
-import { incidencias } from '../../data/mock'
+import { estilosEstado, incidenciasApi, puntoPrioridad } from '../../lib/incidencias'
+import { useCarga } from '../../lib/useCarga'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { useAhora } from '../../lib/useAhora'
 import { cn, saludo } from '../../lib/utils'
@@ -14,16 +14,20 @@ import { useSesion } from '../../lib/sesion'
 export default function Inicio({ onNavigate }) {
   const { usuario } = useSesion()
   const ahora = useAhora()
+  const { datos } = useCarga(incidenciasApi.asignadas)
+  const incidencias = datos ?? []
+  const mesActual = ahora.toISOString().slice(0, 7)
   const contar = (estado) => incidencias.filter((i) => i.estado === estado).length
-  const abiertas = incidencias.filter((i) => ['Nueva', 'En proceso'].includes(i.estado))
+  const abiertas = incidencias.filter((i) => i.estado !== 'Resuelta')
   const urgentes = abiertas.filter((i) => i.prioridad === 'Alta')
-  const nuevas = incidencias.filter((i) => i.estado === 'Nueva').slice(0, 5)
+  const porEmpezar = incidencias.filter((i) => i.estado === 'Asignada').slice(0, 5)
   const fecha = ahora.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
+  const valor = (n) => (datos ? n : '–')
 
   const resumen = [
-    ['Nuevas', contar('Nueva'), 'bg-sky-500', 'Por revisar'],
-    ['En proceso', contar('En proceso'), 'bg-warning', 'Trabajo en curso'],
-    ['Resueltas', contar('Resuelta'), 'bg-success', 'Este mes'],
+    ['Por empezar', valor(contar('Asignada')), 'bg-violet-500', 'Asignadas a ti'],
+    ['En proceso', valor(contar('En proceso')), 'bg-warning', 'Trabajo en curso'],
+    ['Resueltas', valor(incidencias.filter((i) => i.estado === 'Resuelta' && i.fechaReporte?.startsWith(mesActual)).length), 'bg-success', 'Este mes'],
   ]
 
   // Abiertas por categoría, de mayor a menor
@@ -40,7 +44,13 @@ export default function Inicio({ onNavigate }) {
           <p className="text-sm font-semibold text-brand-700 first-letter:uppercase">{fecha}</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{saludo(ahora)}, {usuario.nombreCompleto.split(' ')[0]}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Tienes <span className="font-semibold text-slate-800">{abiertas.length} incidencias abiertas</span>
+            {datos && abiertas.length === 0 ? (
+              'No tienes trabajos pendientes por ahora'
+            ) : (
+              <>
+                Tienes <span className="font-semibold text-slate-800">{abiertas.length === 1 ? '1 trabajo pendiente' : `${abiertas.length} trabajos pendientes`}</span>
+              </>
+            )}
             {urgentes.length > 0 && (
               <>
                 , <span className="font-semibold text-danger-strong">{urgentes.length} con prioridad alta</span>
@@ -94,7 +104,7 @@ export default function Inicio({ onNavigate }) {
                 <IlustracionIncidencia categoria={inc.categoria} className="w-28 shrink-0" />
                 <div className="flex min-w-0 flex-1 flex-col p-4">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-600">{inc.id}</span>
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-600">{inc.codigo}</span>
                     <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1', estilosEstado[inc.estado])}>{inc.estado}</span>
                   </div>
                   <p className="mt-2 font-bold leading-snug text-slate-900">{inc.titulo}</p>
@@ -114,9 +124,12 @@ export default function Inicio({ onNavigate }) {
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Por revisar */}
         <motion.section {...aparecer(2)} className={cn(tarjeta, 'p-5 lg:col-span-2')}>
-          <Titulo accion={<VerMas onClick={() => onNavigate('incidencias')}>Ver todas</VerMas>}>Solicitudes por revisar</Titulo>
+          <Titulo accion={<VerMas onClick={() => onNavigate('incidencias')}>Ver todas</VerMas>}>Por empezar</Titulo>
+          {datos && porEmpezar.length === 0 && (
+            <p className="mt-4 rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-500">No tienes trabajos nuevos. Cuando la administración te asigne uno aparecerá aquí.</p>
+          )}
           <ul className="mt-3 divide-y divide-slate-100">
-            {nuevas.map((inc) => (
+            {porEmpezar.map((inc) => (
               <li key={inc.id}>
                 <button
                   type="button"
@@ -143,7 +156,8 @@ export default function Inicio({ onNavigate }) {
 
         {/* Por categoría */}
         <motion.section {...aparecer(3)} className={cn(tarjeta, 'p-5')}>
-          <Titulo>Abiertas por categoría</Titulo>
+          <Titulo>Pendientes por categoría</Titulo>
+          {datos && porCategoria.length === 0 && <p className="mt-4 rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-500">Sin trabajos pendientes.</p>}
           <ul className="mt-4 space-y-3">
             {porCategoria.map(([categoria, n], i) => (
               <li key={categoria}>

@@ -1,4 +1,5 @@
 import {
+  CalendarDays,
   CalendarRange,
   ClipboardList,
   DoorOpen,
@@ -44,6 +45,7 @@ export const roles = {
       { key: 'visitantes', label: 'Visitantes', icon: DoorOpen },
       { key: 'paquetes', label: 'Paquetes', icon: Truck },
       { key: 'bitacora', label: 'Bitácora', icon: ClipboardList },
+      { key: 'mensajes', label: 'Mensajes', icon: MessagesSquare },
     ],
   },
   mantenimiento: {
@@ -57,6 +59,7 @@ export const roles = {
       { key: 'inicio', label: 'Inicio', icon: Home },
       { key: 'incidencias', label: 'Incidencias', icon: TriangleAlert },
       { key: 'historial', label: 'Historial', icon: History },
+      { key: 'mensajes', label: 'Mensajes', icon: MessagesSquare },
     ],
   },
   administrador: {
@@ -72,7 +75,9 @@ export const roles = {
       { key: 'reservas', label: 'Reservas', icon: CalendarRange },
       { key: 'incidencias', label: 'Incidencias', icon: TriangleAlert },
       { key: 'comunicados', label: 'Comunicados', icon: Megaphone },
+      { key: 'agenda', label: 'Agenda', icon: CalendarDays },
       { key: 'usuarios', label: 'Usuarios', icon: UsersRound },
+      { key: 'mensajes', label: 'Mensajes', icon: MessagesSquare },
     ],
   },
 }

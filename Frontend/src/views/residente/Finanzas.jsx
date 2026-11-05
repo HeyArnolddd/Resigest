@@ -2,6 +2,7 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { motion } from 'motion/react'
 import {
+  AlertCircle,
   ArrowLeftRight,
   CalendarClock,
   CheckCircle2,
@@ -12,16 +13,22 @@ import {
   Hourglass,
   Landmark,
   Loader2,
+  RotateCcw,
   ShieldCheck,
 } from 'lucide-react'
-import { Button, Field, Input, Modal, Select, UploadBox } from '../../components/ui'
+import { Button, CampoArchivo, EmptyState, Field, Input, Modal, Select } from '../../components/ui'
 import { Titulo } from '../../components/ui/Panel'
 import { aparecer, tarjeta } from '../../lib/panel'
 import IlustracionBilletera from '../../components/finanzas/IlustracionBilletera'
 import TableroTiza from '../../components/finanzas/TableroTiza'
 import { conceptoObligacion, estadoObligacion, estadoPago, metodoPago } from '../../lib/labels'
 import { alinearTooltip, cn, formatCOP } from '../../lib/utils'
-import { obligacionesApto, pagosApto, residente } from '../../data/mock'
+import { abrirArchivo, subirArchivo } from '../../lib/api'
+import { residenteApi } from '../../lib/residente'
+import { useSesion } from '../../lib/sesion'
+import { useCarga } from '../../lib/useCarga'
+
+const aNumero = (o) => ({ ...o, montoTotal: Number(o.montoTotal), saldoPendiente: Number(o.saldoPendiente) })
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 const POR_PAGAR = ['PENDIENTE', 'VENCIDA']
@@ -200,21 +207,34 @@ function Sparkline({ valores }) {
 Sparkline.propTypes = { valores: PropTypes.array.isRequired }
 
 export default function Finanzas() {
+  const { usuario } = useSesion()
   const ahora = new Date()
-  const [lista, setLista] = useState(obligacionesApto)
-  const [pagos, setPagos] = useState(pagosApto)
+  const { datos, error, recargar } = useCarga(() =>
+    Promise.all([residenteApi.obligaciones(usuario.apartamentoId), residenteApi.pagos(usuario.apartamentoId)]).then(([obligaciones, pagos]) => ({
+      obligaciones: obligaciones.map(aNumero).sort((a, b) => a.periodo.localeCompare(b.periodo) || a.concepto.localeCompare(b.concepto)),
+      pagos: pagos.map((p) => ({ ...p, monto: Number(p.monto) })),
+    })),
+  )
+  const lista = datos?.obligaciones ?? []
+  const pagos = datos?.pagos ?? []
   const [filtro, setFiltro] = useState('todas')
   const [verTodo, setVerTodo] = useState(false)
 
-  // Pago en línea (simulación de Wompi)
+  // Pago en línea (pasarela; en desarrollo es la simulada del backend)
   const [aPagar, setAPagar] = useState(null)
   const [pasoWompi, setPasoWompi] = useState('revisar')
   const [medio, setMedio] = useState('PSE')
+  const [resultadoPago, setResultadoPago] = useState(null)
 
   // Reporte de transferencia
   const [modalManual, setModalManual] = useState(false)
   const [manualId, setManualId] = useState('')
   const [manualEnviado, setManualEnviado] = useState(false)
+  const [manual, setManual] = useState({ banco: 'Bancolombia', fecha: '', referencia: '' })
+  const [comprobante, setComprobante] = useState(null)
+  const [errorManual, setErrorManual] = useState('')
+  const [enviandoManual, setEnviandoManual] = useState(false)
+  const [errorDescarga, setErrorDescarga] = useState('')
 
   const porPagar = lista.filter((o) => POR_PAGAR.includes(o.estado))
   const enVerificacion = lista.filter((o) => o.estado === 'EN_VERIFICACION')
@@ -242,7 +262,7 @@ export default function Finanzas() {
       alDia: delMes.every((o) => o.estado === 'PAGADA'),
     }
   })
-  const promedio = Math.round(meses.reduce((t, m) => t + m.admin + m.agua, 0) / meses.length)
+  const promedio = meses.length ? Math.round(meses.reduce((t, m) => t + m.admin + m.agua, 0) / meses.length) : 0
 
   const porConcepto = ['CUOTA_ADMINISTRACION', 'SERVICIO_PUBLICO'].map((concepto) => ({
     concepto,
@@ -250,7 +270,8 @@ export default function Finanzas() {
   }))
   const recibosAgua = lista.filter((o) => o.concepto === 'SERVICIO_PUBLICO')
   const ultimoAgua = recibosAgua.at(-1)
-  const variacionAgua = Math.round(((ultimoAgua.montoTotal - recibosAgua.at(-2).montoTotal) / recibosAgua.at(-2).montoTotal) * 100)
+  const penultimoAgua = recibosAgua.at(-2)
+  const variacionAgua = penultimoAgua ? Math.round(((ultimoAgua.montoTotal - penultimoAgua.montoTotal) / penultimoAgua.montoTotal) * 100) : null
 
   const historial = [...lista]
     .reverse()
@@ -264,51 +285,98 @@ export default function Finanzas() {
     setMedio('PSE')
   }
 
-  const simularPago = () => {
+  // Una obligación a la vez: la pasarela cobra cada una por separado
+  const pagarEnLinea = async () => {
     setPasoWompi('procesando')
-    setTimeout(() => {
-      const ids = aPagar.map((o) => o.id)
-      setLista((l) => l.map((o) => (ids.includes(o.id) ? { ...o, estado: 'PAGADA', saldoPendiente: 0 } : o)))
-      setPagos((p) => [
-        ...aPagar.map((o, i) => ({
-          id: Math.max(...p.map((x) => x.id)) + 1 + i,
-          metodo: 'WOMPI',
-          monto: o.montoTotal,
-          estado: 'APROBADO',
-          fecha: `${ahora.toISOString().slice(0, 10)}T${ahora.toTimeString().slice(0, 8)}`,
-          obligacionId: o.id,
-          referencia: `PAGO-${(o.id * 7919).toString(36).toUpperCase()}`,
-        })),
-        ...p,
-      ])
-      setPasoWompi('exito')
-    }, 1400)
+    let aprobados = 0
+    let error = ''
+    for (const o of aPagar) {
+      try {
+        const pago = await residenteApi.pagarEnLinea(o.id)
+        if (pago.estado === 'APROBADO') aprobados++
+      } catch (e) {
+        error = e.message
+      }
+    }
+    setResultadoPago({ aprobados, total: aPagar.length, error })
+    setPasoWompi('exito')
+    recargar()
   }
 
   const abrirManual = (id) => {
     setManualId(String(id ?? porPagar[0]?.id ?? ''))
+    setManual({ banco: 'Bancolombia', fecha: ahora.toLocaleDateString('en-CA'), referencia: '' })
+    setComprobante(null)
+    setErrorManual('')
     setManualEnviado(false)
     setModalManual(true)
   }
 
-  const enviarManual = () => {
-    const o = lista.find((x) => String(x.id) === manualId)
-    if (!o) return
-    setLista((l) => l.map((x) => (x.id === o.id ? { ...x, estado: 'EN_VERIFICACION' } : x)))
-    setPagos((p) => [
-      {
-        id: Math.max(...p.map((x) => x.id)) + 1,
-        metodo: 'TRANSFERENCIA',
-        monto: o.montoTotal,
-        estado: 'EN_VERIFICACION',
-        fecha: `${ahora.toISOString().slice(0, 10)}T${ahora.toTimeString().slice(0, 8)}`,
-        obligacionId: o.id,
-        referencia: 'TRF-NUEVA',
-      },
-      ...p,
-    ])
-    setManualEnviado(true)
+  const enviarManual = async () => {
+    if (!manual.referencia.trim()) {
+      setErrorManual('Escribe el número de referencia que te dio el banco.')
+      return
+    }
+    if (!comprobante) {
+      setErrorManual('Adjunta la foto o el PDF del comprobante.')
+      return
+    }
+    setEnviandoManual(true)
+    setErrorManual('')
+    try {
+      const { url } = await subirArchivo(comprobante)
+      await residenteApi.reportarTransferencia(Number(manualId), url, `${manual.referencia.trim()} · ${manual.banco} · ${manual.fecha}`)
+      setManualEnviado(true)
+      recargar()
+    } catch (e) {
+      setErrorManual(e.message)
+    } finally {
+      setEnviandoManual(false)
+    }
   }
+
+  const descargarComprobante = async (pago) => {
+    setErrorDescarga('')
+    try {
+      await abrirArchivo(`/pagos/${pago.id}/comprobante`)
+    } catch (e) {
+      setErrorDescarga(e.message)
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-5">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Finanzas</h1>
+        <div className={tarjeta}>
+          <EmptyState
+            icon={AlertCircle}
+            title="No se pudo cargar tu estado de cuenta"
+            description={error}
+            action={
+              <Button variant="secondary" size="sm" icon={RotateCcw} onClick={recargar} className="mt-2">
+                Intentar de nuevo
+              </Button>
+            }
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (!datos) {
+    return (
+      <div className="space-y-5" role="status" aria-label="Cargando tu estado de cuenta">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Finanzas</h1>
+        <div className="grid gap-5 lg:grid-cols-12">
+          <div className="h-72 animate-pulse rounded-2xl bg-brand-100 lg:col-span-8" />
+          <div className={cn(tarjeta, 'h-72 animate-pulse lg:col-span-4')} />
+        </div>
+      </div>
+    )
+  }
+
+  const sinCuotas = lista.length === 0
 
   const totalAPagar = aPagar?.reduce((t, o) => t + o.saldoPendiente, 0) ?? 0
 
@@ -317,9 +385,7 @@ export default function Finanzas() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Finanzas</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Estado de cuenta de {residente.torre} · Apartamento {residente.apto}
-          </p>
+          <p className="mt-1 text-sm text-slate-500">Estado de cuenta de {usuario.apartamento}</p>
         </div>
         <p className="flex items-center gap-1.5 text-xs text-slate-500">
           <ShieldCheck className="size-4 text-brand-600" />
@@ -346,7 +412,9 @@ export default function Finanzas() {
             </div>
             <p className="mt-3 text-5xl font-extrabold tracking-tight tabular-nums">{formatCOP(saldo)}</p>
             <p className="mt-2 text-sm text-brand-50">
-              {porPagar.length === 0
+              {sinCuotas
+                ? 'Todavía no tienes cuotas generadas. Aquí verás lo que debes pagar cada mes.'
+                : porPagar.length === 0
                 ? 'Estás al día. ¡Gracias por pagar a tiempo!'
                 : `${porPagar.length} obligaci${porPagar.length === 1 ? 'ón' : 'ones'} por pagar${vencidas.length ? `, ${vencidas.length} vencida${vencidas.length === 1 ? '' : 's'}` : ''}.`}
             </p>
@@ -377,7 +445,7 @@ export default function Finanzas() {
               </button>
             </div>
             <p className="mt-6 font-mono text-xs tracking-[0.2em] text-brand-100/80">
-              {residente.nombre.toUpperCase()} · T2 · 304
+              {usuario.nombreCompleto.toUpperCase()} · {usuario.apartamento.replace('Torre ', 'T').replace(' – Apto ', ' · ')}
             </p>
           </div>
         </motion.section>
@@ -385,7 +453,11 @@ export default function Finanzas() {
         <motion.section {...aparecer(1)} className={cn(tarjeta, 'flex flex-col p-6 lg:col-span-4')}>
           <Titulo accion={<span className="text-xs font-medium text-slate-400">Últimos 12 meses</span>}>Tu año en pagos</Titulo>
           <div className="mt-4">
-            <AnilloAnual segmentos={segmentos} total={totalAnual} />
+            {totalAnual > 0 ? (
+              <AnilloAnual segmentos={segmentos} total={totalAnual} />
+            ) : (
+              <div className="mx-auto flex size-44 items-center justify-center rounded-full border-[14px] border-slate-100 text-center text-xs text-slate-400">Sin cuotas todavía</div>
+            )}
           </div>
           <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3">
             {segmentos.map((s) => (
@@ -433,7 +505,13 @@ export default function Finanzas() {
             </div>
           </div>
           <div className="mt-6">
-            <FacturacionMensual meses={meses} />
+            {meses.length ? (
+              <FacturacionMensual meses={meses} />
+            ) : (
+              <p className="flex h-44 items-center justify-center rounded-xl bg-slate-50 px-6 text-center text-sm text-slate-500">
+                Cuando la administración genere tus cuotas verás aquí cuánto pagas cada mes.
+              </p>
+            )}
           </div>
         </motion.section>
 
@@ -441,7 +519,7 @@ export default function Finanzas() {
           <Titulo>¿En qué se va tu dinero?</Titulo>
           <ul className="mt-5 space-y-4">
             {porConcepto.map((c) => {
-              const pct = Math.round((c.valor / totalAnual) * 100)
+              const pct = totalAnual ? Math.round((c.valor / totalAnual) * 100) : 0
               const agua = c.concepto === 'SERVICIO_PUBLICO'
               return (
                 <li key={c.concepto}>
@@ -462,6 +540,7 @@ export default function Finanzas() {
               )
             })}
           </ul>
+          {ultimoAgua && (
           <div className="mt-auto pt-5">
             <div className="rounded-xl bg-sky-50/70 p-4">
               <div className="flex items-start justify-between gap-3">
@@ -473,19 +552,24 @@ export default function Finanzas() {
                     {formatCOP(ultimoAgua.montoTotal)}
                   </p>
                 </div>
-                <span
-                  className={cn(
-                    'rounded-full px-2 py-0.5 text-xs font-bold',
-                    variacionAgua > 0 ? 'bg-warning-bg text-warning-strong' : 'bg-brand-50 text-brand-700',
-                  )}
-                >
-                  {variacionAgua > 0 ? '▲' : '▼'} {Math.abs(variacionAgua)}%
-                </span>
+                {variacionAgua !== null && (
+                  <span
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-xs font-bold',
+                      variacionAgua > 0 ? 'bg-warning-bg text-warning-strong' : 'bg-brand-50 text-brand-700',
+                    )}
+                  >
+                    {variacionAgua > 0 ? '▲' : '▼'} {Math.abs(variacionAgua)}%
+                  </span>
+                )}
               </div>
-              <Sparkline valores={recibosAgua.map((o) => o.montoTotal)} />
-              <p className="text-[11px] text-slate-500">Últimos {recibosAgua.length} recibos · se cobra cada dos meses</p>
+              {recibosAgua.length > 1 && <Sparkline valores={recibosAgua.map((o) => o.montoTotal)} />}
+              <p className="text-[11px] text-slate-500">
+                {recibosAgua.length === 1 ? 'Primer recibo de agua' : `Últimos ${recibosAgua.length} recibos`}
+              </p>
             </div>
           </div>
+          )}
         </motion.section>
       </div>
 
@@ -498,8 +582,8 @@ export default function Finanzas() {
           {porPagar.length + enVerificacion.length === 0 ? (
             <div className="mt-6 flex flex-col items-center gap-2 rounded-xl bg-brand-50 p-8 text-center">
               <CheckCircle2 className="size-10 text-brand-600" />
-              <p className="text-sm font-bold text-slate-900">Estás al día</p>
-              <p className="text-xs text-slate-500">No tienes obligaciones pendientes.</p>
+              <p className="text-sm font-bold text-slate-900">{sinCuotas ? 'Nada por pagar' : 'Estás al día'}</p>
+              <p className="text-xs text-slate-500">{sinCuotas ? 'Todavía no se han generado cuotas para tu apartamento.' : 'No tienes obligaciones pendientes.'}</p>
             </div>
           ) : (
             <ul className="mt-4 space-y-3">
@@ -561,6 +645,8 @@ export default function Finanzas() {
 
         <motion.section {...aparecer(5)} className={cn(tarjeta, 'p-6 lg:col-span-5')}>
           <Titulo>Pagos recientes</Titulo>
+          {pagos.length === 0 && <p className="mt-4 rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-500">Aquí aparecerán los pagos que hagas en línea o por transferencia.</p>}
+          {errorDescarga && <p className="mt-3 text-xs font-medium text-danger-strong">{errorDescarga}</p>}
           <ol className="mt-4">
             {pagos.slice(0, 5).map((p, i, arr) => {
               const o = lista.find((x) => x.id === p.obligacionId)
@@ -585,11 +671,22 @@ export default function Finanzas() {
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2">
                       <p className="truncate text-xs text-slate-500">
-                        {metodoPago[p.metodo]} · {fechaCorta(p.fecha)} · <span className="font-mono">{p.referencia}</span>
+                        {metodoPago[p.metodo]} · {fechaCorta(p.fecha)}
+                        {p.referencia && (
+                          <>
+                            {' '}
+                            · <span className="font-mono">{p.referencia}</span>
+                          </>
+                        )}
                       </p>
-                      {p.estado === 'APROBADO' ? (
+                      {p.estado === 'RECHAZADO' && p.motivoRechazo ? (
+                        <span title={`Motivo: ${p.motivoRechazo}`}>
+                          <Pill estado={p.estado} etiqueta={estadoPago[p.estado].label} />
+                        </span>
+                      ) : p.estado === 'APROBADO' ? (
                         <button
                           type="button"
+                          onClick={() => descargarComprobante(p)}
                           aria-label="Descargar comprobante"
                           title="Descargar comprobante (PDF)"
                           className="flex size-7 shrink-0 items-center justify-center rounded-lg text-slate-400 outline-none transition-colors hover:bg-brand-50 hover:text-brand-700 focus-visible:ring-2 focus-visible:ring-brand-500"
@@ -600,6 +697,9 @@ export default function Finanzas() {
                         <Pill estado={p.estado} etiqueta={estadoPago[p.estado].label} />
                       )}
                     </div>
+                    {p.estado === 'RECHAZADO' && p.motivoRechazo && (
+                      <p className="mt-1.5 rounded-lg bg-danger-bg px-2.5 py-1.5 text-[11px] text-danger-strong">Motivo: {p.motivoRechazo}</p>
+                    )}
                   </div>
                 </li>
               )
@@ -609,6 +709,7 @@ export default function Finanzas() {
       </div>
 
       {/* Historial en tablero de tiza */}
+      {!sinCuotas && (
       <motion.section {...aparecer(6)}>
         <TableroTiza
           obligaciones={historial}
@@ -619,6 +720,7 @@ export default function Finanzas() {
           onPagar={(o) => abrirWompi([o])}
         />
       </motion.section>
+      )}
 
       {/* Pago en línea */}
       <Modal
@@ -635,7 +737,7 @@ export default function Finanzas() {
               <Button variant="secondary" onClick={() => setAPagar(null)}>
                 Cancelar
               </Button>
-              <Button onClick={simularPago}>Pagar {formatCOP(totalAPagar)}</Button>
+              <Button onClick={pagarEnLinea}>Pagar {formatCOP(totalAPagar)}</Button>
             </>
           ) : null
         }
@@ -678,7 +780,7 @@ export default function Finanzas() {
               </div>
             </div>
             <p className="flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
-              <ShieldCheck className="size-3.5" /> No se realizan cobros reales en este prototipo
+              <ShieldCheck className="size-3.5" /> Pasarela de prueba: no se realizan cobros reales
             </p>
           </div>
         )}
@@ -688,13 +790,23 @@ export default function Finanzas() {
             <p className="text-sm font-medium text-slate-600">Conectando con Wompi y procesando el pago…</p>
           </div>
         )}
-        {pasoWompi === 'exito' && (
+        {pasoWompi === 'exito' && resultadoPago && (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <CheckCircle2 className="size-12 text-brand-600" />
-            <p className="text-base font-bold text-slate-900">¡Pago aprobado!</p>
-            <p className="max-w-xs text-sm text-slate-500">
-              Tus obligaciones quedaron pagadas. El comprobante está en Pagos recientes y te llega por correo.
-            </p>
+            {resultadoPago.aprobados === resultadoPago.total ? (
+              <>
+                <CheckCircle2 className="size-12 text-brand-600" />
+                <p className="text-base font-bold text-slate-900">¡Pago aprobado!</p>
+                <p className="max-w-xs text-sm text-slate-500">Tus obligaciones quedaron pagadas. Descarga el comprobante desde Pagos recientes.</p>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="size-12 text-danger" />
+                <p className="text-base font-bold text-slate-900">
+                  {resultadoPago.aprobados ? `Se aprobaron ${resultadoPago.aprobados} de ${resultadoPago.total} pagos` : 'El pago no fue aprobado'}
+                </p>
+                <p className="max-w-xs text-sm text-slate-500">{resultadoPago.error || 'La pasarela rechazó el cobro. Intenta de nuevo o paga por transferencia.'}</p>
+              </>
+            )}
           </div>
         )}
       </Modal>
@@ -714,8 +826,8 @@ export default function Finanzas() {
               <Button variant="secondary" onClick={() => setModalManual(false)}>
                 Cancelar
               </Button>
-              <Button onClick={enviarManual} disabled={!manualId}>
-                Enviar reporte
+              <Button onClick={enviarManual} disabled={!manualId || enviandoManual}>
+                {enviandoManual ? 'Enviando…' : 'Enviar reporte'}
               </Button>
             </>
           )
@@ -741,8 +853,8 @@ export default function Finanzas() {
               </Select>
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Banco o medio" required>
-                <Select defaultValue="Bancolombia">
+              <Field label="Banco o medio" htmlFor="trf-banco" required>
+                <Select id="trf-banco" value={manual.banco} onChange={(e) => setManual((m) => ({ ...m, banco: e.target.value }))}>
                   <option>Bancolombia</option>
                   <option>Banco de Bogotá</option>
                   <option>Davivienda</option>
@@ -750,15 +862,32 @@ export default function Finanzas() {
                   <option>Daviplata</option>
                 </Select>
               </Field>
-              <Field label="Fecha de la transferencia" required>
-                <Input type="date" defaultValue={ahora.toISOString().slice(0, 10)} />
+              <Field label="Fecha de la transferencia" htmlFor="trf-fecha" required>
+                <Input id="trf-fecha" type="date" value={manual.fecha} onChange={(e) => setManual((m) => ({ ...m, fecha: e.target.value }))} />
               </Field>
             </div>
-            <Field label="Número de referencia" required>
-              <Input placeholder="Ej. CMS-8842210" />
+            <Field label="Número de referencia" htmlFor="trf-ref" required hint="Aparece en el comprobante que te dio el banco o la app.">
+              <Input
+                id="trf-ref"
+                value={manual.referencia}
+                onChange={(e) => {
+                  setManual((m) => ({ ...m, referencia: e.target.value }))
+                  setErrorManual('')
+                }}
+                placeholder="Ej. CMS-8842210"
+              />
             </Field>
-            <Field label="Comprobante" required hint="PDF o imagen del comprobante">
-              <UploadBox hint="Adjuntar comprobante de pago" />
+            <Field label="Comprobante" htmlFor="trf-comprobante" required error={errorManual} hint="Foto o captura de la transferencia, o el PDF que te dio el banco.">
+              <CampoArchivo
+                id="trf-comprobante"
+                tipo="imagenOPdf"
+                value={comprobante}
+                onChange={(f) => {
+                  setComprobante(f)
+                  setErrorManual('')
+                }}
+                texto="Toca para adjuntar el comprobante"
+              />
             </Field>
           </div>
         )}

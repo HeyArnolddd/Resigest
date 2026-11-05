@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { motion } from 'motion/react'
-import { ArrowRight, Clock } from 'lucide-react'
+import { ArrowRight, Clock, LogOut, PackageCheck } from 'lucide-react'
 import { Titulo, VerMas } from '../../components/ui/Panel'
 import EscenaPorteria from '../../components/porteria/EscenaPorteria'
 import IlustracionPaquete from '../../components/paquetes/IlustracionPaquete'
-import { actividadPorteria, ingresos, paquetesPorteria } from '../../data/mock'
 import { aparecer, tarjeta } from '../../lib/panel'
-import { estiloTipo } from '../../lib/porteria'
+import { esDeHoy, estiloTipo, hora, ingresosDelDia, porteriaApi } from '../../lib/porteria'
+import { useCarga } from '../../lib/useCarga'
 import { useAhora } from '../../lib/useAhora'
 import { cn, saludo } from '../../lib/utils'
 import { useSesion } from '../../lib/sesion'
@@ -60,6 +60,22 @@ function Accion({ titulo, texto, ilustracion, dato, onClick, indice }) {
   )
 }
 
+// Movimientos de hoy (ingresos, salidas y paquetes), del más reciente al más antiguo
+function actividadDeHoy(ingresos, paquetes) {
+  const eventos = []
+  for (const i of ingresos) {
+    if (esDeHoy(i.fechaIngreso)) eventos.push({ clave: `i${i.id}`, fecha: i.fechaIngreso, tipo: i.tipo, accion: `Ingreso · ${i.tipo.toLowerCase()}`, detalle: `${i.persona} → ${i.apartamento}` })
+    if (esDeHoy(i.fechaSalida)) eventos.push({ clave: `s${i.id}`, fecha: i.fechaSalida, tipo: i.tipo, icono: LogOut, accion: 'Salida', detalle: i.persona })
+  }
+  for (const p of paquetes) {
+    if (esDeHoy(p.fechaRecepcion)) eventos.push({ clave: `p${p.id}`, fecha: p.fechaRecepcion, tipo: 'Paquete', accion: 'Paquete recibido', detalle: `${p.empresa} → ${p.apartamento}` })
+    if (esDeHoy(p.fechaEntrega)) eventos.push({ clave: `e${p.id}`, fecha: p.fechaEntrega, tipo: 'Paquete', icono: PackageCheck, accion: 'Paquete entregado', detalle: `${p.apartamento} · recibió ${p.entregadoA}` })
+  }
+  return eventos.sort((a, b) => b.fecha.localeCompare(a.fecha))
+}
+
+const cargarTodo = () => Promise.all([ingresosDelDia(), porteriaApi.paquetes()]).then(([ingresos, paquetes]) => ({ ingresos, paquetes }))
+
 Accion.propTypes = {
   titulo: PropTypes.string.isRequired,
   texto: PropTypes.string.isRequired,
@@ -73,19 +89,22 @@ export default function Inicio({ onNavigate }) {
   const { usuario } = useSesion()
   const [modalVisitante, setModalVisitante] = useState(false)
   const [modalPaquete, setModalPaquete] = useState(false)
-  const [ingresosLista, setIngresosLista] = useState(ingresos)
-  const [paquetesLista, setPaquetesLista] = useState(paquetesPorteria)
+  const { datos, recargar } = useCarga(cargarTodo)
   const ahora = useAhora()
 
-  const enPorteria = ingresosLista.filter((i) => i.estado === 'En portería').length
-  const porEntregar = paquetesLista.filter((p) => p.estado === 'Ha llegado')
-  const hora = ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const ingresos = datos?.ingresos ?? []
+  const dentro = ingresos.filter((i) => i.dentro).length
+  const ingresosHoy = ingresos.filter((i) => esDeHoy(i.fechaIngreso))
+  const porEntregar = (datos?.paquetes ?? []).filter((p) => p.enPorteria)
+  const actividad = datos ? actividadDeHoy(ingresos, datos.paquetes) : []
+  const horaActual = ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
   const fecha = ahora.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
+  const valor = (n) => (datos ? n : '–')
 
   const indicadores = [
-    ['En portería ahora', enPorteria, 'bg-warning'],
-    ['Ingresos hoy', ingresosLista.length, 'bg-brand-500'],
-    ['Paquetes por entregar', porEntregar.length, 'bg-violet-500'],
+    ['Dentro del conjunto', valor(dentro), 'bg-warning'],
+    ['Ingresos hoy', valor(ingresosHoy.length), 'bg-brand-500'],
+    ['Paquetes por entregar', valor(porEntregar.length), 'bg-violet-500'],
   ]
 
   return (
@@ -96,8 +115,8 @@ export default function Inicio({ onNavigate }) {
           <p className="text-sm font-semibold text-brand-700 first-letter:uppercase">{fecha}</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{saludo(ahora)}, {usuario.nombreCompleto.split(' ')[0]}</h1>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
-            <Clock className="size-4" /> Turno mañana · Portería principal ·{' '}
-            <span className="font-semibold text-slate-700 tabular-nums">{hora}</span>
+            <Clock className="size-4" /> {usuario.turno ? `Turno ${usuario.turno.toLowerCase()}` : 'Portería'} · Portería principal ·{' '}
+            <span className="font-semibold text-slate-700 tabular-nums">{horaActual}</span>
           </p>
           <dl className="mt-5 grid grid-cols-3 gap-3">
             {indicadores.map(([etiqueta, valor, punto]) => (
@@ -123,7 +142,7 @@ export default function Inicio({ onNavigate }) {
           titulo="Registrar visitante"
           texto="Ingreso de una persona, domicilio o servicio"
           ilustracion={<Gafete />}
-          dato={enPorteria ? `${enPorteria} esperando en portería` : undefined}
+          dato={dentro ? `${dentro} dentro del conjunto` : undefined}
           onClick={() => setModalVisitante(true)}
         />
         <Accion
@@ -140,8 +159,9 @@ export default function Inicio({ onNavigate }) {
         {/* Ingresos recientes */}
         <motion.section {...aparecer(3)} className={cn(tarjeta, 'p-5')}>
           <Titulo accion={<VerMas onClick={() => onNavigate('visitantes')}>Ver todos</VerMas>}>Ingresos recientes</Titulo>
+          {datos && ingresosHoy.length === 0 && <p className="mt-4 rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-500">Todavía no hay ingresos hoy.</p>}
           <ul className="mt-3 divide-y divide-slate-100">
-            {ingresosLista.slice(0, 5).map((i) => {
+            {ingresosHoy.slice(0, 5).map((i) => {
               const tipo = estiloTipo(i.tipo)
               const Icono = tipo.icono
               return (
@@ -155,13 +175,13 @@ export default function Inicio({ onNavigate }) {
                       {i.apartamento} · {i.hora}
                     </p>
                   </div>
-                  {i.estado === 'En portería' && (
+                  {i.dentro && (
                     <span className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold text-warning-strong">
                       <span className="relative flex size-2">
                         <span className="absolute inset-0 animate-ping rounded-full bg-warning/60" />
                         <span className="relative size-2 rounded-full bg-warning" />
                       </span>
-                      Esperando
+                      Dentro
                     </span>
                   )}
                 </li>
@@ -178,21 +198,27 @@ export default function Inicio({ onNavigate }) {
               {porEntregar.map((p) => (
                 <li key={p.id} className="flex items-center gap-3 rounded-xl bg-amber-50/60 p-2.5 ring-1 ring-amber-100">
                   <span className="flex size-11 shrink-0 items-end justify-center rounded-lg bg-white p-1 ring-1 ring-amber-100">
-                    <IlustracionPaquete descripcion={p.descripcion ?? 'Paquete mediano'} className="w-full" />
+                    <IlustracionPaquete descripcion={p.descripcion} className="w-full" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-slate-900">{p.apartamento}</p>
                     <p className="truncate text-xs text-slate-500">
-                      {p.empresa} · <span className="font-mono">{p.guia}</span>
+                      {p.empresa}
+                      {p.guia && (
+                        <>
+                          {' '}
+                          · <span className="font-mono">{p.guia}</span>
+                        </>
+                      )}
                     </p>
                   </div>
-                  <span className="shrink-0 text-[11px] font-medium text-slate-400 tabular-nums">{p.fecha.split(' · ')[1]}</span>
+                  <span className="shrink-0 text-[11px] font-medium text-slate-400 tabular-nums">{hora(p.fechaRecepcion)}</span>
                 </li>
               ))}
             </ul>
           ) : (
             <p className="mt-4 rounded-xl bg-success-bg px-3 py-3 text-xs font-medium text-success-strong">
-              La estantería está vacía. Todos los paquetes fueron entregados.
+              La estantería está vacía. No hay paquetes por entregar.
             </p>
           )}
         </motion.section>
@@ -200,19 +226,20 @@ export default function Inicio({ onNavigate }) {
         {/* Actividad de la jornada */}
         <motion.section {...aparecer(5)} className={cn(tarjeta, 'p-5')}>
           <Titulo accion={<VerMas onClick={() => onNavigate('bitacora')}>Bitácora</VerMas>}>Actividad de la jornada</Titulo>
+          {datos && actividad.length === 0 && <p className="mt-4 rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-500">Aquí irá quedando lo que registres durante tu turno.</p>}
           <ol className="relative mt-4 space-y-4 before:absolute before:bottom-2 before:left-[15px] before:top-2 before:w-px before:bg-slate-200">
-            {actividadPorteria.map((a) => {
+            {actividad.slice(0, 8).map((a) => {
               const tipo = estiloTipo(a.tipo)
-              const Icono = tipo.icono
+              const Icono = a.icono ?? tipo.icono
               return (
-                <li key={`${a.hora}-${a.accion}`} className="relative flex gap-3">
+                <li key={a.clave} className="relative flex gap-3">
                   <span className={cn('z-10 flex size-8 shrink-0 items-center justify-center rounded-full ring-4 ring-white', tipo.icon)}>
                     <Icono className="size-3.5" strokeWidth={2.2} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="flex items-baseline justify-between gap-2 text-sm font-semibold text-slate-800">
                       {a.accion}
-                      <span className="shrink-0 text-[11px] font-medium text-slate-400 tabular-nums">{a.hora}</span>
+                      <span className="shrink-0 text-[11px] font-medium text-slate-400 tabular-nums">{hora(a.fecha)}</span>
                     </p>
                     <p className="truncate text-xs text-slate-500">{a.detalle}</p>
                   </div>
@@ -223,16 +250,8 @@ export default function Inicio({ onNavigate }) {
         </motion.section>
       </div>
 
-      <RegistrarVisitante
-        open={modalVisitante}
-        onClose={() => setModalVisitante(false)}
-        onRegistrado={(d) => setIngresosLista((l) => [{ ...d, id: Date.now() }, ...l])}
-      />
-      <RegistrarPaquete
-        open={modalPaquete}
-        onClose={() => setModalPaquete(false)}
-        onRegistrado={(d) => setPaquetesLista((l) => [d, ...l])}
-      />
+      <RegistrarVisitante open={modalVisitante} onClose={() => setModalVisitante(false)} onRegistrado={recargar} />
+      <RegistrarPaquete open={modalPaquete} onClose={() => setModalPaquete(false)} onRegistrado={recargar} />
     </div>
   )
 }

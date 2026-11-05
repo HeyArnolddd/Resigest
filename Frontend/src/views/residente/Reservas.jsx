@@ -1,16 +1,23 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarCheck, CalendarRange, Check, Clock, Users, X } from 'lucide-react'
+import { AlertCircle, CalendarCheck, CalendarRange, Check, Clock, RotateCcw, Users, X } from 'lucide-react'
 import { Button, Card, CardHeader, EmptyState, Modal, PageHeader, StatusBadge } from '../../components/ui'
 import IlustracionZona from '../../components/reservas/IlustracionZona'
 import { estadoReserva } from '../../lib/labels'
+import { residenteApi } from '../../lib/residente'
+import { useSesion } from '../../lib/sesion'
+import { useCarga } from '../../lib/useCarga'
 import { cn } from '../../lib/utils'
-import { colorZona } from '../../lib/zonas'
-import { reservasAgenda, zonas } from '../../data/mock'
+import { colorZona, franjasDe } from '../../lib/zonas'
 
-// Usuario en sesión (mock): Juan Pérez, Torre 2 · 304
-const YO = { nombre: 'Juan Pérez', apartamentoId: 12, apartamento: 'Torre 2 · 304' }
 const DIAS_A_MOSTRAR = 14
+
+// Todas las reservas (para saber qué horarios están ocupados) y las zonas con sus horarios
+const cargarTodo = () =>
+  Promise.all([residenteApi.zonas(), residenteApi.reservas()]).then(([zonas, reservas]) => ({
+    zonas: zonas.filter((z) => z.activa).map((z) => ({ ...z, franjas: franjasDe(z.nombre) })),
+    reservas,
+  }))
 const OCUPAN = ['APROBADA', 'PENDIENTE']
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
@@ -124,14 +131,19 @@ function Fila({ etiqueta, valor }) {
 }
 
 export default function Reservas() {
+  const { usuario } = useSesion()
+  const { datos, error, recargar } = useCarga(cargarTodo)
   const [ahora] = useState(() => new Date())
-  const [lista, setLista] = useState(reservasAgenda)
   const [zonaId, setZonaId] = useState(null)
   const [dia, setDia] = useState(null)
   const [franja, setFranja] = useState(null)
   const [enviada, setEnviada] = useState(null)
   const [aCancelar, setACancelar] = useState(null)
+  const [trabajando, setTrabajando] = useState(false)
+  const [errorAccion, setErrorAccion] = useState('')
 
+  const zonas = datos?.zonas ?? []
+  const lista = datos?.reservas ?? []
   const zona = zonas.find((z) => z.id === zonaId)
   const dias = Array.from({ length: DIAS_A_MOSTRAR }, (_, i) =>
     claveDia(new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + i)),
@@ -149,22 +161,29 @@ export default function Reservas() {
     setEnviada(null)
   }
 
-  const solicitar = () => {
+  const solicitar = async () => {
     const [ini, fin] = partesFranja(franja)
-    const nueva = {
-      id: Math.max(...lista.map((r) => r.id)) + 1,
-      zonaComunId: zona.id,
-      zonaComunNombre: zona.nombre,
-      apartamentoId: YO.apartamentoId,
-      fechaInicio: `${dia}T${ini}:00`,
-      fechaFin: `${dia}T${fin}:00`,
-      estado: 'PENDIENTE',
-      residente: YO.nombre,
-      apartamento: YO.apartamento,
+    setTrabajando(true)
+    setErrorAccion('')
+    try {
+      const nueva = await residenteApi.solicitarReserva({
+        zonaComunId: zona.id,
+        fechaInicio: `${dia}T${ini}:00`,
+        fechaFin: `${dia}T${fin}:00`,
+      })
+      setEnviada(nueva)
+      setFranja(null)
+      recargar()
+    } catch (e) {
+      // El backend no deja reservar con cuotas pendientes o vencidas
+      setErrorAccion(
+        e.message?.includes('obligaciones')
+          ? 'No puedes reservar porque tu apartamento tiene cuotas pendientes o vencidas. Ponte al día en Finanzas e inténtalo de nuevo.'
+          : e.message,
+      )
+    } finally {
+      setTrabajando(false)
     }
-    setLista([...lista, nueva])
-    setEnviada(nueva)
-    setFranja(null)
   }
 
   const nuevaReserva = () => {
@@ -173,14 +192,43 @@ export default function Reservas() {
     setDia(null)
   }
 
-  const cancelar = () => {
-    setLista(lista.map((r) => (r.id === aCancelar.id ? { ...r, estado: 'CANCELADA' } : r)))
-    setACancelar(null)
+  const cancelar = async () => {
+    setTrabajando(true)
+    try {
+      await residenteApi.cancelarReserva(aCancelar.id)
+      setACancelar(null)
+      recargar()
+    } catch (e) {
+      setErrorAccion(e.message)
+      setACancelar(null)
+    } finally {
+      setTrabajando(false)
+    }
   }
 
   const mias = lista
-    .filter((r) => r.apartamentoId === YO.apartamentoId && new Date(r.fechaFin) >= ahora)
+    .filter((r) => r.apartamentoId === usuario.apartamentoId && new Date(r.fechaFin) >= ahora)
     .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio))
+
+  if (error) {
+    return (
+      <div>
+        <PageHeader title="Reservar zona común" />
+        <Card>
+          <EmptyState
+            icon={AlertCircle}
+            title="No se pudieron cargar las zonas comunes"
+            description={error}
+            action={
+              <Button variant="secondary" size="sm" icon={RotateCcw} onClick={recargar} className="mt-2">
+                Intentar de nuevo
+              </Button>
+            }
+          />
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -192,11 +240,21 @@ export default function Reservas() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-8">
           <Paso numero={1} titulo="¿Qué zona quieres usar?">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {zonas.map((z) => (
-                <TarjetaZona key={z.id} zona={z} seleccionada={z.id === zonaId} onElegir={elegirZona} />
-              ))}
-            </div>
+            {!datos ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-label="Cargando zonas">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-56 animate-pulse rounded-xl bg-white" />
+                ))}
+              </div>
+            ) : zonas.length === 0 ? (
+              <p className="rounded-xl bg-white px-4 py-6 text-center text-sm text-slate-500">El conjunto todavía no tiene zonas comunes habilitadas para reservar.</p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {zonas.map((z) => (
+                  <TarjetaZona key={z.id} zona={z} seleccionada={z.id === zonaId} onElegir={elegirZona} />
+                ))}
+              </div>
+            )}
           </Paso>
 
           <Paso
@@ -348,14 +406,20 @@ export default function Reservas() {
                     <Fila etiqueta="Día" valor={dia && fechaLarga(deClave(dia))} />
                     <Fila etiqueta="Horario" valor={franja?.replace('-', ' – ')} />
                   </div>
+                  {errorAccion && (
+                    <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-danger-bg px-3 py-2.5 text-xs font-medium text-danger-strong">
+                      <AlertCircle className="mt-px size-4 shrink-0" />
+                      {errorAccion}
+                    </p>
+                  )}
                   <Button
                     className="mt-4 w-full"
                     size="lg"
                     icon={CalendarCheck}
-                    disabled={!(zona && dia && franja)}
+                    disabled={!(zona && dia && franja) || trabajando}
                     onClick={solicitar}
                   >
-                    Solicitar reserva
+                    {trabajando ? 'Enviando…' : 'Solicitar reserva'}
                   </Button>
                   <p className="mt-3 text-center text-xs text-slate-500">
                     {!zona
@@ -374,7 +438,7 @@ export default function Reservas() {
       </div>
 
       <Card className="mt-8">
-        <CardHeader title="Mis próximas reservas" subtitle={`${YO.apartamento}`} />
+        <CardHeader title="Mis próximas reservas" subtitle={usuario.apartamento} />
         {mias.length ? (
           <ul className="divide-y divide-slate-100 px-5 pb-2 pt-2">
             {mias.map((r) => {
@@ -426,7 +490,7 @@ export default function Reservas() {
             <Button variant="secondary" onClick={() => setACancelar(null)}>
               Conservar reserva
             </Button>
-            <Button variant="danger" onClick={cancelar}>
+            <Button variant="danger" disabled={trabajando} onClick={cancelar}>
               Cancelar reserva
             </Button>
           </>

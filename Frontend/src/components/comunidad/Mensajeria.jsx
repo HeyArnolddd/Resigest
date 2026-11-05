@@ -1,108 +1,134 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowLeft, CheckCheck, Lock, PenSquare, Search, Send, Users, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, CheckCheck, Lock, MessagesSquare, PenSquare, Search, Send, Users, X } from 'lucide-react'
 import { Avatar, Button } from '../ui'
-import { mensajesComunidad, mensajesPrivados, vecinosChat } from '../../data/mock'
-import { cn } from '../../lib/utils'
+import { hora } from '../../lib/porteria'
+import { residenteApi } from '../../lib/residente'
+import { useSesion } from '../../lib/sesion'
+import { cn, iniciales } from '../../lib/utils'
 
-// Chat del residente: la conversación comunitaria y los mensajes privados con otros
-// residentes. A la izquierda la lista de conversaciones; a la derecha la conversación abierta.
-// En pantallas angostas se ve una cosa a la vez.
+// Chat del conjunto: el grupo de toda la comunidad y los mensajes privados con cualquier persona.
+// A la izquierda las conversaciones; a la derecha la abierta. En pantallas angostas se ve una
+// cosa a la vez. Se actualiza cada pocos segundos para traer los mensajes nuevos.
 
-const YO = { id: 1, nombre: 'Juan Pérez', apartamento: 'T2 · 304' }
-const COMUNIDAD = 'comunidad'
-// Los mocks toman el 09/09/2026 como "hoy"
-const HOY = '2026-09-09'
+const CADA_CONVERSACION = 8_000
+const CADA_LISTA = 30_000
+const COMUNIDAD = { usuarioId: 'comunidad', nombre: 'Chat comunitario', detalle: 'Todo el conjunto', grupo: true }
 
-const hora = (iso) => iso.slice(11, 16)
-const dia = (iso) => (iso.startsWith(HOY) ? 'Hoy' : 'Ayer')
-const ahoraIso = () => {
-  const d = new Date()
-  return `${HOY}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:00`
+// Mensaje del grupo → misma forma que un mensaje privado, con el autor
+const deComunidad = (m) => ({ id: m.id, remitenteId: m.autorId, contenido: m.contenido, fecha: m.fecha, autor: m.autorNombre, detalle: m.detalle })
+
+const diaDe = (iso) => {
+  const hoy = new Date().toLocaleDateString('en-CA')
+  const ayer = new Date(Date.now() - 86_400_000).toLocaleDateString('en-CA')
+  const d = iso.slice(0, 10)
+  if (d === hoy) return 'Hoy'
+  if (d === ayer) return 'Ayer'
+  return new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })
 }
-// El chat comunitario del mock solo trae la hora; se ubica en el día de hoy
-const comunidadInicial = mensajesComunidad.map((m) => ({ ...m, fecha: `${HOY}T${m.hora}:00` }))
 
 export default function Mensajeria() {
-  const [grupo, setGrupo] = useState(comunidadInicial)
-  const [privados, setPrivados] = useState(mensajesPrivados)
-  const [activa, setActiva] = useState(COMUNIDAD)
-  const [sinLeer, setSinLeer] = useState({ [COMUNIDAD]: 0, 8: 2 })
-  const [abiertas, setAbiertas] = useState([])
+  const { usuario } = useSesion()
+  const [conversaciones, setConversaciones] = useState(null)
+  const [ultimoGrupo, setUltimoGrupo] = useState(null)
+  const [directorio, setDirectorio] = useState([])
+  const [activa, setActiva] = useState(null) // { usuarioId, nombre, detalle }
+  const [hilo, setHilo] = useState([])
   const [eligiendo, setEligiendo] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [enChat, setEnChat] = useState(false) // solo afecta a pantallas angostas
   const [borrador, setBorrador] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState('')
   const caja = useRef(null)
 
-  const vecino = (id) => vecinosChat.find((v) => v.id === id)
-  const conQuien = (m) => (m.remitenteId === YO.id ? m.destinatarioId : m.remitenteId)
+  const cargarConversaciones = useCallback(() => {
+    residenteApi
+      .conversaciones()
+      .then(setConversaciones)
+      .catch((e) => setError(e.message))
+    residenteApi
+      .comunidad()
+      .then((l) => setUltimoGrupo(l.at(-1) ?? null))
+      .catch(() => {})
+  }, [])
 
-  // Conversaciones privadas: con quien haya mensajes o se haya abierto una nueva, la más reciente arriba
-  const conversaciones = [...new Set([...privados.map(conQuien), ...abiertas])]
-    .map((id) => ({ ...vecino(id), ultimo: privados.filter((m) => conQuien(m) === id).at(-1) }))
-    // Los ids crecen con cada mensaje; las conversaciones nuevas sin mensajes van arriba
-    .sort((a, b) => (b.ultimo?.id ?? Number.MAX_SAFE_INTEGER) - (a.ultimo?.id ?? Number.MAX_SAFE_INTEGER))
+  useEffect(() => {
+    cargarConversaciones()
+    residenteApi.directorio().then(setDirectorio).catch(() => {})
+    const t = setInterval(cargarConversaciones, CADA_LISTA)
+    return () => clearInterval(t)
+  }, [cargarConversaciones])
 
-  const esGrupo = activa === COMUNIDAD
-  const contacto = esGrupo ? null : vecino(activa)
-  const hilo = esGrupo
-    ? grupo.map((m) => ({ id: m.id, mio: m.autor === YO.nombre, autor: m.autor, detalle: m.torre, texto: m.texto, fecha: m.fecha }))
-    : privados
-        .filter((m) => conQuien(m) === activa)
-        .map((m) => ({ id: m.id, mio: m.remitenteId === YO.id, autor: contacto.nombre, texto: m.contenido, fecha: m.fecha }))
-  const dias = [...new Set(hilo.map((m) => dia(m.fecha)))]
+  // La conversación abierta se refresca sola para ver las respuestas
+  useEffect(() => {
+    if (!activa) return
+    let vigente = true
+    const pedir = activa.grupo ? () => residenteApi.comunidad().then((l) => l.map(deComunidad)) : () => residenteApi.mensajes(activa.usuarioId)
+    const cargar = () =>
+      pedir()
+        .then((m) => vigente && setHilo(m))
+        .catch(() => {})
+    cargar()
+    const t = setInterval(cargar, CADA_CONVERSACION)
+    return () => {
+      vigente = false
+      clearInterval(t)
+    }
+  }, [activa])
 
-  // Al cambiar de conversación o enviar, la caja baja al último mensaje (sin mover la página)
+  // Al cambiar de conversación o llegar mensajes, la caja baja al último (sin mover la página)
   useEffect(() => {
     const c = caja.current
     if (c) c.scrollTo({ top: c.scrollHeight })
   }, [activa, hilo.length])
 
-  const abrir = (id) => {
-    setActiva(id)
-    setSinLeer((s) => ({ ...s, [id]: 0 }))
+  const abrir = (contacto) => {
+    setActiva(contacto)
+    setHilo([])
     setEnChat(true)
     setEligiendo(false)
     setBusqueda('')
     setBorrador('')
+    setError('')
   }
 
-  const nuevoPrivado = (id) => {
-    if (!abiertas.includes(id)) setAbiertas((a) => [...a, id])
-    abrir(id)
-  }
-
-  const enviar = (e) => {
+  const enviar = async (e) => {
     e.preventDefault()
     const texto = borrador.trim()
-    if (!texto) return
-    if (esGrupo) {
-      setGrupo((g) => [...g, { id: Date.now(), autor: YO.nombre, torre: YO.apartamento, hora: ahoraIso().slice(11, 16), texto, fecha: ahoraIso() }])
-    } else {
-      setPrivados((p) => [...p, { id: Date.now(), remitenteId: YO.id, destinatarioId: activa, contenido: texto, fecha: ahoraIso() }])
+    if (!texto || !activa) return
+    setEnviando(true)
+    setError('')
+    try {
+      const mensaje = activa.grupo ? deComunidad(await residenteApi.enviarComunidad(texto)) : await residenteApi.enviarMensaje(activa.usuarioId, texto)
+      setHilo((h) => [...h, mensaje])
+      setBorrador('')
+      cargarConversaciones()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setEnviando(false)
     }
-    setBorrador('')
   }
 
   const texto = busqueda.trim().toLowerCase()
-  const candidatos = vecinosChat.filter((v) => !texto || v.nombre.toLowerCase().includes(texto) || v.apartamento.toLowerCase().includes(texto))
-  const totalSinLeer = Object.values(sinLeer).reduce((s, n) => s + n, 0)
+  const candidatos = directorio.filter((v) => !texto || v.nombreCompleto.toLowerCase().includes(texto) || v.detalle.toLowerCase().includes(texto))
+  const mensajes = hilo.map((m) => ({ id: m.id, mio: m.remitenteId === usuario.id, texto: m.contenido, fecha: m.fecha, autor: m.autor ?? activa?.nombre, detalle: m.detalle, autorId: m.remitenteId }))
+  const esGrupo = Boolean(activa?.grupo)
+  const dias = [...new Set(mensajes.map((m) => diaDe(m.fecha)))]
 
   return (
-    <div className="flex h-[600px] md:grid md:h-[640px] md:grid-cols-[240px_1fr] lg:h-0 lg:min-h-[560px] lg:flex-1">
+    <div className="flex h-[600px] md:grid md:h-[640px] md:grid-cols-[260px_1fr] lg:h-0 lg:min-h-[560px] lg:flex-1">
       {/* Lista de conversaciones */}
       <aside className={cn('min-h-0 w-full flex-col border-slate-100 bg-white md:flex md:border-r', enChat ? 'hidden' : 'flex')}>
         <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-4">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-            Mensajes
-            {totalSinLeer > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-[10px] font-bold leading-4 text-white">{totalSinLeer}</span>}
-          </h2>
+          <h2 className="text-sm font-bold text-slate-900">Mensajes</h2>
           <button
             type="button"
             onClick={() => setEligiendo((v) => !v)}
-            aria-label={eligiendo ? 'Cancelar mensaje nuevo' : 'Escribir mensaje privado'}
+            aria-label={eligiendo ? 'Cancelar mensaje nuevo' : 'Escribir mensaje nuevo'}
+            title={eligiendo ? 'Cancelar' : 'Mensaje nuevo'}
             className="flex size-8 items-center justify-center rounded-lg text-brand-700 outline-none transition-colors hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             {eligiendo ? <X className="size-4" /> : <PenSquare className="size-4" />}
@@ -112,16 +138,16 @@ export default function Mensajeria() {
         <AnimatePresence mode="wait" initial={false}>
           {eligiendo ? (
             <motion.div key="elegir" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }} className="flex min-h-0 flex-1 flex-col">
-              <p className="px-4 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Mensaje privado a…</p>
+              <p className="px-4 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Mensaje nuevo a…</p>
               <label className="relative mx-4 mt-2 block">
-                <span className="sr-only">Buscar residente</span>
+                <span className="sr-only">Buscar persona</span>
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
                 <input
                   autoFocus
                   type="search"
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Nombre o apto…"
+                  placeholder="Nombre, apto o cargo…"
                   className="w-full rounded-full bg-slate-100 py-1.5 pl-8 pr-3 text-xs text-slate-700 outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500"
                 />
               </label>
@@ -130,17 +156,18 @@ export default function Mensajeria() {
                   <li key={v.id}>
                     <button
                       type="button"
-                      onClick={() => nuevoPrivado(v.id)}
+                      onClick={() => abrir({ usuarioId: v.id, nombre: v.nombreCompleto, detalle: v.detalle })}
                       className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-brand-500"
                     >
-                      <Avatar nombre={v.nombre} size="sm" />
+                      <Avatar nombre={v.nombreCompleto} size="sm" />
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium text-slate-800">{v.nombre}</span>
-                        <span className="block text-[11px] text-slate-400">{v.apartamento}</span>
+                        <span className="block truncate text-sm font-medium text-slate-800">{v.nombreCompleto}</span>
+                        <span className="block truncate text-[11px] text-slate-400">{v.detalle}</span>
                       </span>
                     </button>
                   </li>
                 ))}
+                {candidatos.length === 0 && <li className="px-2 py-4 text-center text-xs text-slate-500">Nadie coincide con la búsqueda.</li>}
               </ul>
             </motion.div>
           ) : (
@@ -155,22 +182,37 @@ export default function Mensajeria() {
                     </span>
                   }
                   titulo="Chat comunitario"
-                  detalle={`${grupo.at(-1).autor.split(' ')[0]}: ${grupo.at(-1).texto}`}
-                  hora={hora(grupo.at(-1).fecha)}
-                  sinLeer={sinLeer[COMUNIDAD]}
+                  detalle={ultimoGrupo ? `${ultimoGrupo.autorId === usuario.id ? 'Tú' : ultimoGrupo.autorNombre.split(' ')[0]}: ${ultimoGrupo.contenido}` : 'Todo el conjunto · aún sin mensajes'}
+                  hora={ultimoGrupo ? (diaDe(ultimoGrupo.fecha) === 'Hoy' ? hora(ultimoGrupo.fecha) : diaDe(ultimoGrupo.fecha)) : ''}
                 />
               </li>
               <li className="px-2 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Privados</li>
-              {conversaciones.map((c) => (
-                <li key={c.id}>
+              {conversaciones === null && !error && (
+                <li className="space-y-2 px-2 py-2" role="status" aria-label="Cargando conversaciones">
+                  {[0, 1, 2].map((i) => (
+                    <span key={i} className="block h-10 animate-pulse rounded-lg bg-slate-100" />
+                  ))}
+                </li>
+              )}
+              {conversaciones?.length === 0 && (
+                <li className="px-3 py-4 text-center">
+                  <MessagesSquare className="mx-auto size-7 text-slate-300" />
+                  <p className="mt-2 text-sm font-semibold text-slate-700">Sin mensajes privados</p>
+                  <p className="mt-1 text-xs text-slate-500">Escríbele a un vecino, a portería o a la administración.</p>
+                  <Button size="sm" variant="outline" icon={PenSquare} className="mt-3" onClick={() => setEligiendo(true)}>
+                    Mensaje nuevo
+                  </Button>
+                </li>
+              )}
+              {conversaciones?.map((c) => (
+                <li key={c.usuarioId}>
                   <Fila
-                    activa={activa === c.id}
-                    onClick={() => abrir(c.id)}
+                    activa={activa?.usuarioId === c.usuarioId}
+                    onClick={() => abrir(c)}
                     icono={<Avatar nombre={c.nombre} size="md" />}
                     titulo={c.nombre}
-                    detalle={c.ultimo ? `${c.ultimo.remitenteId === YO.id ? 'Tú: ' : ''}${c.ultimo.contenido}` : 'Nueva conversación'}
-                    hora={c.ultimo ? (dia(c.ultimo.fecha) === 'Hoy' ? hora(c.ultimo.fecha) : 'Ayer') : ''}
-                    sinLeer={sinLeer[c.id] ?? 0}
+                    detalle={`${c.ultimoEsMio ? 'Tú: ' : ''}${c.ultimoMensaje}`}
+                    hora={diaDe(c.fecha) === 'Hoy' ? hora(c.fecha) : diaDe(c.fecha)}
                   />
                 </li>
               ))}
@@ -181,124 +223,142 @@ export default function Mensajeria() {
 
       {/* Conversación */}
       <section className={cn('min-h-0 min-w-0 w-full flex-col md:flex', enChat ? 'flex' : 'hidden')}>
-        {esGrupo ? (
-          <header className="relative flex items-center gap-3 overflow-hidden bg-gradient-to-br from-brand-600 to-brand-800 px-4 py-3.5 text-white">
-            <svg viewBox="0 0 200 60" className="pointer-events-none absolute -right-4 bottom-0 h-14 w-52 opacity-10" aria-hidden="true">
-              <path d="M10 60 V30 h22 V60 M40 60 V14 h26 V60 M74 60 V24 h20 V60 M102 60 V8 h28 V60 M138 60 V28 h20 V60 M166 60 V18 h24 V60" className="fill-white" />
-            </svg>
-            <BotonVolver onClick={() => setEnChat(false)} claro />
-            <div className="relative min-w-0 flex-1">
-              <h3 className="font-bold">Chat comunitario</h3>
-              <p className="flex items-center gap-1.5 text-xs text-brand-100">
-                <span className="size-2 rounded-full bg-lime-300 ring-2 ring-lime-300/30" />
-                12 en línea · 128 residentes
-              </p>
-            </div>
-          </header>
-        ) : (
-          <header className="flex items-center gap-3 border-b border-slate-100 bg-white px-4 py-3">
-            <BotonVolver onClick={() => setEnChat(false)} />
-            <Avatar nombre={contacto.nombre} />
-            <div className="min-w-0 flex-1">
-              <h3 className="truncate font-bold text-slate-900">{contacto.nombre}</h3>
-              <p className="text-xs text-slate-500">{contacto.apartamento}</p>
-            </div>
-            <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-              <Lock className="size-3" /> Privado
-            </span>
-          </header>
-        )}
+        {activa ? (
+          <>
+            {esGrupo ? (
+              <header className="relative flex items-center gap-3 overflow-hidden bg-gradient-to-br from-brand-600 to-brand-800 px-4 py-3.5 text-white">
+                <svg viewBox="0 0 200 60" className="pointer-events-none absolute -right-4 bottom-0 h-14 w-52 opacity-10" aria-hidden="true">
+                  <path d="M10 60 V30 h22 V60 M40 60 V14 h26 V60 M74 60 V24 h20 V60 M102 60 V8 h28 V60 M138 60 V28 h20 V60 M166 60 V18 h24 V60" className="fill-white" />
+                </svg>
+                <BotonVolver onClick={() => setEnChat(false)} claro />
+                <div className="relative min-w-0 flex-1">
+                  <h3 className="font-bold">Chat comunitario</h3>
+                  <p className="text-xs text-brand-100">Residentes, portería, mantenimiento y administración</p>
+                </div>
+              </header>
+            ) : (
+              <header className="flex items-center gap-3 border-b border-slate-100 bg-white px-4 py-3">
+                <BotonVolver onClick={() => setEnChat(false)} />
+                <Avatar nombre={activa.nombre} />
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate font-bold text-slate-900">{activa.nombre}</h3>
+                  <p className="truncate text-xs text-slate-500">{activa.detalle}</p>
+                </div>
+                <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                  <Lock className="size-3" /> Privado
+                </span>
+              </header>
+            )}
 
-        <div
-          ref={caja}
-          className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 bg-[radial-gradient(rgb(0_122_51/0.07)_1px,transparent_1.2px)] bg-[length:16px_16px] px-4 py-5 sm:px-5"
-        >
-          {hilo.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-              <Avatar nombre={contacto.nombre} size="lg" />
-              <p className="text-sm font-semibold text-slate-800">Escríbele a {contacto.nombre.split(' ')[0]}</p>
-              <p className="flex items-center gap-1 text-xs text-slate-500">
-                <Lock className="size-3" /> Solo ustedes dos verán esta conversación.
-              </p>
-            </div>
-          ) : (
-            dias.map((d) => (
-              <div key={d}>
-                <p className="mb-4 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400 [&:not(:first-child)]:mt-4">
-                  <span className="h-px flex-1 bg-slate-200" />
-                  {d}
-                  <span className="h-px flex-1 bg-slate-200" />
-                </p>
-                <ul className="space-y-3">
-                  {hilo
-                    .filter((m) => dia(m.fecha) === d)
-                    .map((m, i, arr) => {
-                      // En privado no se repite el avatar en mensajes seguidos del mismo autor
-                      const continua = !esGrupo && arr[i + 1]?.mio === m.mio
-                      return (
-                        <motion.li
-                          key={m.id}
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className={cn('flex items-end gap-2.5', m.mio && 'flex-row-reverse')}
-                        >
-                          {m.mio ? (
-                            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">JP</span>
-                          ) : continua ? (
-                            <span className="size-8 shrink-0" />
-                          ) : (
-                            <Avatar nombre={m.autor} size="sm" />
-                          )}
-                          <div className={cn('min-w-0 max-w-[85%] sm:max-w-md', m.mio && 'text-right')}>
-                            {esGrupo && !m.mio && (
-                              <p className="mb-1 text-xs font-semibold text-slate-700">
-                                {m.autor} <span className="font-normal text-slate-400">· {m.detalle}</span>
-                              </p>
-                            )}
-                            <div
-                              className={cn(
-                                'inline-block rounded-2xl px-4 py-2.5 text-left text-sm leading-relaxed shadow-sm',
-                                m.mio ? 'rounded-br-md bg-brand-600 text-white' : 'rounded-bl-md bg-white text-slate-700 ring-1 ring-slate-200/70',
+            <div
+              ref={caja}
+              className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 bg-[radial-gradient(rgb(0_122_51/0.07)_1px,transparent_1.2px)] bg-[length:16px_16px] px-4 py-5 sm:px-5"
+            >
+              {mensajes.length === 0 ? (
+                esGrupo ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                    <span className="flex size-12 items-center justify-center rounded-full bg-brand-600 text-white">
+                      <Users className="size-6" />
+                    </span>
+                    <p className="text-sm font-semibold text-slate-800">Saluda a tus vecinos</p>
+                    <p className="max-w-xs text-xs text-slate-500">Todo el conjunto verá lo que escribas aquí. Sé amable y respetuoso.</p>
+                  </div>
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                    <Avatar nombre={activa.nombre} size="lg" />
+                    <p className="text-sm font-semibold text-slate-800">Escríbele a {activa.nombre.split(' ')[0]}</p>
+                    <p className="flex items-center gap-1 text-xs text-slate-500">
+                      <Lock className="size-3" /> Solo ustedes dos verán esta conversación.
+                    </p>
+                  </div>
+                )
+              ) : (
+                dias.map((d) => (
+                  <div key={d}>
+                    <p className="mb-4 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400 [&:not(:first-child)]:mt-4">
+                      <span className="h-px flex-1 bg-slate-200" />
+                      {d}
+                      <span className="h-px flex-1 bg-slate-200" />
+                    </p>
+                    <ul className="space-y-3">
+                      {mensajes
+                        .filter((m) => diaDe(m.fecha) === d)
+                        .map((m, i, arr) => {
+                          // No se repite el avatar en mensajes seguidos del mismo autor
+                          const continua = arr[i + 1]?.autorId === m.autorId
+                          return (
+                            <motion.li key={m.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={cn('flex items-end gap-2.5', m.mio && 'flex-row-reverse')}>
+                              {continua ? (
+                                <span className="size-8 shrink-0" />
+                              ) : m.mio ? (
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">{iniciales(usuario.nombreCompleto)}</span>
+                              ) : (
+                                <Avatar nombre={m.autor} size="sm" />
                               )}
-                            >
-                              {m.texto}
-                              <span className={cn('ml-2 inline-flex translate-y-0.5 items-center gap-0.5 text-[10px]', m.mio ? 'text-brand-100' : 'text-slate-400')}>
-                                {hora(m.fecha)}
-                                {m.mio && <CheckCheck className="size-3.5" />}
-                              </span>
-                            </div>
-                          </div>
-                        </motion.li>
-                      )
-                    })}
-                </ul>
-              </div>
-            ))
-          )}
-        </div>
+                              <div className={cn('min-w-0 max-w-[85%] sm:max-w-md', m.mio && 'text-right')}>
+                                {esGrupo && !m.mio && arr[i - 1]?.autorId !== m.autorId && (
+                                  <p className="mb-1 text-xs font-semibold text-slate-700">
+                                    {m.autor} <span className="font-normal text-slate-400">· {m.detalle}</span>
+                                  </p>
+                                )}
+                                <div
+                                  className={cn(
+                                    'inline-block whitespace-pre-line rounded-2xl px-4 py-2.5 text-left text-sm leading-relaxed shadow-sm',
+                                    m.mio ? 'rounded-br-md bg-brand-600 text-white' : 'rounded-bl-md bg-white text-slate-700 ring-1 ring-slate-200/70',
+                                  )}
+                                >
+                                  {m.texto}
+                                  <span className={cn('ml-2 inline-flex translate-y-0.5 items-center gap-0.5 text-[10px]', m.mio ? 'text-brand-100' : 'text-slate-400')}>
+                                    {hora(m.fecha)}
+                                    {m.mio && <CheckCheck className="size-3.5" />}
+                                  </span>
+                                </div>
+                              </div>
+                            </motion.li>
+                          )
+                        })}
+                    </ul>
+                  </div>
+                ))
+              )}
+            </div>
 
-        <form onSubmit={enviar} className="flex items-center gap-2 border-t border-slate-100 bg-white p-3">
-          <label htmlFor="mensaje-chat" className="sr-only">
-            {esGrupo ? 'Mensaje para la comunidad' : `Mensaje privado para ${contacto.nombre}`}
-          </label>
-          <input
-            id="mensaje-chat"
-            type="text"
-            value={borrador}
-            onChange={(e) => setBorrador(e.target.value)}
-            placeholder={esGrupo ? 'Escribe un mensaje a la comunidad…' : `Mensaje privado a ${contacto.nombre.split(' ')[0]}…`}
-            className="min-w-0 flex-1 rounded-full bg-slate-100 px-4 py-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500"
-          />
-          <Button type="submit" icon={Send} disabled={!borrador.trim()} aria-label="Enviar mensaje">
-            <span className="hidden sm:inline">Enviar</span>
-          </Button>
-        </form>
+            {error && (
+              <p role="alert" className="flex items-center gap-2 bg-danger-bg px-4 py-2 text-xs font-medium text-danger-strong">
+                <AlertCircle className="size-4 shrink-0" /> {error}
+              </p>
+            )}
+            <form onSubmit={enviar} className="flex items-center gap-2 border-t border-slate-100 bg-white p-3">
+              <label htmlFor="mensaje-chat" className="sr-only">
+                {esGrupo ? 'Mensaje para la comunidad' : `Mensaje privado para ${activa.nombre}`}
+              </label>
+              <input
+                id="mensaje-chat"
+                type="text"
+                maxLength={1000}
+                value={borrador}
+                onChange={(e) => setBorrador(e.target.value)}
+                placeholder={esGrupo ? 'Escribe un mensaje a la comunidad…' : `Mensaje para ${activa.nombre.split(' ')[0]}…`}
+                className="min-w-0 flex-1 rounded-full bg-slate-100 px-4 py-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500"
+              />
+              <Button type="submit" icon={Send} disabled={!borrador.trim() || enviando} aria-label="Enviar mensaje">
+                <span className="hidden sm:inline">Enviar</span>
+              </Button>
+            </form>
+          </>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 bg-slate-50/70 bg-[radial-gradient(rgb(0_122_51/0.07)_1px,transparent_1.2px)] bg-[length:16px_16px] px-6 text-center">
+            <MessagesSquare className="size-10 text-brand-300" />
+            <p className="text-sm font-semibold text-slate-700">Elige una conversación</p>
+            <p className="max-w-xs text-xs text-slate-500">O escribe un mensaje nuevo a un vecino, a portería o a la administración.</p>
+          </div>
+        )}
       </section>
     </div>
   )
 }
 
-function Fila({ activa, onClick, icono, titulo, detalle, hora: cuando, sinLeer }) {
+function Fila({ activa, onClick, icono, titulo, detalle, hora: cuando }) {
   return (
     <button
       type="button"
@@ -312,15 +372,10 @@ function Fila({ activa, onClick, icono, titulo, detalle, hora: cuando, sinLeer }
       {icono}
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline justify-between gap-2">
-          <span className={cn('truncate text-sm', sinLeer ? 'font-bold text-slate-900' : 'font-semibold text-slate-800')}>{titulo}</span>
-          <span className={cn('shrink-0 text-[10px] tabular-nums', sinLeer ? 'font-bold text-brand-700' : 'text-slate-400')}>{cuando}</span>
+          <span className="truncate text-sm font-semibold text-slate-800">{titulo}</span>
+          <span className="shrink-0 text-[10px] tabular-nums text-slate-400">{cuando}</span>
         </span>
-        <span className="flex items-center justify-between gap-2">
-          <span className={cn('truncate text-xs', sinLeer ? 'font-medium text-slate-700' : 'text-slate-500')}>{detalle}</span>
-          {sinLeer > 0 && (
-            <span className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white">{sinLeer}</span>
-          )}
-        </span>
+        <span className="block truncate text-xs text-slate-500">{detalle}</span>
       </span>
     </button>
   )
@@ -333,7 +388,6 @@ Fila.propTypes = {
   titulo: PropTypes.string.isRequired,
   detalle: PropTypes.string.isRequired,
   hora: PropTypes.string,
-  sinLeer: PropTypes.number,
 }
 
 function BotonVolver({ onClick, claro }) {

@@ -1,39 +1,90 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { Calendar, Check, CheckCircle2, MapPin, Plus, RotateCcw, X } from 'lucide-react'
-import { Button, Field, Modal, Select, Textarea, UploadBox } from '../../components/ui'
+import { AlertCircle, Calendar, CheckCircle2, MapPin, Plus, RotateCcw, Wrench } from 'lucide-react'
+import { ArchivoProtegido, Button, CampoArchivo, EmptyState, Field, Input, Modal, Select, Textarea } from '../../components/ui'
 import IlustracionIncidencia from '../../components/incidencias/IlustracionIncidencia'
 import Avance from '../../components/incidencias/Avance'
-import { estilosEstado, puntoPrioridad } from '../../lib/incidencias'
+import { CATEGORIAS, estilosEstado, incidenciasApi, prioridadApi, puntoPrioridad } from '../../lib/incidencias'
 import { aparecer, tarjeta } from '../../lib/panel'
+import { useSesion } from '../../lib/sesion'
+import { useCarga } from '../../lib/useCarga'
 import { cn } from '../../lib/utils'
 
-const categorias = ['Plomería', 'Eléctrico', 'Carpintería', 'Iluminación', 'Ascensores', 'Zonas comunes', 'Otro']
-const ubicaciones = ['Torre 1', 'Torre 2', 'Torre 3', 'Zonas comunes']
-
-const incidenciasIniciales = [
-  { id: 'INC-013', titulo: 'Fuga de agua en el baño de la ducha', categoria: 'Plomería', ubicacion: 'Torre 2 · Apto 304', fecha: '07/09/2026', prioridad: 'Alta', estado: 'En proceso', descripcion: 'Se presenta un goteo constante en la ducha del baño principal, incluso con la llave cerrada.' },
-  { id: 'INC-012', titulo: 'El ascensor 1 emite un ruido fuerte', categoria: 'Ascensores', ubicacion: 'Torre 1 · Lobby', fecha: '05/09/2026', prioridad: 'Media', estado: 'Nueva', descripcion: 'Al llegar al piso 3 el ascensor 1 presenta un ruido metálico y vibración.' },
-  { id: 'INC-010', titulo: 'Cerradura de la puerta principal en mal estado', categoria: 'Carpintería', ubicacion: 'Torre 2 · Apto 304', fecha: '02/09/2026', prioridad: 'Media', estado: 'Nueva', descripcion: 'La cerradura de la puerta principal gira con dificultad y a veces se queda trabada.' },
-  { id: 'INC-001', titulo: 'Bombilla quemada en el pasillo del piso 4', categoria: 'Iluminación', ubicacion: 'Torre 2 · Piso 4', fecha: '30/07/2026', prioridad: 'Baja', estado: 'Resuelta', descripcion: 'La bombilla del pasillo del piso 4 está quemada desde hace una semana.' },
+const OTRAS_UBICACIONES = ['Pasillo o escaleras de mi torre', 'Ascensor', 'Zonas comunes', 'Parqueadero', 'Portería']
+const PRIORIDADES = [
+  ['Baja', 'Puede esperar'],
+  ['Media', 'Afecta el uso normal'],
+  ['Alta', 'Riesgo o daño grave'],
 ]
 
-export default function Incidencias() {
-  const [lista, setLista] = useState(incidenciasIniciales)
-  const [modalAbierto, setModalAbierto] = useState(false)
-  const [reportada, setReportada] = useState(false)
-  const [categoriaNueva, setCategoriaNueva] = useState(categorias[0])
+function nuevoReporte(apartamento) {
+  return { categoria: CATEGORIAS[0], titulo: '', descripcion: '', ubicacion: apartamento ?? OTRAS_UBICACIONES[0], prioridad: 'Media' }
+}
 
-  const responder = (id, respuesta) => {
-    setLista(lista.map((i) => (i.id === id ? { ...i, estado: respuesta === 'si' ? 'Evaluada' : 'Reabierta' } : i)))
+export default function Incidencias() {
+  const { usuario } = useSesion()
+  // El residente reporta para su apartamento; portería también usa esta pantalla sin apartamento
+  const miApartamento = usuario.apartamento
+  const { datos: lista, error, recargar } = useCarga(incidenciasApi.mias)
+  const [modalAbierto, setModalAbierto] = useState(false)
+  const [reporte, setReporte] = useState(() => nuevoReporte(miApartamento))
+  const [foto, setFoto] = useState(null)
+  const [errores, setErrores] = useState({})
+  const [errorGeneral, setErrorGeneral] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [reportada, setReportada] = useState(false)
+
+  const incidencias = lista ?? []
+  const contar = (...estados) => incidencias.filter((i) => estados.includes(i.estado)).length
+  const resumen = [
+    ['Nuevas', contar('Nueva', 'Asignada'), 'bg-sky-500'],
+    ['En proceso', contar('En proceso'), 'bg-warning'],
+    ['Resueltas', contar('Resuelta'), 'bg-success'],
+  ]
+
+  const cambiar = (campo) => (valor) => {
+    setReporte((r) => ({ ...r, [campo]: valor }))
+    setErrores((e) => ({ ...e, [campo]: undefined }))
   }
 
-  const contar = (...estados) => lista.filter((i) => estados.includes(i.estado)).length
-  const resumen = [
-    ['Nuevas', contar('Nueva'), 'bg-sky-500'],
-    ['En proceso', contar('En proceso', 'Reabierta'), 'bg-warning'],
-    ['Resueltas', contar('Resuelta', 'Evaluada'), 'bg-success'],
-  ]
+  const abrir = () => {
+    setReporte(nuevoReporte(miApartamento))
+    setFoto(null)
+    setErrores({})
+    setErrorGeneral('')
+    setModalAbierto(true)
+  }
+
+  const enviar = async (e) => {
+    e.preventDefault()
+    const encontrados = {}
+    if (!reporte.titulo.trim()) encontrados.titulo = 'Escribe un título corto, por ejemplo "Fuga en el lavamanos".'
+    if (!reporte.descripcion.trim()) encontrados.descripcion = 'Cuéntanos qué ocurre.'
+    setErrores(encontrados)
+    if (Object.keys(encontrados).length) return
+
+    setEnviando(true)
+    setErrorGeneral('')
+    try {
+      const creada = await incidenciasApi.reportar({
+        titulo: reporte.titulo.trim(),
+        descripcion: reporte.descripcion.trim(),
+        ubicacion: reporte.ubicacion,
+        categoria: reporte.categoria,
+        prioridad: prioridadApi(reporte.prioridad),
+      })
+      // La foto se adjunta una vez creada la incidencia
+      if (foto) await incidenciasApi.agregarEvidencia(creada.id, foto)
+      setModalAbierto(false)
+      setReportada(true)
+      recargar()
+    } catch (err) {
+      if (Object.keys(err.erroresCampo).length) setErrores(err.erroresCampo)
+      else setErrorGeneral(err.message)
+    } finally {
+      setEnviando(false)
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -42,20 +93,18 @@ export default function Incidencias() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Incidencias</h1>
           <p className="mt-1 text-sm text-slate-500">Reporta y da seguimiento a las novedades de tu unidad</p>
         </div>
-        <Button onClick={() => setModalAbierto(true)} icon={Plus}>
+        <Button onClick={abrir} icon={Plus}>
           Reportar incidencia
         </Button>
       </div>
 
       {/* Resumen por estado */}
       <motion.div {...aparecer(0)} className={cn(tarjeta, 'flex flex-wrap items-center gap-x-8 gap-y-3 px-6 py-4')}>
-        <p className="text-sm font-bold text-slate-900">
-          {lista.length} reportes
-        </p>
+        <p className="text-sm font-bold text-slate-900">{lista ? (incidencias.length === 1 ? '1 reporte' : `${incidencias.length} reportes`) : 'Cargando…'}</p>
         {resumen.map(([etiqueta, n, punto]) => (
           <p key={etiqueta} className="flex items-center gap-2 text-sm text-slate-600">
             <span className={cn('size-2.5 rounded-full', punto)} />
-            <span className="text-lg font-extrabold text-slate-900 tabular-nums">{n}</span>
+            <span className="text-lg font-extrabold text-slate-900 tabular-nums">{lista ? n : '–'}</span>
             {etiqueta}
           </p>
         ))}
@@ -67,77 +116,105 @@ export default function Incidencias() {
       </motion.div>
 
       {reportada && (
-        <div className="animate-fade-up flex items-center gap-3 rounded-xl border border-success/30 bg-success-bg px-4 py-3 text-sm text-success-strong">
+        <div role="status" className="animate-fade-up flex items-center gap-3 rounded-xl border border-success/30 bg-success-bg px-4 py-3 text-sm text-success-strong">
           <CheckCircle2 className="size-5 shrink-0" />
-          <span className="font-medium">Incidencia reportada correctamente. Quedó en estado &quot;Nueva&quot;.</span>
+          <span className="font-medium">Incidencia reportada. La administración la revisará y asignará a un técnico.</span>
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {lista.map((inc, n) => (
-          <motion.article key={inc.id} {...aparecer(n + 1)} className={cn(tarjeta, 'flex flex-col overflow-hidden sm:flex-row')}>
-            <IlustracionIncidencia categoria={inc.categoria} className="h-32 shrink-0 sm:h-auto sm:w-36" />
+      {error ? (
+        <div className={tarjeta}>
+          <EmptyState
+            icon={AlertCircle}
+            title="No se pudieron cargar tus incidencias"
+            description={error}
+            action={
+              <Button variant="secondary" size="sm" icon={RotateCcw} onClick={recargar} className="mt-2">
+                Intentar de nuevo
+              </Button>
+            }
+          />
+        </div>
+      ) : !lista ? (
+        <div className="grid gap-5 lg:grid-cols-2" role="status" aria-label="Cargando incidencias">
+          {[0, 1].map((i) => (
+            <div key={i} className={cn(tarjeta, 'h-52 animate-pulse')} />
+          ))}
+        </div>
+      ) : incidencias.length === 0 ? (
+        <div className={cn(tarjeta, 'flex flex-col items-center gap-2 px-6 py-12 text-center')}>
+          <span className="flex size-12 items-center justify-center rounded-full bg-success-bg text-success-strong">
+            <CheckCircle2 className="size-6" />
+          </span>
+          <p className="text-sm font-bold text-slate-900">No has reportado incidencias</p>
+          <p className="max-w-sm text-xs text-slate-500">Si algo se daña en tu apartamento o en las zonas comunes, repórtalo aquí y sigue cómo avanza.</p>
+          <Button size="sm" icon={Plus} className="mt-2" onClick={abrir}>
+            Reportar incidencia
+          </Button>
+        </div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-2">
+          {incidencias.map((inc, n) => (
+            <motion.article key={inc.id} {...aparecer(n + 1)} className={cn(tarjeta, 'flex flex-col overflow-hidden sm:flex-row')}>
+              <IlustracionIncidencia categoria={inc.categoria} className="h-32 shrink-0 sm:h-auto sm:w-36" />
 
-            <div className="flex min-w-0 flex-1 flex-col p-5">
-              <div className="flex items-start justify-between gap-3">
-                <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-600">{inc.id}</span>
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1',
-                    estilosEstado[inc.estado],
-                  )}
-                >
-                  {inc.estado === 'Evaluada' ? 'Solución confirmada' : inc.estado}
-                </span>
-              </div>
-
-              <h2 className="mt-2.5 text-base font-bold leading-snug text-slate-900">{inc.titulo}</h2>
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{inc.descripcion}</p>
-
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">
-                <span className="flex items-center gap-1">
-                  <MapPin className="size-3.5" /> {inc.ubicacion}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Calendar className="size-3.5" /> {inc.fecha}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className={cn('size-2 rounded-full', puntoPrioridad[inc.prioridad])} />
-                  Prioridad {inc.prioridad.toLowerCase()}
-                </span>
-              </div>
-
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <Avance estado={inc.estado} />
-              </div>
-
-              {inc.estado === 'Resuelta' && (
-                <div className="mt-4 rounded-xl bg-brand-50 p-3.5 ring-1 ring-brand-100">
-                  <p className="text-sm font-semibold text-brand-800">¿La incidencia fue solucionada?</p>
-                  <div className="mt-2.5 flex gap-2">
-                    <Button size="sm" onClick={() => responder(inc.id, 'si')} icon={Check}>
-                      Correcto
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => responder(inc.id, 'no')} icon={X}>
-                      Incorrecto
-                    </Button>
-                  </div>
+              <div className="flex min-w-0 flex-1 flex-col p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex items-center gap-2">
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-600">{inc.codigo}</span>
+                    <span className="text-[11px] font-medium text-slate-400">{inc.categoria}</span>
+                  </span>
+                  <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1', estilosEstado[inc.estado])}>
+                    {inc.estado}
+                  </span>
                 </div>
-              )}
-              {inc.estado === 'Evaluada' && (
-                <p className="mt-4 flex items-center gap-2 rounded-xl bg-success-bg px-3.5 py-2.5 text-xs font-medium text-success-strong">
-                  <CheckCircle2 className="size-4 shrink-0" /> Gracias por confirmar. La incidencia quedó cerrada.
-                </p>
-              )}
-              {inc.estado === 'Reabierta' && (
-                <p className="mt-4 flex items-center gap-2 rounded-xl bg-danger-bg px-3.5 py-2.5 text-xs font-medium text-danger-strong">
-                  <RotateCcw className="size-4 shrink-0" /> La reabrimos. Mantenimiento volverá a revisarla.
-                </p>
-              )}
-            </div>
-          </motion.article>
-        ))}
-      </div>
+
+                <h2 className="mt-2.5 text-base font-bold leading-snug text-slate-900">{inc.titulo}</h2>
+                <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-slate-600">{inc.descripcion}</p>
+
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="size-3.5" /> {inc.ubicacion}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="size-3.5" /> {inc.fecha}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className={cn('size-2 rounded-full', puntoPrioridad[inc.prioridad])} />
+                    Prioridad {inc.prioridad.toLowerCase()}
+                  </span>
+                </div>
+
+                {inc.evidencias.length > 0 && (
+                  <div className="mt-3 flex gap-2">
+                    {inc.evidencias.map((url) => (
+                      <ArchivoProtegido key={url} url={url} alt={`Evidencia de ${inc.titulo}`} className="size-16" />
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <Avance estado={inc.paso} />
+                </div>
+
+                {inc.tecnico && inc.estado !== 'Resuelta' && (
+                  <p className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                    <Wrench className="size-3.5" /> A cargo de <span className="font-semibold text-slate-700">{inc.tecnico}</span>
+                  </p>
+                )}
+                {inc.estado === 'Resuelta' && (
+                  <div className="mt-4 rounded-xl bg-success-bg px-3.5 py-2.5 text-xs text-success-strong">
+                    <p className="flex items-center gap-2 font-semibold">
+                      <CheckCircle2 className="size-4 shrink-0" /> Resuelta{inc.tecnico ? ` por ${inc.tecnico}` : ''}
+                    </p>
+                    {inc.solucion && <p className="mt-1 pl-6">{inc.solucion}</p>}
+                  </div>
+                )}
+              </div>
+            </motion.article>
+          ))}
+        </div>
+      )}
 
       <Modal
         open={modalAbierto}
@@ -151,30 +228,25 @@ export default function Incidencias() {
             <Button variant="secondary" onClick={() => setModalAbierto(false)}>
               Cancelar
             </Button>
-            <Button
-              onClick={() => {
-                setReportada(true)
-                setModalAbierto(false)
-              }}
-            >
-              Enviar reporte
+            <Button type="submit" form="form-incidencia" disabled={enviando}>
+              {enviando ? 'Enviando…' : 'Enviar reporte'}
             </Button>
           </>
         }
       >
-        <div className="space-y-4">
+        <form id="form-incidencia" onSubmit={enviar} noValidate className="space-y-4">
           <Field label="¿Qué tipo de problema es?" required>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Categoría">
-              {categorias.map((c) => (
+              {CATEGORIAS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   role="radio"
-                  aria-checked={categoriaNueva === c}
-                  onClick={() => setCategoriaNueva(c)}
+                  aria-checked={reporte.categoria === c}
+                  onClick={() => cambiar('categoria')(c)}
                   className={cn(
                     'overflow-hidden rounded-xl border text-left outline-none transition focus-visible:ring-2 focus-visible:ring-brand-500',
-                    categoriaNueva === c ? 'border-brand-500 ring-2 ring-brand-500' : 'border-slate-200 hover:border-brand-300',
+                    reporte.categoria === c ? 'border-brand-500 ring-2 ring-brand-500' : 'border-slate-200 hover:border-brand-300',
                   )}
                 >
                   <IlustracionIncidencia categoria={c} className="h-14" />
@@ -183,30 +255,41 @@ export default function Incidencias() {
               ))}
             </div>
           </Field>
-          <Field label="Descripción de la incidencia" required>
-            <Textarea placeholder="Describe brevemente qué sucede…" />
+          <Field label="Título" htmlFor="inc-titulo" required error={errores.titulo}>
+            <Input id="inc-titulo" maxLength={200} value={reporte.titulo} onChange={(e) => cambiar('titulo')(e.target.value)} placeholder="Ej. Fuga en el lavamanos del baño" />
+          </Field>
+          <Field label="¿Qué ocurre?" htmlFor="inc-desc" required error={errores.descripcion}>
+            <Textarea id="inc-desc" maxLength={1000} value={reporte.descripcion} onChange={(e) => cambiar('descripcion')(e.target.value)} placeholder="Describe el problema y desde cuándo pasa…" />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Ubicación" required>
-              <Select defaultValue="Torre 2">
-                {ubicaciones.map((u) => (
+            <Field label="¿Dónde?" htmlFor="inc-ubicacion" required>
+              <Select id="inc-ubicacion" value={reporte.ubicacion} onChange={(e) => cambiar('ubicacion')(e.target.value)}>
+                {miApartamento && <option value={miApartamento}>Mi apartamento ({miApartamento})</option>}
+                {OTRAS_UBICACIONES.map((u) => (
                   <option key={u}>{u}</option>
                 ))}
               </Select>
             </Field>
-            <Field label="Apartamento" hint="Si el reporte es comunitario, indica la zona común">
-              <Select defaultValue="Torre 2 · Apto 304">
-                <option>Torre 1 · Apto 101</option>
-                <option>Torre 1 · Apto 204</option>
-                <option>Torre 2 · Apto 304</option>
-                <option>Torre 3 · Apto 502</option>
+            <Field label="Prioridad" htmlFor="inc-prioridad" required>
+              <Select id="inc-prioridad" value={reporte.prioridad} onChange={(e) => cambiar('prioridad')(e.target.value)}>
+                {PRIORIDADES.map(([p, desc]) => (
+                  <option key={p} value={p}>
+                    {p} · {desc}
+                  </option>
+                ))}
               </Select>
             </Field>
           </div>
-          <Field label="Evidencia" hint="Opcional — fotos o capturas del problema">
-            <UploadBox hint="Adjuntar evidencia (foto o documento)" />
+          <Field label="Foto del problema" htmlFor="inc-foto" hint="Opcional. Ayuda a mantenimiento a entender el daño antes de ir.">
+            <CampoArchivo id="inc-foto" value={foto} onChange={setFoto} texto="Toca para tomar o elegir una foto" />
           </Field>
-        </div>
+          {errorGeneral && (
+            <p role="alert" className="flex items-start gap-2 rounded-lg bg-danger-bg px-3 py-2.5 text-sm font-medium text-danger-strong">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              {errorGeneral}
+            </p>
+          )}
+        </form>
       </Modal>
     </div>
   )

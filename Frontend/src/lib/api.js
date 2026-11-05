@@ -40,6 +40,51 @@ const MENSAJES = {
 // apunta al backend desplegado, p. ej. https://resigest-api.onrender.com
 const BASE_API = import.meta.env.VITE_API_URL || window.location.origin
 
+// Sube un archivo (foto o PDF) y devuelve { id, nombre, tipoContenido, tamano, url }
+export const subirArchivo = (archivo) => enviarArchivo('/archivos', archivo)
+
+// Envía un archivo como multipart/form-data (campo "archivo") a una ruta del API
+export async function enviarArchivo(ruta, archivo) {
+  const datos = new FormData()
+  datos.append('archivo', archivo)
+  let respuesta
+  try {
+    respuesta = await fetch(new URL(`/api${ruta}`, BASE_API), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${leerToken()}` },
+      body: datos,
+    })
+  } catch {
+    throw new ApiError({ status: 0, codigo: 'SIN_CONEXION', mensaje: MENSAJES[0] })
+  }
+  const cuerpo = await respuesta.json().catch(() => ({}))
+  if (!respuesta.ok) {
+    throw new ApiError({
+      status: respuesta.status,
+      codigo: cuerpo.codigo,
+      mensaje: respuesta.status === 413 ? 'El archivo pesa más de 5 MB. Elige uno más liviano.' : (cuerpo.mensaje ?? MENSAJES[500]),
+    })
+  }
+  return cuerpo
+}
+
+// Pide un archivo protegido y devuelve una URL local (blob) para mostrarlo en la página
+export async function urlLocal(ruta) {
+  const respuesta = await fetch(new URL(ruta, BASE_API), { headers: { Authorization: `Bearer ${leerToken()}` } })
+  if (!respuesta.ok) throw new ApiError({ status: respuesta.status, mensaje: 'No se pudo cargar el archivo.' })
+  const blob = await respuesta.blob()
+  return { url: URL.createObjectURL(blob), tipo: blob.type }
+}
+
+// Descarga un archivo protegido (p. ej. el PDF de un comprobante) y lo abre en una pestaña nueva
+export async function abrirArchivo(ruta) {
+  const respuesta = await fetch(new URL(`/api${ruta}`, BASE_API), { headers: { Authorization: `Bearer ${leerToken()}` } })
+  if (!respuesta.ok) throw new ApiError({ status: respuesta.status, mensaje: 'No se pudo descargar el archivo. Intenta de nuevo.' })
+  const url = URL.createObjectURL(await respuesta.blob())
+  window.open(url, '_blank', 'noopener')
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
 export async function api(ruta, { method = 'GET', body, params } = {}) {
   const url = new URL(`/api${ruta}`, BASE_API)
   Object.entries(params ?? {}).forEach(([k, v]) => {
