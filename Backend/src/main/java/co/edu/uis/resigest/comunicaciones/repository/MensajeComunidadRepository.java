@@ -7,6 +7,9 @@ import java.util.List;
 
 public interface MensajeComunidadRepository extends JpaRepository<MensajeComunidad, Long> {
 
-    /** Los últimos 100 mensajes, del más reciente al más antiguo. */
-    List<MensajeComunidad> findTop100ByOrderByFechaDesc();
+    /** Chat general: los últimos 100 mensajes, del más reciente al más antiguo. */
+    List<MensajeComunidad> findTop100ByTorreIsNullOrderByFechaDesc();
+
+    /** Chat de una torre: los últimos 100 mensajes, del más reciente al más antiguo. */
+    List<MensajeComunidad> findTop100ByTorreIdOrderByFechaDesc(Long torreId);
 }

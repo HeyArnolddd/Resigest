@@ -10,3 +10,9 @@ spring:
     multipart:
       max-file-size: 5MB
       max-request-size: 5MB
+  jpa:
+    properties:
+      hibernate:
+        # Las relaciones LAZY se cargan en grupos (un IN de hasta 50 ids) y no una consulta por fila.
+        # Con la BD remota cada consulta cuesta ~100 ms, así que evita listados lentos (N+1).
+        default_batch_fetch_size: 50
