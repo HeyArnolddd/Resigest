@@ -35,6 +35,15 @@ public class Paquete extends EntidadBase {
     @Column(length = 500)
     private String descripcion;
 
+    @Column(length = 60)
+    private String guia;
+
+    @Column(length = 30)
+    private String tamano;
+
+    @Column(length = 300)
+    private String fotoUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private EstadoPaquete estado;
@@ -44,26 +53,12 @@ public class Paquete extends EntidadBase {
 
     private LocalDateTime fechaEntrega;
 
+    // Nombre explícito: la estrategia de Spring convierte "entregadoA" en "entregadoa", sin guion bajo
     @Column(name = "entregado_a", length = 200)
     private String entregadoA;
 
     protected Paquete() {
         // Constructor sin argumentos para JPA.
-    }
-
-    @Column(length = 50)
-    private String guia;
-
-    @Column(nullable = false, length = 20)
-    private String tamano = "MEDIANO";
-
-    public Paquete(Apartamento apartamentoDestino, String empresaTransportadora, String descripcion,
-                   String guia, String tamano) {
-        this(apartamentoDestino, empresaTransportadora, descripcion);
-        this.guia = guia;
-        if (tamano != null && !tamano.isBlank()) {
-            this.tamano = tamano.trim().toUpperCase();
-        }
     }
 
     public Paquete(Apartamento apartamentoDestino, String empresaTransportadora, String descripcion) {

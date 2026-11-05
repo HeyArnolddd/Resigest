@@ -1,21 +1,21 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { AnimatePresence, motion } from 'motion/react'
-import { Building2, Check, Clock, Plus, Search } from 'lucide-react'
-import { Avatar, Button } from '../../components/ui'
-import { ingresos } from '../../data/mock'
+import { AlertCircle, Building2, Clock, LogOut, Plus, RotateCcw, Search, UserRoundCheck } from 'lucide-react'
+import { Avatar, Button, EmptyState } from '../../components/ui'
 import { aparecer, tarjeta } from '../../lib/panel'
-import { estiloTipo } from '../../lib/porteria'
+import { esDeHoy, estiloTipo, hora, ingresosDelDia, porteriaApi } from '../../lib/porteria'
+import { useCarga } from '../../lib/useCarga'
 import { cn } from '../../lib/utils'
 import RegistrarVisitante from './RegistrarVisitante'
 
 const FILTROS = ['Todos', 'Visitante', 'Domicilio', 'Servicio']
+const plural = { Visitante: 'Visitantes', Domicilio: 'Domicilios', Servicio: 'Servicios' }
 
 // Cada ingreso como un gafete de visitante colgado de su cinta
-function GafeteVisitante({ ingreso, onDarIngreso }) {
+function GafeteVisitante({ ingreso, onSalida, ocupado }) {
   const tipo = estiloTipo(ingreso.tipo)
   const Icono = tipo.icono
-  const esperando = ingreso.estado === 'En portería'
 
   return (
     <motion.article
@@ -24,16 +24,17 @@ function GafeteVisitante({ ingreso, onDarIngreso }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className={cn(tarjeta, 'relative flex flex-col overflow-hidden', esperando && 'ring-2 ring-amber-300')}
+      className={cn(tarjeta, 'relative flex flex-col overflow-hidden', ingreso.dentro && 'ring-2 ring-amber-300')}
     >
       <div className={cn('relative flex h-11 items-center justify-between px-4', tipo.banda)}>
         <span className="inline-flex items-center gap-1.5 text-xs font-bold">
           <Icono className="size-3.5" strokeWidth={2.2} />
           {ingreso.tipo}
+          {ingreso.empresa && <span className="font-semibold opacity-80">· {ingreso.empresa}</span>}
         </span>
         {/* Ranura de la cinta */}
         <span className="absolute left-1/2 top-3 h-2 w-10 -translate-x-1/2 rounded-full bg-black/25" />
-        <span className="font-mono text-[11px] font-semibold opacity-75">#{String(ingreso.id).slice(-3).padStart(3, '0')}</span>
+        <span className="font-mono text-[11px] font-semibold opacity-75">#{String(ingreso.id).padStart(3, '0')}</span>
       </div>
 
       <div className="flex items-center gap-3.5 p-4">
@@ -45,30 +46,30 @@ function GafeteVisitante({ ingreso, onDarIngreso }) {
               <Building2 className="size-3.5" /> {ingreso.apartamento}
             </span>
             <span className="flex items-center gap-1 tabular-nums">
-              <Clock className="size-3.5" /> {ingreso.hora}
+              <Clock className="size-3.5" /> {esDeHoy(ingreso.fechaIngreso) ? ingreso.hora : `${new Date(ingreso.fechaIngreso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })} · ${ingreso.hora}`}
             </span>
           </p>
         </div>
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-3 border-t border-dashed border-slate-200 px-4 py-3">
-        {esperando ? (
+        {ingreso.dentro ? (
           <>
             <span className="flex items-center gap-1.5 text-xs font-semibold text-warning-strong">
               <span className="relative flex size-2">
                 <span className="absolute inset-0 animate-ping rounded-full bg-warning/60" />
                 <span className="relative size-2 rounded-full bg-warning" />
               </span>
-              Esperando en portería
+              Dentro del conjunto
             </span>
-            <Button size="sm" icon={Check} onClick={() => onDarIngreso(ingreso.id)}>
-              Dar ingreso
+            <Button size="sm" variant="secondary" icon={LogOut} disabled={ocupado} onClick={() => onSalida(ingreso)}>
+              Registrar salida
             </Button>
           </>
         ) : (
           <span className="flex items-center gap-1.5 text-xs font-semibold text-success-strong">
             <span className="size-2 rounded-full bg-success" />
-            Ingresó al conjunto
+            Salió a las {hora(ingreso.fechaSalida)}
           </span>
         )}
       </div>
@@ -78,39 +79,56 @@ function GafeteVisitante({ ingreso, onDarIngreso }) {
 
 GafeteVisitante.propTypes = {
   ingreso: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+    id: PropTypes.number.isRequired,
     persona: PropTypes.string.isRequired,
     apartamento: PropTypes.string.isRequired,
     hora: PropTypes.string.isRequired,
     tipo: PropTypes.string.isRequired,
-    estado: PropTypes.string.isRequired,
+    empresa: PropTypes.string,
+    dentro: PropTypes.bool.isRequired,
+    fechaIngreso: PropTypes.string.isRequired,
+    fechaSalida: PropTypes.string,
   }).isRequired,
-  onDarIngreso: PropTypes.func.isRequired,
+  onSalida: PropTypes.func.isRequired,
+  ocupado: PropTypes.bool,
 }
 
 export default function Visitantes() {
+  const { datos: lista, error, recargar } = useCarga(ingresosDelDia, 'port:visitantes')
   const [modal, setModal] = useState(false)
-  const [lista, setLista] = useState(ingresos)
   const [filtro, setFiltro] = useState('Todos')
   const [busqueda, setBusqueda] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+  const [errorSalida, setErrorSalida] = useState('')
 
+  const registros = lista ?? []
   const texto = busqueda.trim().toLowerCase()
-  const visibles = lista.filter(
-    (i) =>
-      (filtro === 'Todos' || i.tipo === filtro) &&
-      (!texto || i.persona.toLowerCase().includes(texto) || i.apartamento.toLowerCase().includes(texto)),
+  const visibles = registros.filter(
+    (i) => (filtro === 'Todos' || i.tipo === filtro) && (!texto || i.persona.toLowerCase().includes(texto) || i.apartamento.toLowerCase().includes(texto)),
   )
-  const contar = (t) => lista.filter((i) => i.tipo === t).length
-  const esperando = lista.filter((i) => i.estado === 'En portería').length
+  const deHoy = registros.filter((i) => esDeHoy(i.fechaIngreso))
+  const contar = (t) => deHoy.filter((i) => i.tipo === t).length
+  const dentro = registros.filter((i) => i.dentro).length
 
-  const darIngreso = (id) => setLista(lista.map((i) => (i.id === id ? { ...i, estado: 'Completado' } : i)))
+  const registrarSalida = async (ingreso) => {
+    setOcupado(true)
+    setErrorSalida('')
+    try {
+      await porteriaApi.registrarSalida(ingreso.id)
+      recargar()
+    } catch (e) {
+      setErrorSalida(e.message)
+    } finally {
+      setOcupado(false)
+    }
+  }
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Visitantes</h1>
-          <p className="mt-1 text-sm text-slate-500">Control de ingresos del día</p>
+          <p className="mt-1 text-sm text-slate-500">Ingresos de hoy y quienes siguen dentro del conjunto</p>
         </div>
         <Button onClick={() => setModal(true)} icon={Plus}>
           Registrar visitante
@@ -119,17 +137,17 @@ export default function Visitantes() {
 
       {/* Resumen */}
       <motion.div {...aparecer(0)} className={cn(tarjeta, 'flex flex-wrap items-center gap-x-8 gap-y-3 px-6 py-4')}>
-        <p className="text-sm font-bold text-slate-900">{lista.length} ingresos hoy</p>
+        <p className="text-sm font-bold text-slate-900">{deHoy.length === 1 ? '1 ingreso hoy' : `${deHoy.length} ingresos hoy`}</p>
         {FILTROS.slice(1).map((t) => (
           <p key={t} className="flex items-center gap-2 text-sm text-slate-600">
             <span className={cn('size-2.5 rounded-full', estiloTipo(t).punto)} />
             <span className="text-lg font-extrabold text-slate-900 tabular-nums">{contar(t)}</span>
-            {t === 'Servicio' ? 'Servicios' : `${t}s`}
+            {plural[t]}
           </p>
         ))}
-        {esperando > 0 && (
+        {dentro > 0 && (
           <p className="flex items-center gap-2 rounded-full bg-warning-bg px-3 py-1 text-xs font-semibold text-warning-strong sm:ml-auto">
-            {esperando} esperando en portería
+            {dentro === 1 ? '1 persona dentro del conjunto' : `${dentro} personas dentro del conjunto`}
           </p>
         )}
       </motion.div>
@@ -166,26 +184,51 @@ export default function Visitantes() {
         </label>
       </div>
 
-      {visibles.length > 0 ? (
+      {errorSalida && (
+        <p role="alert" className="flex items-start gap-2 rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" />
+          {errorSalida}
+        </p>
+      )}
+
+      {error ? (
+        <div className={tarjeta}>
+          <EmptyState
+            icon={AlertCircle}
+            title="No se pudieron cargar los ingresos"
+            description={error}
+            action={
+              <Button variant="secondary" size="sm" icon={RotateCcw} onClick={recargar} className="mt-2">
+                Intentar de nuevo
+              </Button>
+            }
+          />
+        </div>
+      ) : !lista ? (
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Cargando ingresos">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className={cn(tarjeta, 'h-40 animate-pulse')} />
+          ))}
+        </div>
+      ) : visibles.length > 0 ? (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           <AnimatePresence mode="popLayout">
             {visibles.map((i) => (
-              <GafeteVisitante key={i.id} ingreso={i} onDarIngreso={darIngreso} />
+              <GafeteVisitante key={i.id} ingreso={i} onSalida={registrarSalida} ocupado={ocupado} />
             ))}
           </AnimatePresence>
         </div>
       ) : (
-        <div className={cn(tarjeta, 'px-6 py-12 text-center')}>
-          <p className="text-sm font-bold text-slate-900">Sin ingresos para mostrar</p>
-          <p className="mt-1 text-xs text-slate-500">Cambia el filtro o la búsqueda para ver otros registros.</p>
+        <div className={cn(tarjeta, 'flex flex-col items-center gap-2 px-6 py-12 text-center')}>
+          <UserRoundCheck className="size-8 text-slate-300" />
+          <p className="text-sm font-bold text-slate-900">{registros.length ? 'Sin ingresos con este filtro' : 'Todavía no hay ingresos hoy'}</p>
+          <p className="text-xs text-slate-500">
+            {registros.length ? 'Cambia el filtro o la búsqueda para ver otros registros.' : 'Cuando registres a un visitante, domicilio o técnico aparecerá aquí.'}
+          </p>
         </div>
       )}
 
-      <RegistrarVisitante
-        open={modal}
-        onClose={() => setModal(false)}
-        onRegistrado={(d) => setLista((l) => [{ ...d, id: Date.now() }, ...l])}
-      />
+      <RegistrarVisitante open={modal} onClose={() => setModal(false)} onRegistrado={recargar} />
     </div>
   )
 }

@@ -1,5 +1,7 @@
 package co.edu.uis.resigest.porteria.service;
 
+import co.edu.uis.resigest.porteria.event.IngresoRegistradoEvento;
+import org.springframework.context.ApplicationEventPublisher;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.common.exception.ReglaNegocioException;
 import co.edu.uis.resigest.inmueble.domain.Apartamento;
@@ -27,9 +29,13 @@ public class PorteriaServiceImpl implements PorteriaService {
     private final ApartamentoRepository apartamentoRepository;
     private final UsuarioRepository usuarioRepository;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     public PorteriaServiceImpl(RegistroIngresoRepository registroIngresoRepository,
                                ApartamentoRepository apartamentoRepository,
-                               UsuarioRepository usuarioRepository) {
+                               UsuarioRepository usuarioRepository,
+                               ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
         this.registroIngresoRepository = registroIngresoRepository;
         this.apartamentoRepository = apartamentoRepository;
         this.usuarioRepository = usuarioRepository;
@@ -53,6 +59,8 @@ public class PorteriaServiceImpl implements PorteriaService {
                 request.nombreVisitante(), request.documento(), request.tipo(),
                 request.empresa(), apartamento, portero);
         registroIngresoRepository.save(registro);
+        eventPublisher.publishEvent(new IngresoRegistradoEvento(
+                apartamento.getId(), request.nombreVisitante(), request.tipo().name()));
         return RegistroIngresoDTO.de(registro);
     }
 
@@ -75,7 +83,7 @@ public class PorteriaServiceImpl implements PorteriaService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<RegistroIngresoDTO> listarActivos() {
+    public List<RegistroIngresoDTO> listarDentro() {
         return registroIngresoRepository.findByFechaSalidaIsNullOrderByFechaIngresoDesc().stream()
                 .map(RegistroIngresoDTO::de)
                 .toList();

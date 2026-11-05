@@ -7,5 +7,8 @@ public enum EstadoIncidencia {
     ABIERTA,
     ASIGNADA,
     EN_PROCESO,
-    RESUELTA
+    /** El técnico la resolvió; falta que quien la reportó confirme. */
+    RESUELTA,
+    /** Quien la reportó confirmó que quedó solucionada. */
+    CERRADA
 }

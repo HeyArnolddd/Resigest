@@ -6,12 +6,13 @@ import { cn } from '../../lib/utils'
 // Avance de una incidencia en tres pasos (residente y mantenimiento).
 
 export default function Avance({ estado }) {
-  // Evaluada cuenta como resuelta; Reabierta vuelve a "En proceso"
-  const actual = estado === 'Evaluada' ? 2 : estado === 'Reabierta' ? 1 : Math.max(PASOS.indexOf(estado), 0)
+  // El último paso (Confirmada) se marca como hecho; los demás muestran dónde va
+  const ultimo = PASOS.length - 1
+  const actual = Math.max(PASOS.indexOf(estado), 0)
   return (
     <ol className="flex items-center" aria-label={`Avance: ${estado}`}>
       {PASOS.map((paso, i) => {
-        const hecho = i < actual || (i === actual && actual === 2)
+        const hecho = i < actual || (i === actual && actual === ultimo)
         return (
           <li key={paso} className="flex flex-1 items-center last:flex-none">
             <span className="flex flex-col items-center gap-1">

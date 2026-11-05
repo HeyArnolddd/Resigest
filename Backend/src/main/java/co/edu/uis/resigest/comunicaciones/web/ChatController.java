@@ -1,9 +1,11 @@
 package co.edu.uis.resigest.comunicaciones.web;
 
+import co.edu.uis.resigest.comunicaciones.dto.CanalComunidadDTO;
+import co.edu.uis.resigest.comunicaciones.dto.MensajeComunidadRequest;
+import co.edu.uis.resigest.comunicaciones.dto.MensajeComunidadDTO;
+import co.edu.uis.resigest.comunicaciones.dto.ConversacionDTO;
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
 import co.edu.uis.resigest.comunicaciones.dto.ChatMensajeRequest;
-import co.edu.uis.resigest.comunicaciones.dto.ComunidadMensajeRequest;
-import co.edu.uis.resigest.comunicaciones.dto.ContactoChatDTO;
 import co.edu.uis.resigest.comunicaciones.dto.MensajeChatDTO;
 import co.edu.uis.resigest.comunicaciones.service.ChatService;
 import jakarta.validation.Valid;
@@ -38,24 +40,26 @@ public class ChatController {
                 autenticado.getId(), request.destinatarioId(), request.contenido()));
     }
 
+    @GetMapping("/comunidad/canales")
+    public List<CanalComunidadDTO> canales(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return chatService.canales(autenticado.getId());
+    }
+
+    /** torreId vacío = chat general del conjunto. */
     @GetMapping("/comunidad")
-    public List<MensajeChatDTO> comunidad() {
-        return chatService.comunidad();
+    public List<MensajeComunidadDTO> comunidad(@RequestParam(required = false) Long torreId,
+                                               @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return chatService.mensajesComunidad(torreId, autenticado.getId());
     }
 
     @PostMapping("/comunidad")
-    public ResponseEntity<MensajeChatDTO> enviarComunidad(@Valid @RequestBody ComunidadMensajeRequest request,
-                                                          @AuthenticationPrincipal UsuarioAutenticado autenticado) {
-        return ResponseEntity.ok(chatService.enviarComunidad(autenticado.getId(), request.contenido()));
-    }
-
-    @GetMapping("/contactos")
-    public List<ContactoChatDTO> contactos(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
-        return chatService.contactos(autenticado.getId());
+    public ResponseEntity<MensajeComunidadDTO> enviarComunidad(@Valid @RequestBody MensajeComunidadRequest request,
+                                                               @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return ResponseEntity.ok(chatService.enviarComunidad(autenticado.getId(), request.torreId(), request.contenido()));
     }
 
     @GetMapping("/conversaciones")
-    public List<ContactoChatDTO> conversaciones(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
+    public List<ConversacionDTO> conversaciones(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
         return chatService.conversaciones(autenticado.getId());
     }
 

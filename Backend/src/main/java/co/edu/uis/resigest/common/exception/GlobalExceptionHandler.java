@@ -48,11 +48,11 @@ public class GlobalExceptionHandler {
                 .body(ApiError.de(403, "ACCESO_DENEGADO", ex.getMessage()));
     }
 
-    /** Rechazo de {@code @PreAuthorize}: sin este handler lo captura el genérico y responde 500. */
+    // @PreAuthorize rechazado (rol insuficiente). Sin esto caería en el manejador genérico como 500.
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiError> manejarAccesoDenegadoSeguridad(AccessDeniedException ex) {
+    public ResponseEntity<ApiError> manejarRolInsuficiente(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiError.de(403, "ACCESO_DENEGADO", "No tienes permiso para esta operación"));
+                .body(ApiError.de(403, "ACCESO_DENEGADO", "No tienes permiso para realizar esta acción"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

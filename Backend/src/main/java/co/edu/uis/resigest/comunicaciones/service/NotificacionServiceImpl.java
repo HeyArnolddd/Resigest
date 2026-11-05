@@ -1,5 +1,6 @@
 package co.edu.uis.resigest.comunicaciones.service;
 
+import org.springframework.transaction.annotation.Propagation;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.comunicaciones.channel.CanalNotificacion;
 import co.edu.uis.resigest.comunicaciones.domain.Notificacion;
@@ -30,7 +31,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void notificar(Usuario destinatario, String titulo, String mensaje,
                           TipoNotificacion tipo, TipoCanal... canalesPedidos) {
         Notificacion notificacion = new Notificacion(destinatario, titulo, mensaje, tipo, null);

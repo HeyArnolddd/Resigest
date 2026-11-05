@@ -1,5 +1,7 @@
 package co.edu.uis.resigest.mantenimiento.web;
 
+import co.edu.uis.resigest.mantenimiento.dto.ConfirmarSolucionRequest;
+import java.util.List;
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
 import co.edu.uis.resigest.mantenimiento.dto.AsignarRequest;
 import co.edu.uis.resigest.mantenimiento.dto.CrearIncidenciaRequest;
@@ -7,11 +9,10 @@ import co.edu.uis.resigest.mantenimiento.dto.IncidenciaDTO;
 import co.edu.uis.resigest.mantenimiento.dto.ResolverIncidenciaRequest;
 import co.edu.uis.resigest.mantenimiento.service.IncidenciaService;
 import jakarta.validation.Valid;
-import co.edu.uis.resigest.mantenimiento.domain.EstadoIncidencia;
-import co.edu.uis.resigest.mantenimiento.dto.FiltroIncidencias;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,7 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
-import java.time.LocalDate;
 
 /**
  * Endpoints de incidencias (RF06 · CU08, CU09).
@@ -42,22 +42,10 @@ public class IncidenciaController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'MANTENIMIENTO', 'RESIDENTE', 'PORTERO')")
-    public Page<IncidenciaDTO> listar(@RequestParam(required = false) EstadoIncidencia estado,
-                                      @RequestParam(required = false) String asignadoA,
-                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
-                                      @AuthenticationPrincipal UsuarioAutenticado autenticado,
-                                      Pageable pageable) {
-        FiltroIncidencias filtro = new FiltroIncidencias(estado, "me".equals(asignadoA), desde, hasta);
-        return incidenciaService.listar(filtro, autenticado.getId(), autenticado.getRol(), pageable);
-    }
-
-    @PatchMapping("/{id}/inicio")
-    @PreAuthorize("hasRole('MANTENIMIENTO')")
-    public ResponseEntity<IncidenciaDTO> iniciar(@PathVariable Long id,
-                                                 @AuthenticationPrincipal UsuarioAutenticado autenticado) {
-        return ResponseEntity.ok(incidenciaService.iniciar(id, autenticado.getId()));
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'MANTENIMIENTO')")
+    public Page<IncidenciaDTO> listar(@PageableDefault(size = 50, sort = "fechaCreacion",
+            direction = Sort.Direction.DESC) Pageable pageable) {
+        return incidenciaService.listar(pageable);
     }
 
     @PostMapping
@@ -70,10 +58,11 @@ public class IncidenciaController {
     }
 
     @PostMapping("/{id}/evidencias")
-    @PreAuthorize("hasRole('RESIDENTE')")
+    @PreAuthorize("hasAnyRole('RESIDENTE', 'PORTERO')")
     public ResponseEntity<IncidenciaDTO> agregarEvidencia(@PathVariable Long id,
-                                                          @RequestParam("archivo") MultipartFile archivo) {
-        return ResponseEntity.ok(incidenciaService.agregarEvidencia(id, archivo));
+                                                          @RequestParam("archivo") MultipartFile archivo,
+                                                          @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return ResponseEntity.ok(incidenciaService.agregarEvidencia(id, archivo, autenticado.getId()));
     }
 
     @PatchMapping("/{id}/asignacion")
@@ -86,7 +75,35 @@ public class IncidenciaController {
     @PatchMapping("/{id}/solucion")
     @PreAuthorize("hasRole('MANTENIMIENTO')")
     public ResponseEntity<IncidenciaDTO> resolver(@PathVariable Long id,
-                                                  @Valid @RequestBody ResolverIncidenciaRequest request) {
-        return ResponseEntity.ok(incidenciaService.resolver(id, request));
+                                                  @Valid @RequestBody ResolverIncidenciaRequest request,
+                                                  @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return ResponseEntity.ok(incidenciaService.resolver(id, request, autenticado.getId()));
+    }
+
+    @PatchMapping("/{id}/confirmacion")
+    @PreAuthorize("hasAnyRole('RESIDENTE', 'PORTERO')")
+    public ResponseEntity<IncidenciaDTO> confirmar(@PathVariable Long id,
+                                                   @Valid @RequestBody ConfirmarSolucionRequest request,
+                                                   @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return ResponseEntity.ok(incidenciaService.confirmarSolucion(id, request, autenticado.getId()));
+    }
+
+    @PatchMapping("/{id}/inicio")
+    @PreAuthorize("hasRole('MANTENIMIENTO')")
+    public ResponseEntity<IncidenciaDTO> iniciar(@PathVariable Long id,
+                                                 @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return ResponseEntity.ok(incidenciaService.iniciar(id, autenticado.getId()));
+    }
+
+    @GetMapping("/mias")
+    @PreAuthorize("hasAnyRole('RESIDENTE', 'PORTERO')")
+    public List<IncidenciaDTO> mias(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return incidenciaService.listarReportadasPor(autenticado.getId());
+    }
+
+    @GetMapping("/asignadas")
+    @PreAuthorize("hasRole('MANTENIMIENTO')")
+    public List<IncidenciaDTO> asignadas(@AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return incidenciaService.listarAsignadasA(autenticado.getId());
     }
 }

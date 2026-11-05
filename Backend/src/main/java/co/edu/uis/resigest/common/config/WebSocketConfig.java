@@ -19,7 +19,7 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
-import java.util.List;
+import java.util.Arrays;
 
 /**
  * Configuración de WebSocket con STOMP para el chat en tiempo real.
@@ -37,10 +37,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final String[] origenes;
 
     public WebSocketConfig(JwtService jwtService, UsuarioDetailsService usuarioDetailsService,
-                           @Value("${app.cors.origins:http://localhost:5173}") List<String> origenes) {
+                           @Value("${app.cors.origenes}") String origenes) {
         this.jwtService = jwtService;
         this.usuarioDetailsService = usuarioDetailsService;
-        this.origenes = origenes.toArray(new String[0]);
+        this.origenes = Arrays.stream(origenes.split(","))
+                .map(String::trim)
+                .filter(o -> !o.isEmpty())
+                .toArray(String[]::new);
     }
 
     @Override
@@ -51,7 +54,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws").setAllowedOrigins(origenes);
+        registry.addEndpoint("/ws").setAllowedOriginPatterns(origenes);
     }
 
     @Override

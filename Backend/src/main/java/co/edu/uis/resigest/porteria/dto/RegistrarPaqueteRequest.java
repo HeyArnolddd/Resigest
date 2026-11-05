@@ -15,10 +15,13 @@ public record RegistrarPaqueteRequest(
         @Size(max = 500, message = "La descripción no puede superar 500 caracteres")
         String descripcion,
 
-        @Size(max = 50, message = "La guía no puede superar 50 caracteres")
+        @Size(max = 60, message = "La guía no puede superar 60 caracteres")
         String guia,
 
-        @Size(max = 20, message = "El tamaño no puede superar 20 caracteres")
-        String tamano
+        @Size(max = 30, message = "El tamaño no puede superar 30 caracteres")
+        String tamano,
+
+        /** URL de la foto subida antes con POST /api/archivos (opcional). */
+        String fotoUrl
 ) {
 }

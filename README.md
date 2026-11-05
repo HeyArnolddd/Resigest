@@ -1,14 +1,11 @@
-# ResiGest
+# ResiGest — Backend
 
 Sistema de gestión para edificios residenciales.
-
-- **Backend** (`Backend/`): **Java 17 + Spring Boot 4** con Spring Data JPA, Flyway, Spring Security (JWT) y PostgreSQL.
-- **Frontend** (`Frontend/`): React 19 + Vite + Tailwind CSS 4, con pantallas para residente, portería, mantenimiento y administrador (por ahora con datos de prueba).
+Backend en **Java 17 + Spring Boot 4** con Spring Data JPA, Flyway, Spring Security (JWT) y PostgreSQL.
 
 ## Requisitos
 
 - JDK 17 o superior
-- Node.js 20 o superior (frontend)
 - Docker (OrbStack o Docker Desktop) para PostgreSQL
 
 ## Arranque
@@ -35,19 +32,9 @@ docker compose down -v && docker compose up -d
 ./mvnw spring-boot:run
 ```
 
-Flyway aplica el esquema y los datos demo automáticamente (V1–V19).
+Flyway aplica el esquema y los datos demo automáticamente.
 
-## Frontend
-
-```bash
-cd Frontend
-npm install
-npm run dev   # http://localhost:5173
-```
-
-El frontend todavía no está conectado al API; el acceso rápido del login usa usuarios de demostración.
-
-## Credenciales demo (contraseña: `admin123`; hay residentes adicionales: `valentina@`, `carlos@`, `marta@`, `andres@resigest.com`)
+## Credenciales demo (contraseña: `admin123`)
 
 | Rol | Correo |
 |---|---|

@@ -8,12 +8,15 @@ import EmptyState from './EmptyState'
 import Calendar from './Calendar'
 import { Field, Input, Select, Textarea, UploadBox } from './Field'
 import Avatar from './Avatar'
+import { ArchivoProtegido, CampoArchivo } from './Archivo'
 import { StatCard } from './Card'
 
 export {
+  ArchivoProtegido,
   Avatar,
   Button,
   Calendar,
+  CampoArchivo,
   Card,
   CardHeader,
   EmptyState,
