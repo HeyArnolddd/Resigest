@@ -31,3 +31,17 @@ export const estadoPago = {
   APROBADO: { label: 'Aprobado', tone: 'success' },
   RECHAZADO: { label: 'Rechazado', tone: 'danger' },
 }
+
+export const rolUsuario = {
+  RESIDENTE: 'Residente',
+  PORTERO: 'Portería',
+  MANTENIMIENTO: 'Mantenimiento',
+  ADMINISTRADOR: 'Administrador',
+}
+
+export const tipoResidente = {
+  PROPIETARIO: 'Propietario',
+  ARRENDATARIO: 'Arrendatario',
+}
+
+export const turnosPorteria = ['Mañana', 'Tarde', 'Noche']

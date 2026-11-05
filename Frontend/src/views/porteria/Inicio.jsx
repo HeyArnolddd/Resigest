@@ -10,6 +10,7 @@ import { aparecer, tarjeta } from '../../lib/panel'
 import { estiloTipo } from '../../lib/porteria'
 import { useAhora } from '../../lib/useAhora'
 import { cn, saludo } from '../../lib/utils'
+import { useSesion } from '../../lib/sesion'
 import RegistrarVisitante from './RegistrarVisitante'
 import RegistrarPaquete from './RegistrarPaquete'
 
@@ -69,6 +70,7 @@ Accion.propTypes = {
 }
 
 export default function Inicio({ onNavigate }) {
+  const { usuario } = useSesion()
   const [modalVisitante, setModalVisitante] = useState(false)
   const [modalPaquete, setModalPaquete] = useState(false)
   const [ingresosLista, setIngresosLista] = useState(ingresos)
@@ -92,7 +94,7 @@ export default function Inicio({ onNavigate }) {
       <motion.section {...aparecer(0)} className={cn(tarjeta, 'grid overflow-hidden md:grid-cols-[1fr_minmax(0,380px)]')}>
         <div className="p-6">
           <p className="text-sm font-semibold text-brand-700 first-letter:uppercase">{fecha}</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{saludo(ahora)}, Daniel</h1>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{saludo(ahora)}, {usuario.nombreCompleto.split(' ')[0]}</h1>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
             <Clock className="size-4" /> Turno mañana · Portería principal ·{' '}
             <span className="font-semibold text-slate-700 tabular-nums">{hora}</span>

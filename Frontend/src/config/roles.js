@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   TriangleAlert,
   Truck,
-  Users,
+  UsersRound,
   Wallet,
   Wrench,
 } from 'lucide-react'
@@ -72,7 +72,23 @@ export const roles = {
       { key: 'reservas', label: 'Reservas', icon: CalendarRange },
       { key: 'incidencias', label: 'Incidencias', icon: TriangleAlert },
       { key: 'comunicados', label: 'Comunicados', icon: Megaphone },
-      { key: 'residentes', label: 'Residentes', icon: Users },
+      { key: 'usuarios', label: 'Usuarios', icon: UsersRound },
     ],
   },
+}
+
+// Rol que devuelve el API → clave del rol en el frontend.
+export const rolDesdeApi = {
+  RESIDENTE: 'residente',
+  PORTERO: 'porteria',
+  MANTENIMIENTO: 'mantenimiento',
+  ADMINISTRADOR: 'administrador',
+}
+
+// Segunda línea bajo el nombre en la barra superior y el menú.
+export function detalleUsuario(u) {
+  if (u.apartamento) return u.apartamento
+  if (u.turno) return `Turno ${u.turno.toLowerCase()}`
+  if (u.especialidad) return u.especialidad
+  return roles[rolDesdeApi[u.rol]].detalle
 }

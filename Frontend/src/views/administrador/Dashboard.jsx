@@ -9,6 +9,7 @@ import { puntoEstado } from '../../lib/incidencias'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { useAhora } from '../../lib/useAhora'
 import { cn, formatCOP, saludo } from '../../lib/utils'
+import { useSesion } from '../../lib/sesion'
 import { colorZona } from '../../lib/zonas'
 
 const millones = (v) => `$${v.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} M`
@@ -52,6 +53,7 @@ Indicador.propTypes = {
 }
 
 export default function Dashboard({ onNavigate }) {
+  const { usuario } = useSesion()
   const ahora = useAhora()
   const fecha = ahora.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -81,7 +83,7 @@ export default function Dashboard({ onNavigate }) {
         <div className="relative flex flex-wrap items-end justify-between gap-6 p-6 pb-24 sm:pb-28">
           <div>
             <p className="text-sm font-medium text-brand-100 first-letter:uppercase">{fecha}</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{saludo(ahora)}, Andrea</h1>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{saludo(ahora)}, {usuario.nombreCompleto.split(' ')[0]}</h1>
             <p className="mt-1 text-sm text-brand-100">Conjunto Residencial Los Robles · 3 torres · 120 apartamentos</p>
           </div>
           <div className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 backdrop-blur-sm">
@@ -98,7 +100,7 @@ export default function Dashboard({ onNavigate }) {
 
       {/* Indicadores */}
       <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-5 [&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1">
-        <Indicador indice={1} icono={Users} etiqueta="Residentes" valor="128" detalle="3 torres · 120 aptos" tono="bg-brand-50 text-brand-700" onClick={() => onNavigate('residentes')} />
+        <Indicador indice={1} icono={Users} etiqueta="Residentes" valor="128" detalle="3 torres · 120 aptos" tono="bg-brand-50 text-brand-700" onClick={() => onNavigate('usuarios')} />
         <Indicador indice={2} icono={Wallet} etiqueta="Recaudo · 6 meses" valor={millones(recaudoMensual.reduce((s, r) => s + r.valor, 0))} detalle={`${variacion > 0 ? '+' : ''}${variacion}% vs ${penultimo.mes.toLowerCase()}`} tono="bg-success-bg text-success-strong" onClick={() => onNavigate('finanzas')}>
           <Sparkline valores={recaudoMensual.map((r) => r.valor)} className="mt-2 text-success" />
         </Indicador>

@@ -21,6 +21,7 @@ import EscenaPaquetes from '../../components/inicio/EscenaPaquetes'
 import IlustracionZona from '../../components/reservas/IlustracionZona'
 import { estadoReserva } from '../../lib/labels'
 import { alinearTooltip, cn, esDeNoche, formatCOP, saludo } from '../../lib/utils'
+import { useSesion } from '../../lib/sesion'
 import { useAhora } from '../../lib/useAhora'
 import { colorZona } from '../../lib/zonas'
 import {
@@ -186,12 +187,13 @@ function agruparPorDia(lista) {
 }
 
 export default function Inicio({ onNavigate }) {
+  const { usuario } = useSesion()
   const ahora = useAhora()
   // De noche entre las 6 p. m. y las 6 a. m., igual que el saludo; se revisa cada minuto.
   // `?modo=dia|noche` lo fuerza para revisar el mockup.
   const modo = new URLSearchParams(window.location.search).get('modo')
   const noche = modo ? modo === 'noche' : esDeNoche(ahora)
-  const primerNombre = residente.nombre.split(' ')[0]
+  const primerNombre = usuario.nombreCompleto.split(' ')[0]
 
   const misReservas = reservasAgenda
     .filter(

@@ -4,24 +4,30 @@ import { cn } from '../../lib/utils'
 const base =
   'w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200 disabled:bg-slate-50 disabled:text-slate-400'
 
-export function Field({ label, hint, required, children, className }) {
+export function Field({ label, htmlFor, hint, error, required, children, className }) {
   return (
     <div className={cn('space-y-1.5', className)}>
       {label && (
-        <label className="block text-sm font-medium text-slate-700">
+        <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-700">
           {label}
           {required && <span className="ml-0.5 text-danger">*</span>}
         </label>
       )}
       {children}
-      {hint && <p className="text-xs text-slate-400">{hint}</p>}
+      {error ? (
+        <p className="text-xs font-medium text-danger-strong" role="alert">{error}</p>
+      ) : (
+        hint && <p className="text-xs text-slate-400">{hint}</p>
+      )}
     </div>
   )
 }
 
 Field.propTypes = {
   label: PropTypes.string,
+  htmlFor: PropTypes.string,
   hint: PropTypes.node,
+  error: PropTypes.string,
   required: PropTypes.bool,
   children: PropTypes.node.isRequired,
   className: PropTypes.string,

@@ -3,7 +3,7 @@ import Finanzas from './Finanzas'
 import Reservas from './Reservas'
 import Incidencias from './Incidencias'
 import Comunicados from './Comunicados'
-import Residentes from './Residentes'
+import Usuarios from './Usuarios'
 
 export const sections = {
   dashboard: Dashboard,
@@ -11,5 +11,5 @@ export const sections = {
   reservas: Reservas,
   incidencias: Incidencias,
   comunicados: Comunicados,
-  residentes: Residentes,
+  usuarios: Usuarios,
 }
