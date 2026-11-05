@@ -1,20 +1,24 @@
 package co.edu.uis.resigest.mantenimiento.service;
 
+import co.edu.uis.resigest.common.exception.AccesoDenegadoException;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.common.exception.ReglaNegocioException;
 import co.edu.uis.resigest.mantenimiento.domain.EvidenciaIncidencia;
 import co.edu.uis.resigest.mantenimiento.domain.Incidencia;
 import co.edu.uis.resigest.mantenimiento.dto.AsignarRequest;
 import co.edu.uis.resigest.mantenimiento.dto.CrearIncidenciaRequest;
+import co.edu.uis.resigest.mantenimiento.dto.FiltroIncidencias;
 import co.edu.uis.resigest.mantenimiento.dto.IncidenciaDTO;
 import co.edu.uis.resigest.mantenimiento.dto.ResolverIncidenciaRequest;
 import co.edu.uis.resigest.mantenimiento.repository.IncidenciaRepository;
 import co.edu.uis.resigest.mantenimiento.storage.AlmacenamientoArchivos;
+import co.edu.uis.resigest.usuarios.domain.Rol;
 import co.edu.uis.resigest.usuarios.domain.TecnicoMantenimiento;
 import co.edu.uis.resigest.usuarios.domain.Usuario;
 import co.edu.uis.resigest.usuarios.repository.UsuarioRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -46,7 +50,7 @@ public class IncidenciaServiceImpl implements IncidenciaService {
 
         Incidencia incidencia = new Incidencia(
                 request.titulo(), request.descripcion(), request.ubicacion(),
-                request.prioridad(), reportador);
+                request.prioridad(), reportador, request.categoria());
         incidenciaRepository.save(incidencia);
         return IncidenciaDTO.de(incidencia);
     }
@@ -85,8 +89,37 @@ public class IncidenciaServiceImpl implements IncidenciaService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<IncidenciaDTO> listar(Pageable pageable) {
-        return incidenciaRepository.findAll(pageable).map(IncidenciaDTO::de);
+    public Page<IncidenciaDTO> listar(FiltroIncidencias filtro, Long usuarioId, Rol rol, Pageable pageable) {
+        Specification<Incidencia> spec = (root, query, cb) -> cb.conjunction();
+        if (rol == Rol.RESIDENTE || rol == Rol.PORTERO) {
+            spec = spec.and((root, q, cb) -> cb.equal(root.get("reportadoPor").get("id"), usuarioId));
+        }
+        if (filtro.estado() != null) {
+            spec = spec.and((root, q, cb) -> cb.equal(root.get("estado"), filtro.estado()));
+        }
+        if (filtro.asignadoAMi()) {
+            spec = spec.and((root, q, cb) -> cb.equal(root.get("asignadoA").get("id"), usuarioId));
+        }
+        if (filtro.desde() != null) {
+            spec = spec.and((root, q, cb) ->
+                    cb.greaterThanOrEqualTo(root.get("fechaCreacion"), filtro.desde().atStartOfDay()));
+        }
+        if (filtro.hasta() != null) {
+            spec = spec.and((root, q, cb) ->
+                    cb.lessThan(root.get("fechaCreacion"), filtro.hasta().plusDays(1).atStartOfDay()));
+        }
+        return incidenciaRepository.findAll(spec, pageable).map(IncidenciaDTO::de);
+    }
+
+    @Override
+    @Transactional
+    public IncidenciaDTO iniciar(Long incidenciaId, Long tecnicoId) {
+        Incidencia incidencia = buscarIncidencia(incidenciaId);
+        if (incidencia.getAsignadoA() == null || !incidencia.getAsignadoA().getId().equals(tecnicoId)) {
+            throw new AccesoDenegadoException("La incidencia no está asignada a este técnico");
+        }
+        incidencia.iniciarTrabajo();
+        return IncidenciaDTO.de(incidencia);
     }
 
     private Incidencia buscarIncidencia(Long id) {

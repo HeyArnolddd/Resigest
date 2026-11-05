@@ -18,6 +18,9 @@ public record CrearIncidenciaRequest(
         String ubicacion,
 
         @NotNull(message = "La prioridad es obligatoria")
-        PrioridadIncidencia prioridad
+        PrioridadIncidencia prioridad,
+
+        @Size(max = 30, message = "La categoría no puede superar 30 caracteres")
+        String categoria
 ) {
 }
