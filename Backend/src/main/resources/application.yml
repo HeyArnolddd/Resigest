@@ -1,6 +1,9 @@
 spring:
   application:
     name: ResiGest
+  # Variables locales (BD, secretos) en Backend/.env, que no se sube al repo. Ver .env.example.
+  config:
+    import: optional:file:.env[.properties]
   profiles:
     active: dev
   servlet:
