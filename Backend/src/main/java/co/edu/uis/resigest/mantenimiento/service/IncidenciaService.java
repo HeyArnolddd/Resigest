@@ -1,5 +1,6 @@
 package co.edu.uis.resigest.mantenimiento.service;
 
+import co.edu.uis.resigest.mantenimiento.dto.ConfirmarSolucionRequest;
 import java.util.List;
 import co.edu.uis.resigest.mantenimiento.dto.AsignarRequest;
 import co.edu.uis.resigest.mantenimiento.dto.CrearIncidenciaRequest;
@@ -28,6 +29,9 @@ public interface IncidenciaService {
     List<IncidenciaDTO> listarReportadasPor(Long usuarioId);
 
     List<IncidenciaDTO> listarAsignadasA(Long tecnicoId);
+
+    /** Quien la reportó confirma la solución o la reabre con un comentario. */
+    IncidenciaDTO confirmarSolucion(Long incidenciaId, ConfirmarSolucionRequest request, Long usuarioId);
 
     Page<IncidenciaDTO> listar(Pageable pageable);
 }

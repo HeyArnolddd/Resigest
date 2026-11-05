@@ -67,11 +67,19 @@ public class ManejadorEventosNotificacion {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onIncidenciaActualizada(IncidenciaActualizadaEvento evento) {
-        boolean asignada = evento.getTipo() == IncidenciaActualizadaEvento.Tipo.ASIGNADA;
-        String titulo = asignada ? "Nueva incidencia asignada" : "Incidencia resuelta";
-        String mensaje = asignada
-                ? "Te asignaron \"" + evento.getTitulo() + "\"."
-                : "Mantenimiento resolvió \"" + evento.getTitulo() + "\".";
+        String nombre = "\"" + evento.getTitulo() + "\"";
+        String titulo = switch (evento.getTipo()) {
+            case ASIGNADA -> "Nueva incidencia asignada";
+            case RESUELTA -> "Confirma la solución";
+            case CONFIRMADA -> "Solución confirmada";
+            case REABIERTA -> "Incidencia reabierta";
+        };
+        String mensaje = switch (evento.getTipo()) {
+            case ASIGNADA -> "Te asignaron " + nombre + ".";
+            case RESUELTA -> "Mantenimiento resolvió " + nombre + ". Revisa la foto y confirma si quedó bien.";
+            case CONFIRMADA -> "El residente confirmó que " + nombre + " quedó solucionada.";
+            case REABIERTA -> "El residente indica que " + nombre + " sigue con problemas. Revisa su comentario.";
+        };
         usuarioRepository.findById(evento.getDestinatarioId())
                 .ifPresent(usuario -> notificacionService.notificar(usuario, titulo, mensaje,
                         TipoNotificacion.INCIDENCIA, TipoCanal.PLATAFORMA, TipoCanal.PUSH));

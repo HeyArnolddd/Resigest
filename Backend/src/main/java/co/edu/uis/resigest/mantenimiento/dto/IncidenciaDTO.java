@@ -25,7 +25,9 @@ public record IncidenciaDTO(
         String asignadoANombre,
         String solucion,
         LocalDateTime fechaReporte,
-        List<String> evidencias
+        List<String> evidencias,
+        String fotoSolucionUrl,
+        String observacionConfirmacion
 ) {
 
     public static IncidenciaDTO de(Incidencia incidencia) {
@@ -47,7 +49,9 @@ public record IncidenciaDTO(
                 tecnico != null ? tecnico.getNombreCompleto() : null,
                 incidencia.getSolucion(),
                 incidencia.getFechaCreacion(),
-                incidencia.getEvidencias().stream().map(EvidenciaIncidencia::getUrlArchivo).toList()
+                incidencia.getEvidencias().stream().map(EvidenciaIncidencia::getUrlArchivo).toList(),
+                incidencia.getFotoSolucionUrl(),
+                incidencia.getObservacionConfirmacion()
         );
     }
 }

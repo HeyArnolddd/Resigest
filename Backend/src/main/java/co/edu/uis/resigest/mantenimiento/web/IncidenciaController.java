@@ -1,5 +1,6 @@
 package co.edu.uis.resigest.mantenimiento.web;
 
+import co.edu.uis.resigest.mantenimiento.dto.ConfirmarSolucionRequest;
 import java.util.List;
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
 import co.edu.uis.resigest.mantenimiento.dto.AsignarRequest;
@@ -77,6 +78,14 @@ public class IncidenciaController {
                                                   @Valid @RequestBody ResolverIncidenciaRequest request,
                                                   @AuthenticationPrincipal UsuarioAutenticado autenticado) {
         return ResponseEntity.ok(incidenciaService.resolver(id, request, autenticado.getId()));
+    }
+
+    @PatchMapping("/{id}/confirmacion")
+    @PreAuthorize("hasAnyRole('RESIDENTE', 'PORTERO')")
+    public ResponseEntity<IncidenciaDTO> confirmar(@PathVariable Long id,
+                                                   @Valid @RequestBody ConfirmarSolucionRequest request,
+                                                   @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return ResponseEntity.ok(incidenciaService.confirmarSolucion(id, request, autenticado.getId()));
     }
 
     @PatchMapping("/{id}/inicio")

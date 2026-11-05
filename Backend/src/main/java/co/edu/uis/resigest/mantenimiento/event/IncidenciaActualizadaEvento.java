@@ -8,7 +8,7 @@ import co.edu.uis.resigest.common.domain.EventoDominio;
  */
 public class IncidenciaActualizadaEvento extends EventoDominio {
 
-    public enum Tipo { ASIGNADA, RESUELTA }
+    public enum Tipo { ASIGNADA, RESUELTA, CONFIRMADA, REABIERTA }
 
     private final Tipo tipo;
     private final Long destinatarioId;
@@ -34,6 +34,6 @@ public class IncidenciaActualizadaEvento extends EventoDominio {
 
     @Override
     public String descripcion() {
-        return "La incidencia \"" + titulo + "\" quedó " + (tipo == Tipo.ASIGNADA ? "asignada" : "resuelta");
+        return "La incidencia \"" + titulo + "\" quedó " + tipo.name().toLowerCase();
     }
 }

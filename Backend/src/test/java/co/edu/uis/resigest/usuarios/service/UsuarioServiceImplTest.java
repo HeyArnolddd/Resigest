@@ -2,6 +2,7 @@ package co.edu.uis.resigest.usuarios.service;
 
 import co.edu.uis.resigest.common.exception.ConflictoException;
 import co.edu.uis.resigest.common.exception.ReglaNegocioException;
+import co.edu.uis.resigest.common.security.CacheUsuarios;
 import co.edu.uis.resigest.common.security.CifradorContrasenas;
 import co.edu.uis.resigest.inmueble.repository.ApartamentoRepository;
 import co.edu.uis.resigest.usuarios.domain.Administrador;
@@ -54,7 +55,7 @@ class UsuarioServiceImplTest {
     @BeforeEach
     void setUp() {
         usuarioService = new UsuarioServiceImpl(usuarioRepository, apartamentoRepository,
-                tokenRecuperacionRepository, passwordEncoder, cifrador);
+                tokenRecuperacionRepository, passwordEncoder, cifrador, new CacheUsuarios());
     }
 
     private static CrearUsuarioRequest solicitud(Rol rol) {
