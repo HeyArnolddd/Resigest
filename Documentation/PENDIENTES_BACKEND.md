@@ -13,7 +13,9 @@ Prioridades:
 
 ## P0. Bloqueantes
 
-### 1. El administrador recibe 403 en todos sus endpoints (por verificar)
+### 1. ✅ El administrador recibe 403 en todos sus endpoints
+
+> **Resuelto (rama `frontend`):** todos los `@PreAuthorize` usan ahora `ADMINISTRADOR`.
 
 `UsuarioAutenticado` crea la autoridad como `"ROLE_" + rol.name()`, es decir, `ROLE_ADMINISTRADOR`. Sin embargo, los controladores usan `@PreAuthorize("hasRole('ADMIN')")`, que busca `ROLE_ADMIN`. No hay `RoleHierarchy` ni mapeo que los relacione.
 
@@ -26,7 +28,9 @@ curl -H "Authorization: Bearer <token>" localhost:8080/api/usuarios
 
 **Arreglo sugerido:** cambiar `hasRole('ADMIN')` por `hasRole('ADMINISTRADOR')` en todos los controladores, y en el contrato poner `ADMINISTRADOR` en vez de `ADMIN` en la columna Rol para que todo coincida. Agregar un test de controlador que llame a una ruta de admin con un admin y espere 200.
 
-### 2. El residente no sabe cuál es su apartamento
+### 2. ✅ El residente no sabe cuál es su apartamento
+
+> **Resuelto (rama `frontend`):** `UsuarioDTO` (y por tanto `/api/usuarios/me`) trae `tipoResidente`, `apartamentoId` y `apartamento` ("Torre 1 – Apto 101") en el primer nivel, sin el objeto anidado `residente`.
 
 Casi todas las pantallas del residente necesitan `apartamentoId`: estado de cuenta, obligaciones, paquetes y reservas. Sin embargo, `GET /api/usuarios/me` devuelve un `UsuarioDTO` sin apartamento.
 
@@ -66,7 +70,7 @@ Casi todas las pantallas del residente necesitan `apartamentoId`: estado de cuen
 | 12 | Admin → Finanzas | Lista de pagos aprobados y rechazados (historial), no solo los pendientes. | `GET /api/pagos?estado=&desde=&hasta=` (ADMIN). |
 | 13 | Residente → Finanzas | La pantalla muestra el historial de pagos del apartamento, pero no hay ruta para listar pagos del residente. | `GET /api/pagos?apartamentoId=` (RESIDENTE dueño, ADMIN). |
 | 14 | Admin → Dashboard | Los indicadores no tienen fuente: recaudo del mes frente a lo facturado, apartamentos al día o en mora, uso de zonas, incidencias por estado y pendientes por aprobar. | `GET /api/reportes/dashboard` (ADMIN) con esos agregados; ver forma sugerida abajo. |
-| 15 | Admin → Residentes | Directorio de residentes con torre/apartamento y estado de cartera. `UsuarioDTO` no trae apartamento. | Incluir el bloque `residente` (punto 2) en `GET /api/usuarios?rol=RESIDENTE`, y si es posible `alDia: true/false`. |
+| 15 | Admin → Residentes (parcial: ya hay `?rol=` y apartamento; falta `alDia`) | Directorio de residentes con torre/apartamento y estado de cartera. `UsuarioDTO` no trae apartamento. | Incluir el bloque `residente` (punto 2) en `GET /api/usuarios?rol=RESIDENTE`, y si es posible `alDia: true/false`. |
 
 Forma sugerida para el dashboard (punto 14):
 
@@ -128,7 +132,7 @@ La pantalla de Comunidad tiene cuatro partes; hoy solo la mensajería privada ti
 ## P2. Otros
 
 - **23. Datos demo (`V12`)**: que coincidan con lo que muestran los mockups para que la demo se vea completa. Por ejemplo: varias obligaciones del residente en distintos estados, paquetes pendientes, reservas pendientes por aprobar, incidencias en cada estado y algún pago manual por validar.
-- **24. Paginación**: listas que van a crecer (bitácora, pagos, incidencias) deberían aceptar `?page=&size=`. No es urgente con los datos demo.
+- **24. Paginación** (hecha en usuarios e incidencias): listas que van a crecer (bitácora, pagos, incidencias) deberían aceptar `?page=&size=`. No es urgente con los datos demo.
 - **25. Contrato**: actualizar `API_CONTRACT.md` con cada cambio de este documento, en especial la forma de cada DTO (hoy el contrato nombra los DTO pero no lista sus campos).
 
 ---
