@@ -1,78 +1,41 @@
-# Despliegue de ResiGest
+# Despliegue de ResiGest en Render
 
-Arquitectura propuesta (todo con plan gratuito):
-
-| Pieza | Servicio | Qué se despliega |
+| Pieza | Servicio | Plan |
 |---|---|---|
-| Base de datos | **Supabase** (PostgreSQL) | Las tablas las crea Flyway al arrancar el backend |
-| Backend | **Render** (Web Service con Docker) | `Backend/Dockerfile` |
-| Frontend | **Vercel** | `Frontend/` (sitio estático de Vite) |
+| Base de datos | **Supabase** (PostgreSQL, región `us-east-1`) | Gratis |
+| Backend | **Render**, Web Service con Docker (región Virginia, junto a Supabase) | Gratis |
+| Frontend | **Render**, Static Site | Gratis |
 
-El backend también sirve para el equipo en desarrollo: cualquiera puede apuntar su backend local a la base de Supabase con un archivo `Backend/.env`.
-
----
-
-## 1. Base de datos en Supabase
-
-1. Crear un proyecto en [supabase.com](https://supabase.com) (región cercana: `South America (São Paulo)` o `US East`). Guardar la contraseña de la base.
-2. Ir a **Connect** (o *Project Settings → Database*) y copiar la cadena del **Session pooler**, puerto **5432**.
-   - No usar *Direct connection*: suele requerir IPv6 y muchas redes no lo tienen.
-   - No usar *Transaction pooler* (6543): Flyway necesita una sesión completa.
-3. Pasarla a formato JDBC:
-
-   ```
-   postgresql://postgres.abcd1234:[CONTRASEÑA]@aws-0-sa-east-1.pooler.supabase.com:5432/postgres
-   ```
-   queda como
-   ```
-   DB_URL=jdbc:postgresql://aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require
-   DB_USERNAME=postgres.abcd1234
-   DB_PASSWORD=[CONTRASEÑA]
-   ```
-
-No hace falta crear tablas: al arrancar, Flyway aplica las migraciones `V1…V15`.
-
-### Usarla en desarrollo
-
-Copiar `Backend/.env.example` como `Backend/.env`, llenar las tres variables `DB_*` y arrancar el backend como siempre (`./mvnw spring-boot:run`). `Backend/.env` está en `.gitignore`: **nunca subir credenciales al repo**.
-
-> **Ojo con las migraciones en una base compartida.** Si alguien arranca una rama con una migración nueva, esa migración queda aplicada para todos aunque la rama no se haya fusionado. Para probar migraciones nuevas, usar la base local o un proyecto de Supabase aparte. Y nunca editar una migración que ya se aplicó.
+Todo lo describe el archivo [`render.yaml`](../render.yaml) en la raíz del repositorio: Render crea los dos servicios con un clic y los vuelve a desplegar solo cada vez que se sube un cambio a la rama `frontend`.
 
 ---
 
-## 2. Backend en Render
+## Pasos (una sola vez)
 
-1. *New → Web Service*, conectar el repo `HeyArnolddd/Resigest`, rama a desplegar.
-2. **Root Directory:** `Backend` · **Runtime:** Docker (usa `Backend/Dockerfile`).
-3. Variables de entorno:
+1. Crear una cuenta en [render.com](https://render.com) con **GitHub**.
+2. En Render: **New → Blueprint**. Conectar GitHub y dar acceso al repositorio (`HeyArnolddd/Resigest` o la copia propia). Elegirlo.
+3. Render lee `render.yaml` y muestra los dos servicios: `resigest-api` y `resigest-app`. Pide estos valores:
 
-   | Variable | Valor |
+   | Variable | De dónde sale |
    |---|---|
-   | `SPRING_PROFILES_ACTIVE` | `prod` |
-   | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | Las de Supabase (paso 1) |
-   | `JWT_SECRETO` | Cadena aleatoria de 32+ caracteres |
-   | `RESIGEST_CLAVE_CREDENCIALES` | Otra cadena aleatoria. Si cambia, las contraseñas guardadas del personal dejan de poder consultarse (hay que reasignarlas) |
-   | `CORS_ORIGENES` | URL del frontend, p. ej. `https://resigest.vercel.app` (varias separadas por coma) |
+   | `DB_URL` | Igual que en `Backend/.env` |
+   | `DB_USERNAME` | Igual que en `Backend/.env` |
+   | `DB_PASSWORD` | Igual que en `Backend/.env` |
+   | `RESIGEST_CLAVE_CREDENCIALES` | Igual que en `Backend/.env` (**debe ser la misma**, porque local y Render comparten la base de datos) |
 
-   Para generar las cadenas aleatorias: `openssl rand -base64 48`.
-4. Al desplegar, revisar el log: debe aparecer `Successfully applied N migrations` y `Started BackendApplication`.
-5. Probar: `https://<servicio>.onrender.com/swagger-ui/index.html`.
+   `JWT_SECRETO` lo genera Render solo; las demás variables ya vienen en `render.yaml`.
+4. **Apply**. El primer despliegue del backend tarda ~5–10 minutos (compila con Maven dentro de Docker).
+5. Cuando ambos estén en verde, abrir la URL de `resigest-app` (algo como `https://resigest-app.onrender.com`).
 
-El plan gratuito de Render apaga el servicio tras unos minutos sin tráfico; la primera petición después tarda ~1 minuto en responder.
+## Comprobar que funciona
 
----
+- `https://<backend>.onrender.com/api/salud` debe responder `{"estado":"ok"}`.
+- En la página, iniciar sesión con `admin@resigest.com`.
 
-## 3. Frontend en Vercel
+## Cosas a tener en cuenta
 
-1. *Add New → Project*, importar el repo.
-2. **Root Directory:** `Frontend` · **Framework:** Vite (build `npm run build`, salida `dist`).
-3. Variable de entorno: `VITE_API_URL` = URL del backend en Render (sin `/api` al final).
-4. Desplegar y copiar la URL final en `CORS_ORIGENES` del backend (paso 2.3).
-
----
-
-## Antes de abrirlo a usuarios reales
-
-- **Usuarios demo:** las migraciones `V3` y `V12` crean `admin@resigest.com`, `residente@…`, `portero@…` y `tecnico@…` con la contraseña `admin123`. En una instancia pública hay que cambiar la del administrador apenas arranque (desde *Usuarios → Acceso*) y desactivar o eliminar las cuentas demo.
-- **Archivos subidos** (evidencias de incidencias): `AlmacenamientoLocal` todavía no guarda el archivo, solo devuelve la ruta `uploads/<nombre>`. Guardarlo en el disco no serviría en Render (se borra en cada despliegue); lo indicado es una implementación de `AlmacenamientoArchivos` sobre Supabase Storage.
-- **Pausa de Supabase:** el plan gratuito pausa el proyecto tras ~1 semana sin actividad; se reactiva desde el panel.
+- **El backend gratis se duerme** tras 15 minutos sin uso; la primera visita después tarda ~1 minuto. Antes de una presentación, abrir la página unos minutos antes. Para mantenerlo despierto se puede usar un monitor gratuito (p. ej. UptimeRobot) que visite `/api/salud` cada 10 minutos.
+- **CORS:** el backend acepta las URL `https://resigest-app*.onrender.com`. Si el frontend queda con otro nombre, actualizar `CORS_ORIGENES` en Render.
+- **Base de datos compartida:** el backend local y el de Render usan la misma base de Supabase. Las migraciones nuevas que se prueben en local quedan aplicadas también para la versión publicada.
+- **Usuarios demo:** `V3` crea `admin@resigest.com` con contraseña `admin123`. En una instancia que vayan a usar personas reales, cambiarla desde *Usuarios → Acceso*.
+- **Archivos subidos** (fotos y comprobantes): se guardan en la base de datos, así que no se pierden al redesplegar.
