@@ -1,19 +1,34 @@
 import { useState } from 'react'
 import { MotionConfig, motion } from 'motion/react'
 import { AlertCircle, Eye, EyeOff, Home, Loader2 } from 'lucide-react'
-import PropTypes from 'prop-types'
 import EscenaConjunto from '../components/login/EscenaConjunto'
+import { useSesion } from '../lib/sesion'
 import { cn } from '../lib/utils'
 
 // Usuarios demo del backend (V12__datos_demo.sql), todos con contraseña admin123.
-// Al conectar el API esto se reemplaza por POST /api/auth/login → { token, rol }.
+// Los accesos rápidos solo aparecen en desarrollo (npm run dev).
 const DEMO = [
-  { correo: 'residente@resigest.com', rol: 'residente', etiqueta: 'Residente' },
-  { correo: 'portero@resigest.com', rol: 'porteria', etiqueta: 'Portería' },
-  { correo: 'tecnico@resigest.com', rol: 'mantenimiento', etiqueta: 'Mantenimiento' },
-  { correo: 'admin@resigest.com', rol: 'administrador', etiqueta: 'Administrador' },
+  { correo: 'residente@resigest.com', etiqueta: 'Residente' },
+  { correo: 'portero@resigest.com', etiqueta: 'Portería' },
+  { correo: 'tecnico@resigest.com', etiqueta: 'Mantenimiento' },
+  { correo: 'admin@resigest.com', etiqueta: 'Administrador' },
 ]
 const CONTRASENA_DEMO = 'admin123'
+const MOSTRAR_DEMO = import.meta.env.DEV
+
+// Mensajes del API → texto que explica qué pasó y qué hacer.
+function mensajeDeError(e) {
+  if (e.status === 0) return e.message
+  if (e.status === 400) return 'Escribe un correo válido, por ejemplo nombre@correo.com.'
+  if (e.message?.startsWith('Cuenta bloqueada')) {
+    return 'Tu cuenta quedó bloqueada por varios intentos fallidos. Espera 15 minutos e intenta de nuevo.'
+  }
+  if (e.message?.startsWith('Cuenta inactiva')) {
+    return 'Tu cuenta está desactivada. Comunícate con la administración del conjunto.'
+  }
+  if (e.status === 401) return 'El correo o la contraseña no coinciden. Revísalos e intenta de nuevo.'
+  return e.message
+}
 
 const entrada = (delay) => ({
   initial: { opacity: 0, y: 14 },
@@ -24,30 +39,29 @@ const entrada = (delay) => ({
 const campo =
   'h-12 w-full rounded-lg border border-transparent bg-white px-4 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-shadow focus:border-brand-300 focus:ring-4 focus:ring-white/30'
 
-export default function Login({ onLogin }) {
+export default function Login() {
+  const { iniciarSesion, aviso } = useSesion()
   const [correo, setCorreo] = useState('')
   const [contrasena, setContrasena] = useState('')
   const [verContrasena, setVerContrasena] = useState(false)
+  const [recordar, setRecordar] = useState(false)
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
 
-  const ingresar = (email, clave) => {
+  const ingresar = async (email, clave) => {
     setError('')
     if (!email.trim() || !clave) {
       setError('Escribe tu correo y tu contraseña.')
       return
     }
     setCargando(true)
-    // Simula la latencia del API
-    setTimeout(() => {
-      const usuario = DEMO.find((u) => u.correo === email.trim().toLowerCase())
-      if (!usuario || clave !== CONTRASENA_DEMO) {
-        setCargando(false)
-        setError('El correo o la contraseña no coinciden. Revísalos e intenta de nuevo.')
-        return
-      }
-      onLogin(usuario.rol)
-    }, 700)
+    try {
+      // Al iniciar sesión, App cambia al portal del rol y este componente se desmonta
+      await iniciarSesion(email, clave, recordar)
+    } catch (e) {
+      setError(mensajeDeError(e))
+      setCargando(false)
+    }
   }
 
   const enviar = (e) => {
@@ -142,7 +156,12 @@ export default function Login({ onLogin }) {
 
               <div className="flex items-center justify-between pt-1 text-sm">
                 <label className="flex cursor-pointer items-center gap-2 text-brand-50">
-                  <input type="checkbox" className="size-4 rounded accent-brand-900" />
+                  <input
+                    type="checkbox"
+                    checked={recordar}
+                    onChange={(e) => setRecordar(e.target.checked)}
+                    className="size-4 rounded accent-brand-900"
+                  />
                   Recordarme
                 </label>
                 <a
@@ -152,6 +171,13 @@ export default function Login({ onLogin }) {
                   ¿Olvidaste tu contraseña?
                 </a>
               </div>
+
+              {aviso && !error && (
+                <p role="status" className="flex items-start gap-2 rounded-lg bg-white/15 px-3 py-2.5 text-sm font-medium text-white ring-1 ring-white/25">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  {aviso}
+                </p>
+              )}
 
               {error && (
                 <motion.p
@@ -176,22 +202,24 @@ export default function Login({ onLogin }) {
               </motion.button>
             </motion.form>
 
-            <motion.div {...entrada(0.34)} className="mt-6 text-center">
-              <p className="text-xs font-medium text-brand-100">Acceso rápido para la demo</p>
-              <div className="mt-2 flex flex-wrap justify-center gap-2">
-                {DEMO.map((u) => (
-                  <button
-                    key={u.rol}
-                    type="button"
-                    disabled={cargando}
-                    onClick={() => accesoRapido(u)}
-                    className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white outline-none backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white"
-                  >
-                    {u.etiqueta}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
+            {MOSTRAR_DEMO && (
+              <motion.div {...entrada(0.34)} className="mt-6 text-center">
+                <p className="text-xs font-medium text-brand-100">Acceso rápido para la demo</p>
+                <div className="mt-2 flex flex-wrap justify-center gap-2">
+                  {DEMO.map((u) => (
+                    <button
+                      key={u.correo}
+                      type="button"
+                      disabled={cargando}
+                      onClick={() => accesoRapido(u)}
+                      className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white outline-none backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white"
+                    >
+                      {u.etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
           </div>
         </main>
 
@@ -202,8 +230,4 @@ export default function Login({ onLogin }) {
       </div>
     </MotionConfig>
   )
-}
-
-Login.propTypes = {
-  onLogin: PropTypes.func.isRequired,
 }
