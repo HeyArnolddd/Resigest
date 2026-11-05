@@ -4,14 +4,22 @@ import { cn } from '../../lib/utils'
 import Avatar from '../ui/Avatar'
 import Logo from '../ui/Logo'
 import { IconButton } from '../ui/Button'
-import { notificaciones } from '../../data/mock'
+import { api } from '../../lib/api'
+import { aNotificacion } from '../../lib/datos'
+import { useApi } from '../../lib/useApi'
 
 export default function Navbar({ role, onOpenMenu, onExit }) {
   const [abierto, setAbierto] = useState(false)
-  const [lista, setLista] = useState(notificaciones)
-  const noLeidas = lista.filter((n) => !n.leida).length
+  const { datos, recargar } = useApi('/api/notificaciones/no-leidas', undefined, [])
+  const lista = datos.map(aNotificacion)
+  const noLeidas = lista.length
 
-  const marcarTodas = () => setLista(lista.map((n) => ({ ...n, leida: true })))
+  // El API solo lista las no leídas: al marcar una, se vuelve a consultar.
+  const marcar = async (ids) => {
+    await Promise.allSettled(ids.map((id) => api.patch(`/api/notificaciones/${id}/leida`)))
+    recargar()
+  }
+  const marcarTodas = () => marcar(lista.map((n) => n.id))
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 sm:gap-4 sm:px-4 lg:px-6">
@@ -63,11 +71,12 @@ export default function Navbar({ role, onOpenMenu, onExit }) {
                   </button>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
+                  {lista.length === 0 && <p className="px-4 py-6 text-center text-sm text-slate-500">No tienes notificaciones nuevas.</p>}
                   {lista.map((n) => (
                     <button
                       key={n.id}
                       type="button"
-                      onClick={() => setLista(lista.map((x) => (x.id === n.id ? { ...x, leida: true } : x)))}
+                      onClick={() => marcar([n.id])}
                       className="flex w-full items-start gap-3 border-b border-slate-50 px-4 py-3 text-left transition-colors last:border-0 hover:bg-slate-50"
                     >
                       <span

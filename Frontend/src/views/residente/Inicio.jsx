@@ -23,17 +23,11 @@ import { estadoReserva } from '../../lib/labels'
 import { alinearTooltip, cn, esDeNoche, formatCOP, saludo } from '../../lib/utils'
 import { useAhora } from '../../lib/useAhora'
 import { colorZona } from '../../lib/zonas'
-import {
-  incidencias,
-  notificaciones,
-  obligaciones,
-  paquetes,
-  reservasAgenda,
-  residente,
-  saldoPendiente,
-} from '../../data/mock'
+import { aNotificacion, aResumenCuotas, aVistaPaquete } from '../../lib/datos'
+import { aVistaIncidencia } from '../../lib/incidencias'
+import { useApi } from '../../lib/useApi'
+import { useSesion } from '../../lib/sesion'
 
-const MI_APARTAMENTO_ID = 12
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 const PASOS_INCIDENCIA = ['Nueva', 'En proceso', 'Resuelta']
@@ -185,7 +179,44 @@ function agruparPorDia(lista) {
   return [...grupos]
 }
 
+// Carga lo que muestra el inicio del residente y se lo entrega a la vista.
 export default function Inicio({ onNavigate }) {
+  const { sesion } = useSesion()
+  const apartamentoId = sesion.perfil.residente?.apartamentoId
+  const obligacionesApi = useApi('/api/obligaciones', { apartamentoId }, [])
+  const reservasApi = useApi('/api/reservas', { mias: true }, [])
+  const incidenciasApi = useApi('/api/incidencias', { size: 50, sort: 'id,desc' }, { content: [] })
+  const paquetesApi = useApi('/api/paquetes', { apartamentoId }, [])
+  const notificacionesApi = useApi('/api/notificaciones/no-leidas', undefined, [])
+
+  const porPagar = obligacionesApi.datos.filter((o) => ['PENDIENTE', 'VENCIDA'].includes(o.estado))
+  return (
+    <InicioVista
+      onNavigate={onNavigate}
+      residente={{
+        nombre: sesion.usuario,
+        apartamento: sesion.perfil.residente?.apartamento ?? '',
+      }}
+      obligaciones={aResumenCuotas(obligacionesApi.datos)}
+      saldoPendiente={porPagar.reduce((t, o) => t + o.saldoPendiente, 0)}
+      reservasAgenda={reservasApi.datos}
+      incidencias={incidenciasApi.datos.content.map(aVistaIncidencia)}
+      paquetes={paquetesApi.datos.map(aVistaPaquete)}
+      notificaciones={notificacionesApi.datos.map(aNotificacion)}
+    />
+  )
+}
+
+function InicioVista({
+  onNavigate,
+  residente,
+  obligaciones,
+  saldoPendiente,
+  reservasAgenda,
+  incidencias,
+  paquetes,
+  notificaciones,
+}) {
   const ahora = useAhora()
   // De noche entre las 6 p. m. y las 6 a. m., igual que el saludo; se revisa cada minuto.
   // `?modo=dia|noche` lo fuerza para revisar el mockup.
@@ -196,7 +227,6 @@ export default function Inicio({ onNavigate }) {
   const misReservas = reservasAgenda
     .filter(
       (r) =>
-        r.apartamentoId === MI_APARTAMENTO_ID &&
         ['APROBADA', 'PENDIENTE'].includes(r.estado) &&
         new Date(r.fechaFin) > ahora,
     )
@@ -206,9 +236,9 @@ export default function Inicio({ onNavigate }) {
 
   const pendientes = obligaciones.filter((o) => o.estado === 'Pendiente')
   const cuotas = [...obligaciones].reverse()
-  const misIncidencias = incidencias.filter((i) => i.solicitante === residente.nombre)
+  const misIncidencias = incidencias
   const abiertas = misIncidencias.filter((i) => i.estado !== 'Resuelta')
-  const enPorteria = paquetes.filter((p) => p.estado === 'Ha llegado')
+  const enPorteria = paquetes.filter((p) => !p.entregado)
   const sinLeer = notificaciones.filter((n) => !n.leida).length
 
   return (
@@ -236,7 +266,7 @@ export default function Inicio({ onNavigate }) {
                 {saludo(ahora)}, {primerNombre}
               </h1>
               <p className="mt-1 text-sm text-brand-50">
-                {residente.torre} · Apartamento {residente.apto}
+                {residente.apartamento}
               </p>
               <p className="mt-5 max-w-sm text-sm leading-relaxed text-white/90 sm:max-w-[46%]">
                 {enPorteria.length > 0 && `Tienes ${enPorteria.length} paquete${enPorteria.length === 1 ? '' : 's'} por recoger`}
@@ -271,7 +301,7 @@ export default function Inicio({ onNavigate }) {
           <p className="text-4xl font-extrabold tracking-tight text-slate-900 tabular-nums">{formatCOP(saldoPendiente)}</p>
           <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-warning-strong">
             <Clock className="size-3.5" />
-            {pendientes.length} cuotas por pagar · la más antigua venció el {pendientes.at(-1)?.vencimiento}
+            {pendientes.length} {pendientes.length === 1 ? 'cuota' : 'cuotas'} por pagar · la más antigua venció el {pendientes.at(-1)?.vencimiento}
           </p>
           <div className="mt-5 flex-1">
             <CuotasRecientes lista={cuotas} />
@@ -575,4 +605,15 @@ export default function Inicio({ onNavigate }) {
 
 Inicio.propTypes = {
   onNavigate: PropTypes.func.isRequired,
+}
+
+InicioVista.propTypes = {
+  onNavigate: PropTypes.func.isRequired,
+  residente: PropTypes.shape({ nombre: PropTypes.string, apartamento: PropTypes.string }).isRequired,
+  obligaciones: PropTypes.array.isRequired,
+  saldoPendiente: PropTypes.number.isRequired,
+  reservasAgenda: PropTypes.array.isRequired,
+  incidencias: PropTypes.array.isRequired,
+  paquetes: PropTypes.array.isRequired,
+  notificaciones: PropTypes.array.isRequired,
 }

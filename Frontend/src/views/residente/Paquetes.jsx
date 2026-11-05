@@ -5,31 +5,14 @@ import { Titulo } from '../../components/ui/Panel'
 import EscenaPaquetes from '../../components/inicio/EscenaPaquetes'
 import IlustracionPaquete from '../../components/paquetes/IlustracionPaquete'
 import { aparecer, tarjeta } from '../../lib/panel'
+import { aVistaPaquete as aVista } from '../../lib/datos'
 import { useApi } from '../../lib/useApi'
 import { useAhora } from '../../lib/useAhora'
 import { useSesion } from '../../lib/sesion'
-import { cn, formatFecha } from '../../lib/utils'
+import { cn } from '../../lib/utils'
 
 const APERTURA = 6
 const CIERRE = 22
-
-const DIBUJO_POR_TAMANO = {
-  SOBRE: 'Sobre',
-  PEQUENO: 'Caja pequeña',
-  MEDIANO: 'Paquete mediano',
-  GRANDE: 'Caja grande',
-}
-
-// Paquete del API → forma que usan las tarjetas de esta pantalla.
-const aVista = (p) => ({
-  id: `PAQ-${p.id}`,
-  empresa: p.empresaTransportadora,
-  guia: p.guia ?? `S/G-${p.id}`,
-  descripcion: DIBUJO_POR_TAMANO[p.tamano] ?? p.descripcion,
-  detalle: p.descripcion,
-  fecha: formatFecha(p.fechaEntrega ?? p.fechaRecepcion),
-  entregado: p.estado === 'ENTREGADO',
-})
 
 // Código de barras decorativo derivado del número de guía (siempre el mismo para la misma guía)
 function CodigoBarras({ guia }) {
