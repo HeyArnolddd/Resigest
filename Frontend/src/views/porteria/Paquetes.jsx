@@ -180,7 +180,7 @@ Entregar.propTypes = {
 }
 
 export default function Paquetes() {
-  const { datos, error, recargar } = useCarga(cargarTodo)
+  const { datos, error, recargar } = useCarga(cargarTodo, 'port:paquetes')
   const [modal, setModal] = useState(false)
   const [entregando, setEntregando] = useState(null)
   const [ultimo, setUltimo] = useState(null)

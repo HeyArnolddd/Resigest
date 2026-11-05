@@ -14,7 +14,7 @@ import { useSesion } from '../../lib/sesion'
 export default function Inicio({ onNavigate }) {
   const { usuario } = useSesion()
   const ahora = useAhora()
-  const { datos } = useCarga(incidenciasApi.asignadas)
+  const { datos } = useCarga(incidenciasApi.asignadas, 'mant:asignadas')
   const incidencias = datos ?? []
   const mesActual = ahora.toISOString().slice(0, 7)
   const contar = (estado) => incidencias.filter((i) => i.estado === estado).length

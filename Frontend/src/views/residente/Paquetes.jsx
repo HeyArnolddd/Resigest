@@ -112,7 +112,7 @@ Etiqueta.propTypes = {
 
 export default function Paquetes() {
   const { usuario } = useSesion()
-  const { datos: lista, error, recargar } = useCarga(() => residenteApi.paquetes(usuario.apartamentoId))
+  const { datos: lista, error, recargar } = useCarga(() => residenteApi.paquetes(usuario.apartamentoId), 'res:paquetes')
   const ahora = useAhora()
 
   const [ocupado, setOcupado] = useState(false)

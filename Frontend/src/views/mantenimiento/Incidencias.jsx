@@ -13,7 +13,7 @@ const FILTROS = ['Todas', 'Asignada', 'En proceso', 'Resuelta']
 const etiquetaFiltro = { Asignada: 'Por empezar' }
 
 export default function Incidencias() {
-  const { datos: lista, error, recargar } = useCarga(incidenciasApi.asignadas)
+  const { datos: lista, error, recargar } = useCarga(incidenciasApi.asignadas, 'mant:asignadas')
   const [filtro, setFiltro] = useState('Todas')
   const [seleccionada, setSeleccionada] = useState(null)
   const [resolviendo, setResolviendo] = useState(false)

@@ -89,7 +89,7 @@ export default function Inicio({ onNavigate }) {
   const { usuario } = useSesion()
   const [modalVisitante, setModalVisitante] = useState(false)
   const [modalPaquete, setModalPaquete] = useState(false)
-  const { datos, recargar } = useCarga(cargarTodo)
+  const { datos, recargar } = useCarga(cargarTodo, 'port:inicio')
   const ahora = useAhora()
 
   const ingresos = datos?.ingresos ?? []

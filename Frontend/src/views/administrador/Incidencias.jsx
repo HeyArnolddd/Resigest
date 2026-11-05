@@ -66,7 +66,7 @@ function Asignacion({ incidencia, tecnicos, onAsignado }) {
 Asignacion.propTypes = { incidencia: PropTypes.object.isRequired, tecnicos: PropTypes.array.isRequired, onAsignado: PropTypes.func.isRequired }
 
 export default function Incidencias() {
-  const { datos, error, recargar } = useCarga(cargarTodo)
+  const { datos, error, recargar } = useCarga(cargarTodo, 'admin:incidencias')
   const [filtro, setFiltro] = useState('TODAS')
   const [soloAlta, setSoloAlta] = useState(false)
 

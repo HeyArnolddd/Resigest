@@ -18,7 +18,7 @@ const cargar = () => adminApi.comunicados().then((lista) => [...lista].sort((a, 
 
 export default function Comunicados() {
   const { usuario } = useSesion()
-  const { datos: publicados, error, recargar } = useCarga(cargar)
+  const { datos: publicados, error, recargar } = useCarga(cargar, 'admin:comunicados')
   const [titulo, setTitulo] = useState('')
   const [contenido, setContenido] = useState('')
   const [errores, setErrores] = useState({})

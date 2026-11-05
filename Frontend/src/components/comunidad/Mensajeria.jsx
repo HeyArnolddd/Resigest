@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { AnimatePresence, motion } from 'motion/react'
-import { AlertCircle, ArrowLeft, CheckCheck, Lock, MessagesSquare, PenSquare, Search, Send, Users, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Building2, CheckCheck, Lock, MessagesSquare, PenSquare, Search, Send, Users, X } from 'lucide-react'
 import { Avatar, Button } from '../ui'
 import { hora } from '../../lib/porteria'
 import { residenteApi } from '../../lib/residente'
+import { guardarCache, leerCache } from '../../lib/useCarga'
 import { useSesion } from '../../lib/sesion'
 import { cn, iniciales } from '../../lib/utils'
 
@@ -14,7 +15,14 @@ import { cn, iniciales } from '../../lib/utils'
 
 const CADA_CONVERSACION = 8_000
 const CADA_LISTA = 30_000
-const COMUNIDAD = { usuarioId: 'comunidad', nombre: 'Chat comunitario', detalle: 'Todo el conjunto', grupo: true }
+// Chat comunitario (general o de una torre) como si fuera una conversación más
+const aCanal = (c) => ({
+  usuarioId: `canal-${c.torreId ?? 'general'}`,
+  torreId: c.torreId,
+  nombre: c.nombre,
+  detalle: c.torreId ? 'Residentes de la torre y administración' : 'Residentes, portería, mantenimiento y administración',
+  grupo: true,
+})
 
 // Mensaje del grupo → misma forma que un mensaje privado, con el autor
 const deComunidad = (m) => ({ id: m.id, remitenteId: m.autorId, contenido: m.contenido, fecha: m.fecha, autor: m.autorNombre, detalle: m.detalle })
@@ -30,9 +38,10 @@ const diaDe = (iso) => {
 
 export default function Mensajeria() {
   const { usuario } = useSesion()
-  const [conversaciones, setConversaciones] = useState(null)
-  const [ultimoGrupo, setUltimoGrupo] = useState(null)
-  const [directorio, setDirectorio] = useState([])
+  const [conversaciones, setConversaciones] = useState(() => leerCache('chat:conversaciones') ?? null)
+  // Chats comunitarios del usuario con su último mensaje: [{ ...canal, ultimo }]
+  const [canales, setCanales] = useState(() => leerCache('chat:canales') ?? [])
+  const [directorio, setDirectorio] = useState(() => leerCache('chat:directorio') ?? [])
   const [activa, setActiva] = useState(null) // { usuarioId, nombre, detalle }
   const [hilo, setHilo] = useState([])
   const [eligiendo, setEligiendo] = useState(false)
@@ -46,17 +55,25 @@ export default function Mensajeria() {
   const cargarConversaciones = useCallback(() => {
     residenteApi
       .conversaciones()
-      .then(setConversaciones)
+      .then((c) => {
+        guardarCache('chat:conversaciones', c)
+        setConversaciones(c)
+      })
       .catch((e) => setError(e.message))
     residenteApi
-      .comunidad()
-      .then((l) => setUltimoGrupo(l.at(-1) ?? null))
+      .canalesComunidad()
+      .then((lista) =>
+        Promise.all(lista.map((c) => residenteApi.comunidad(c.torreId).then((m) => ({ ...aCanal(c), ultimo: m.at(-1) ?? null })))),
+      )
+      .then((c) => {
+        guardarCache('chat:canales', c)
+        setCanales(c)
+      })
       .catch(() => {})
   }, [])
 
   useEffect(() => {
     cargarConversaciones()
-    residenteApi.directorio().then(setDirectorio).catch(() => {})
     const t = setInterval(cargarConversaciones, CADA_LISTA)
     return () => clearInterval(t)
   }, [cargarConversaciones])
@@ -65,7 +82,7 @@ export default function Mensajeria() {
   useEffect(() => {
     if (!activa) return
     let vigente = true
-    const pedir = activa.grupo ? () => residenteApi.comunidad().then((l) => l.map(deComunidad)) : () => residenteApi.mensajes(activa.usuarioId)
+    const pedir = activa.grupo ? () => residenteApi.comunidad(activa.torreId).then((l) => l.map(deComunidad)) : () => residenteApi.mensajes(activa.usuarioId)
     const cargar = () =>
       pedir()
         .then((m) => vigente && setHilo(m))
@@ -84,6 +101,18 @@ export default function Mensajeria() {
     if (c) c.scrollTo({ top: c.scrollHeight })
   }, [activa, hilo.length])
 
+  // El directorio solo hace falta para escribir un mensaje nuevo: se pide al abrir esa lista
+  useEffect(() => {
+    if (!eligiendo || directorio.length) return
+    residenteApi
+      .directorio()
+      .then((d) => {
+        guardarCache('chat:directorio', d)
+        setDirectorio(d)
+      })
+      .catch(() => {})
+  }, [eligiendo, directorio.length])
+
   const abrir = (contacto) => {
     setActiva(contacto)
     setHilo([])
@@ -101,7 +130,7 @@ export default function Mensajeria() {
     setEnviando(true)
     setError('')
     try {
-      const mensaje = activa.grupo ? deComunidad(await residenteApi.enviarComunidad(texto)) : await residenteApi.enviarMensaje(activa.usuarioId, texto)
+      const mensaje = activa.grupo ? deComunidad(await residenteApi.enviarComunidad(texto, activa.torreId)) : await residenteApi.enviarMensaje(activa.usuarioId, texto)
       setHilo((h) => [...h, mensaje])
       setBorrador('')
       cargarConversaciones()
@@ -172,20 +201,23 @@ export default function Mensajeria() {
             </motion.div>
           ) : (
             <motion.ul key="lista" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
-              <li>
-                <Fila
-                  activa={esGrupo}
-                  onClick={() => abrir(COMUNIDAD)}
-                  icono={
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white">
-                      <Users className="size-4" />
-                    </span>
-                  }
-                  titulo="Chat comunitario"
-                  detalle={ultimoGrupo ? `${ultimoGrupo.autorId === usuario.id ? 'Tú' : ultimoGrupo.autorNombre.split(' ')[0]}: ${ultimoGrupo.contenido}` : 'Todo el conjunto · aún sin mensajes'}
-                  hora={ultimoGrupo ? (diaDe(ultimoGrupo.fecha) === 'Hoy' ? hora(ultimoGrupo.fecha) : diaDe(ultimoGrupo.fecha)) : ''}
-                />
-              </li>
+              {canales.length > 0 && <li className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Comunidad</li>}
+              {canales.map((c) => (
+                <li key={c.usuarioId}>
+                  <Fila
+                    activa={activa?.usuarioId === c.usuarioId}
+                    onClick={() => abrir(c)}
+                    icono={
+                      <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-full text-white', c.torreId ? 'bg-brand-800' : 'bg-brand-600')}>
+                        {c.torreId ? <Building2 className="size-4" /> : <Users className="size-4" />}
+                      </span>
+                    }
+                    titulo={c.nombre}
+                    detalle={c.ultimo ? `${c.ultimo.autorId === usuario.id ? 'Tú' : c.ultimo.autorNombre.split(' ')[0]}: ${c.ultimo.contenido}` : 'Aún sin mensajes'}
+                    hora={c.ultimo ? (diaDe(c.ultimo.fecha) === 'Hoy' ? hora(c.ultimo.fecha) : diaDe(c.ultimo.fecha)) : ''}
+                  />
+                </li>
+              ))}
               <li className="px-2 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Privados</li>
               {conversaciones === null && !error && (
                 <li className="space-y-2 px-2 py-2" role="status" aria-label="Cargando conversaciones">
@@ -232,8 +264,8 @@ export default function Mensajeria() {
                 </svg>
                 <BotonVolver onClick={() => setEnChat(false)} claro />
                 <div className="relative min-w-0 flex-1">
-                  <h3 className="font-bold">Chat comunitario</h3>
-                  <p className="text-xs text-brand-100">Residentes, portería, mantenimiento y administración</p>
+                  <h3 className="truncate font-bold">{activa.nombre}</h3>
+                  <p className="truncate text-xs text-brand-100">{activa.detalle}</p>
                 </div>
               </header>
             ) : (
@@ -261,7 +293,10 @@ export default function Mensajeria() {
                       <Users className="size-6" />
                     </span>
                     <p className="text-sm font-semibold text-slate-800">Saluda a tus vecinos</p>
-                    <p className="max-w-xs text-xs text-slate-500">Todo el conjunto verá lo que escribas aquí. Sé amable y respetuoso.</p>
+                    <p className="max-w-xs text-xs text-slate-500">
+                      {activa.torreId ? 'Solo los residentes de tu torre y la administración verán lo que escribas aquí.' : 'Todo el conjunto verá lo que escribas aquí.'} Sé amable y
+                      respetuoso.
+                    </p>
                   </div>
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
@@ -330,7 +365,7 @@ export default function Mensajeria() {
             )}
             <form onSubmit={enviar} className="flex items-center gap-2 border-t border-slate-100 bg-white p-3">
               <label htmlFor="mensaje-chat" className="sr-only">
-                {esGrupo ? 'Mensaje para la comunidad' : `Mensaje privado para ${activa.nombre}`}
+                {esGrupo ? `Mensaje para el ${activa.nombre.toLowerCase()}` : `Mensaje privado para ${activa.nombre}`}
               </label>
               <input
                 id="mensaje-chat"
@@ -338,7 +373,7 @@ export default function Mensajeria() {
                 maxLength={1000}
                 value={borrador}
                 onChange={(e) => setBorrador(e.target.value)}
-                placeholder={esGrupo ? 'Escribe un mensaje a la comunidad…' : `Mensaje para ${activa.nombre.split(' ')[0]}…`}
+                placeholder={esGrupo ? (activa.torreId ? 'Escribe a tus vecinos de torre…' : 'Escribe a todo el conjunto…') : `Mensaje para ${activa.nombre.split(' ')[0]}…`}
                 className="min-w-0 flex-1 rounded-full bg-slate-100 px-4 py-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand-500"
               />
               <Button type="submit" icon={Send} disabled={!borrador.trim() || enviando} aria-label="Enviar mensaje">

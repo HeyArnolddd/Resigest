@@ -15,7 +15,7 @@ const EMPRESAS = ['Servientrega', 'Interrapidísimo', 'Coordinadora', 'Envia', '
 const inicial = { empresa: 'Servientrega', otraEmpresa: '', guia: '', apartamentoId: '', tamano: 'Caja pequeña' }
 
 export default function RegistrarPaquete({ open, onClose, onRegistrado }) {
-  const { datos: apartamentos } = useCarga(porteriaApi.apartamentos)
+  const { datos: apartamentos } = useCarga(porteriaApi.apartamentos, 'apartamentos')
   const [datos, setDatos] = useState(inicial)
   const [foto, setFoto] = useState(null)
   const [errores, setErrores] = useState({})

@@ -29,7 +29,7 @@ function tituloDia(dia) {
 const cargar = () => porteriaApi.bitacora(fechaApi(-6), fechaApi()).then((l) => [...l].sort((a, b) => b.fechaIngreso.localeCompare(a.fechaIngreso)))
 
 export default function Bitacora() {
-  const { datos: registros, error, recargar } = useCarga(cargar)
+  const { datos: registros, error, recargar } = useCarga(cargar, 'port:bitacora')
   const [filtro, setFiltro] = useState('Hoy')
 
   const dias = FILTROS.find(([f]) => f === filtro)[1]

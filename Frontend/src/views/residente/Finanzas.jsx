@@ -214,6 +214,7 @@ export default function Finanzas() {
       obligaciones: obligaciones.map(aNumero).sort((a, b) => a.periodo.localeCompare(b.periodo) || a.concepto.localeCompare(b.concepto)),
       pagos: pagos.map((p) => ({ ...p, monto: Number(p.monto) })),
     })),
+    'res:finanzas',
   )
   const lista = datos?.obligaciones ?? []
   const pagos = datos?.pagos ?? []

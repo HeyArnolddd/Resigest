@@ -25,7 +25,7 @@ export default function Incidencias() {
   const { usuario } = useSesion()
   // El residente reporta para su apartamento; portería también usa esta pantalla sin apartamento
   const miApartamento = usuario.apartamento
-  const { datos: lista, error, recargar } = useCarga(incidenciasApi.mias)
+  const { datos: lista, error, recargar } = useCarga(incidenciasApi.mias, 'res:incidencias')
   const [modalAbierto, setModalAbierto] = useState(false)
   const [reporte, setReporte] = useState(() => nuevoReporte(miApartamento))
   const [foto, setFoto] = useState(null)

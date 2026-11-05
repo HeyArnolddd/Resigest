@@ -9,7 +9,7 @@ import { cn } from '../../lib/utils'
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 export default function Historial() {
-  const { datos } = useCarga(incidenciasApi.asignadas)
+  const { datos } = useCarga(incidenciasApi.asignadas, 'mant:asignadas')
   const resueltas = (datos ?? []).filter((i) => i.estado === 'Resuelta')
 
   // Agrupadas por mes (fechas dd/mm/aaaa), en el orden en que llegan
