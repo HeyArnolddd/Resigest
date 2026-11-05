@@ -10,6 +10,12 @@ spring:
     multipart:
       max-file-size: 5MB
       max-request-size: 5MB
+  datasource:
+    hikari:
+      data-source-properties:
+        # @Transactional(readOnly = true) no envía SET SESSION ... READ ONLY antes y después de cada
+        # lectura: con la BD remota eran dos viajes extra por consulta
+        readOnlyMode: ignore
   jpa:
     properties:
       hibernate:

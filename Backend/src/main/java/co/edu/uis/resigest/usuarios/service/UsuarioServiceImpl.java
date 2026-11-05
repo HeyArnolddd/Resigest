@@ -6,6 +6,7 @@ import co.edu.uis.resigest.usuarios.dto.DirectorioDTO;
 import co.edu.uis.resigest.common.exception.ConflictoException;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.common.exception.ReglaNegocioException;
+import co.edu.uis.resigest.common.security.CacheUsuarios;
 import co.edu.uis.resigest.common.security.CifradorContrasenas;
 import co.edu.uis.resigest.inmueble.domain.Apartamento;
 import co.edu.uis.resigest.inmueble.repository.ApartamentoRepository;
@@ -44,11 +45,15 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final CifradorContrasenas cifrador;
 
+    private final CacheUsuarios cacheUsuarios;
+
     public UsuarioServiceImpl(UsuarioRepository usuarioRepository,
                               ApartamentoRepository apartamentoRepository,
                               TokenRecuperacionRepository tokenRecuperacionRepository,
                               PasswordEncoder passwordEncoder,
-                              CifradorContrasenas cifrador) {
+                              CifradorContrasenas cifrador,
+                              CacheUsuarios cacheUsuarios) {
+        this.cacheUsuarios = cacheUsuarios;
         this.usuarioRepository = usuarioRepository;
         this.apartamentoRepository = apartamentoRepository;
         this.tokenRecuperacionRepository = tokenRecuperacionRepository;
@@ -98,6 +103,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     public UsuarioDTO actualizar(Long id, ActualizarUsuarioRequest request) {
+        cacheUsuarios.invalidar();
         Usuario usuario = buscar(id);
         String correo = normalizarCorreo(request.correo());
         if (usuarioRepository.existsByCorreoAndIdNot(correo, id)) {
@@ -128,12 +134,14 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     public void activar(Long id) {
+        cacheUsuarios.invalidar();
         buscar(id).activar();
     }
 
     @Override
     @Transactional
     public void desactivar(Long id, Long solicitanteId) {
+        cacheUsuarios.invalidar();
         if (id.equals(solicitanteId)) {
             throw new ReglaNegocioException("No puedes desactivar tu propia cuenta");
         }
@@ -143,6 +151,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     public void eliminar(Long id, Long solicitanteId) {
+        cacheUsuarios.invalidar();
         if (id.equals(solicitanteId)) {
             throw new ReglaNegocioException("No puedes eliminar tu propia cuenta");
         }
@@ -161,6 +170,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     public void cambiarContrasena(Long id, String contrasena) {
+        cacheUsuarios.invalidar();
         Usuario usuario = buscar(id);
         String cifrada = usuario.getRol().esPersonalOperativo() ? cifrador.cifrar(contrasena) : null;
         usuario.cambiarContrasena(passwordEncoder.encode(contrasena), cifrada);

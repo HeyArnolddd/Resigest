@@ -1,5 +1,7 @@
 package co.edu.uis.resigest.mantenimiento.service;
 
+import co.edu.uis.resigest.mantenimiento.dto.ConfirmarSolucionRequest;
+import co.edu.uis.resigest.common.archivos.ArchivoService;
 import co.edu.uis.resigest.mantenimiento.event.IncidenciaActualizadaEvento;
 import org.springframework.context.ApplicationEventPublisher;
 import java.util.List;
@@ -94,7 +96,10 @@ public class IncidenciaServiceImpl implements IncidenciaService {
     public IncidenciaDTO resolver(Long incidenciaId, ResolverIncidenciaRequest request, Long tecnicoId) {
         Incidencia incidencia = buscarIncidencia(incidenciaId);
         verificarAsignada(incidencia, tecnicoId);
-        incidencia.resolver(request.solucion());
+        if (!ArchivoService.esUrlPropia(request.fotoUrl())) {
+            throw new ReglaNegocioException("La foto debe subirse primero al sistema");
+        }
+        incidencia.resolver(request.solucion().trim(), request.fotoUrl());
         eventPublisher.publishEvent(new IncidenciaActualizadaEvento(
                 IncidenciaActualizadaEvento.Tipo.RESUELTA, incidencia.getReportadoPor().getId(), incidencia.getTitulo()));
         return IncidenciaDTO.de(incidencia);
@@ -123,6 +128,26 @@ public class IncidenciaServiceImpl implements IncidenciaService {
         return incidenciaRepository.findByAsignadoAIdOrderByFechaCreacionDesc(tecnicoId).stream()
                 .map(IncidenciaDTO::de)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public IncidenciaDTO confirmarSolucion(Long incidenciaId, ConfirmarSolucionRequest request, Long usuarioId) {
+        Incidencia incidencia = buscarIncidencia(incidenciaId);
+        if (!incidencia.getReportadoPor().getId().equals(usuarioId)) {
+            throw new AccesoDenegadoException("Solo quien reportó la incidencia puede confirmar la solución");
+        }
+        if (request.solucionado()) {
+            incidencia.confirmarSolucion();
+        } else {
+            incidencia.reabrir(request.comentario() == null ? null : request.comentario().trim());
+        }
+        if (incidencia.getAsignadoA() != null) {
+            eventPublisher.publishEvent(new IncidenciaActualizadaEvento(
+                    request.solucionado() ? IncidenciaActualizadaEvento.Tipo.CONFIRMADA : IncidenciaActualizadaEvento.Tipo.REABIERTA,
+                    incidencia.getAsignadoA().getId(), incidencia.getTitulo()));
+        }
+        return IncidenciaDTO.de(incidencia);
     }
 
     private void verificarAsignada(Incidencia incidencia, Long tecnicoId) {

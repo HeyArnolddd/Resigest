@@ -273,7 +273,7 @@ El **correo es el usuario** con el que se inicia sesión; se guarda en minúscul
 
 Para conectar las pantallas de residente, portería y mantenimiento se tocó el backend. Todo lo nuevo está aquí.
 
-**Migraciones nuevas:** `V16` (paquete: `guia`, `tamano`), `V17` (incidencia: `categoria`), `V18` (tablas `archivo`, `mensaje_comunidad`, `evento`; paquete: `foto_url`), `V19` (mensaje_comunidad: `torre_id`, chat por torre).
+**Migraciones nuevas:** `V16` (paquete: `guia`, `tamano`), `V17` (incidencia: `categoria`), `V18` (tablas `archivo`, `mensaje_comunidad`, `evento`; paquete: `foto_url`), `V19` (mensaje_comunidad: `torre_id`, chat por torre), `V20` (incidencia: `foto_solucion_url`, `observacion_confirmacion`; zonas: se quita la Cancha de ejemplo y se agrega la Piscina).
 
 **Archivos (fotos y comprobantes).** Se guardan en la base de datos (tabla `archivo`), no en disco, para que no se pierdan al redesplegar. Solo JPG, PNG, WEBP o PDF, máx. 5 MB.
 
@@ -299,6 +299,7 @@ Para conectar las pantallas de residente, portería y mantenimiento se tocó el 
 | GET | `/api/incidencias/mias` | RESIDENTE, PORTERO | → las que reportó el usuario |
 | GET | `/api/incidencias/asignadas` | MANTENIMIENTO | → las asignadas al técnico |
 | PATCH | `/api/incidencias/{id}/inicio` | MANTENIMIENTO (asignado) | → ASIGNADA → EN_PROCESO |
+| PATCH | `/api/incidencias/{id}/confirmacion` | RESIDENTE, PORTERO (quien la reportó) | `{solucionado, comentario}` → RESUELTA → CERRADA, o vuelve a EN_PROCESO con el comentario |
 | GET | `/api/porteria/ingresos/dentro` | PORTERO, ADMIN | → quienes no han registrado salida |
 | PATCH | `/api/paquetes/{id}/recogido` | RESIDENTE (dueño) | → el residente confirma que ya lo recogió |
 | GET | `/api/pagos?apartamentoId=` | ADMIN, RESIDENTE (dueño) | → historial de pagos del apartamento |
@@ -308,13 +309,16 @@ Para conectar las pantallas de residente, portería y mantenimiento se tocó el 
 - `GET /api/paquetes`: `apartamentoId` ahora es opcional para PORTERO y ADMIN (todo el conjunto). El residente debe indicarlo.
 - `GET /api/reservas`: `zonaId`, `apartamentoId` y `estado` son opcionales.
 - `GET /api/porteria/bitacora`: ahora también PORTERO.
-- `PATCH /api/incidencias/{id}/solucion`: solo el técnico asignado.
+- `PATCH /api/incidencias/{id}/solucion`: solo el técnico asignado; ahora exige `fotoUrl` (foto del trabajo terminado, subida antes a `/api/archivos`). La incidencia queda RESUELTA esperando la confirmación de quien la reportó.
+- Estados de incidencia: `ABIERTA` → `ASIGNADA` → `EN_PROCESO` → `RESUELTA` (por confirmar) → `CERRADA` (confirmada).
 - `POST /api/incidencias/{id}/evidencias`: también PORTERO; solo quien la reportó. Las evidencias ahora se guardan de verdad.
 - `POST /api/pagos/manual`: `urlComprobanteAdjunto` debe ser una URL de `/api/archivos/{id}`; nuevo campo opcional `referencia`. La obligación pasa a EN_VERIFICACION y vuelve a PENDIENTE/VENCIDA si se rechaza.
 - `POST /api/paquetes`: nuevos campos opcionales `guia`, `tamano`, `fotoUrl`.
 - `POST /api/incidencias`: nuevo campo opcional `categoria`.
 - `TipoIngreso`: nuevo valor `SERVICIO`.
 
-**DTO con campos nuevos:** `PaqueteDTO` (`apartamento`, `guia`, `tamano`, `fotoUrl`), `RegistroIngresoDTO` (`apartamento`, `registradoPorNombre`), `IncidenciaDTO` (`categoria`, `reportadoPorNombre`, `apartamento`, `asignadoANombre`, `fechaReporte`, `evidencias`), `ReservaDTO` (`apartamento`), `PagoDTO` (`apartamento`, `concepto`, `periodo`, `urlComprobante`, `motivoRechazo`), `ObligacionDTO` (`apartamentoId`, `apartamento`), `ComunicadoDTO` (`autorNombre`).
+**DTO con campos nuevos:** `PaqueteDTO` (`apartamento`, `guia`, `tamano`, `fotoUrl`), `RegistroIngresoDTO` (`apartamento`, `registradoPorNombre`), `IncidenciaDTO` (`categoria`, `reportadoPorNombre`, `apartamento`, `asignadoANombre`, `fechaReporte`, `evidencias`, `fotoSolucionUrl`, `observacionConfirmacion`), `ReservaDTO` (`apartamento`), `PagoDTO` (`apartamento`, `concepto`, `periodo`, `urlComprobante`, `motivoRechazo`), `ObligacionDTO` (`apartamentoId`, `apartamento`), `ComunicadoDTO` (`autorNombre`).
 
 **Notificaciones:** se avisa a todos los residentes del apartamento (antes solo a uno) y se agregaron avisos de paquete recibido, visita en portería, incidencia asignada (al técnico) e incidencia resuelta (a quien la reportó). Cada aviso se guarda en su propia transacción (antes podían perderse).
+
+**Rendimiento (BD remota):** `hibernate.default_batch_fetch_size=50`, `readOnlyMode=ignore` en el driver de PostgreSQL y el usuario autenticado se recuerda 20 s (`CacheUsuarios`, se vacía al editar, activar, desactivar, eliminar o cambiar la contraseña de un usuario).
