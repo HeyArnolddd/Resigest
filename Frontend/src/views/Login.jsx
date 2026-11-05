@@ -5,16 +5,6 @@ import EscenaConjunto from '../components/login/EscenaConjunto'
 import { useSesion } from '../lib/sesion'
 import { cn } from '../lib/utils'
 
-// Usuarios demo del backend (V12__datos_demo.sql), todos con contraseña admin123.
-// Los accesos rápidos solo aparecen en desarrollo (npm run dev).
-const DEMO = [
-  { correo: 'residente@resigest.com', etiqueta: 'Residente' },
-  { correo: 'portero@resigest.com', etiqueta: 'Portería' },
-  { correo: 'tecnico@resigest.com', etiqueta: 'Mantenimiento' },
-  { correo: 'admin@resigest.com', etiqueta: 'Administrador' },
-]
-const CONTRASENA_DEMO = 'admin123'
-const MOSTRAR_DEMO = import.meta.env.DEV
 
 // Mensajes del API → texto que explica qué pasó y qué hacer.
 function mensajeDeError(e) {
@@ -69,11 +59,6 @@ export default function Login() {
     ingresar(correo, contrasena)
   }
 
-  const accesoRapido = (u) => {
-    setCorreo(u.correo)
-    setContrasena(CONTRASENA_DEMO)
-    ingresar(u.correo, CONTRASENA_DEMO)
-  }
 
   return (
     <MotionConfig reducedMotion="user">
@@ -201,25 +186,6 @@ export default function Login() {
                 {cargando ? 'Ingresando…' : 'Ingresar'}
               </motion.button>
             </motion.form>
-
-            {MOSTRAR_DEMO && (
-              <motion.div {...entrada(0.34)} className="mt-6 text-center">
-                <p className="text-xs font-medium text-brand-100">Acceso rápido para la demo</p>
-                <div className="mt-2 flex flex-wrap justify-center gap-2">
-                  {DEMO.map((u) => (
-                    <button
-                      key={u.correo}
-                      type="button"
-                      disabled={cargando}
-                      onClick={() => accesoRapido(u)}
-                      className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white outline-none backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white"
-                    >
-                      {u.etiqueta}
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
           </div>
         </main>
 

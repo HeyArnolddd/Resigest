@@ -13,3 +13,17 @@ const paleta = [
 export function colorZona(zonaId) {
   return paleta[(Math.max(1, zonaId) - 1) % paleta.length]
 }
+
+// Horarios que se ofrecen al reservar, según el tipo de zona (el API no los define).
+// Ninguno supera las 6 horas que permite el backend.
+const FRANJAS = [
+  [/bbq|asado|parrilla/i, ['10:00-14:00', '14:00-18:00', '18:00-22:00']],
+  [/sal[oó]n|social|eventos/i, ['08:00-12:00', '14:00-18:00', '18:00-23:00']],
+  [/cancha|deport/i, ['06:00-08:00', '08:00-10:00', '16:00-18:00', '18:00-20:00', '20:00-22:00']],
+  [/piscina/i, ['08:00-11:00', '11:00-14:00', '14:00-17:00', '17:00-20:00']],
+  [/gimnasio/i, ['06:00-08:00', '18:00-20:00', '20:00-22:00']],
+]
+
+export function franjasDe(nombre) {
+  return FRANJAS.find(([patron]) => patron.test(nombre))?.[1] ?? ['08:00-12:00', '12:00-16:00', '16:00-20:00']
+}

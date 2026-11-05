@@ -1,58 +1,75 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CheckCircle2, Megaphone, Send, Users, Waves } from 'lucide-react'
-import { Button, Field, Input, Textarea } from '../../components/ui'
+import { AlertCircle, CheckCircle2, RotateCcw, Send } from 'lucide-react'
+import { Button, EmptyState, Field, Input, Textarea } from '../../components/ui'
 import { Titulo } from '../../components/ui/Panel'
 import CarteleraComunicados from '../../components/comunidad/CarteleraComunicados'
-import { comunicados } from '../../data/mock'
+import { adminApi, useCarga } from '../../lib/admin'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
+import { useSesion } from '../../lib/sesion'
 
-const destinatarios = ['Todos los residentes', 'Torre 1', 'Torre 2', 'Torre 3']
-const categorias = [
-  ['Aviso', Megaphone, 'bg-brand-50 text-brand-700 ring-brand-500'],
-  ['Asamblea', Users, 'bg-violet-50 text-violet-700 ring-violet-500'],
-  ['Zonas comunes', Waves, 'bg-sky-50 text-sky-700 ring-sky-500'],
-]
-const hoy = () => new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+const fmtFecha = (fecha) => fecha.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+const MAX_CUERPO = 2000
+
+// ComunicadoDTO → hoja de la cartelera (los más recientes primero)
+const aHoja = (c) => ({ id: c.id, titulo: c.titulo, contenido: c.cuerpo, fecha: fmtFecha(new Date(c.fechaPublicacion)), autor: c.autorNombre })
+const cargar = () => adminApi.comunicados().then((lista) => [...lista].sort((a, b) => b.fechaPublicacion.localeCompare(a.fechaPublicacion)).map(aHoja))
 
 export default function Comunicados() {
-  const [publicados, setPublicados] = useState(() => comunicados.map((c) => ({ ...c, destino: 'Todos los residentes' })))
-  const [publicado, setPublicado] = useState(false)
-  const [destino, setDestino] = useState(destinatarios[0])
-  const [categoria, setCategoria] = useState('Aviso')
+  const { usuario } = useSesion()
+  const { datos: publicados, error, recargar } = useCarga(cargar)
   const [titulo, setTitulo] = useState('')
   const [contenido, setContenido] = useState('')
+  const [errores, setErrores] = useState({})
+  const [errorGeneral, setErrorGeneral] = useState('')
+  const [publicando, setPublicando] = useState(false)
+  const [publicado, setPublicado] = useState(false)
 
-  const publicar = (e) => {
+  const publicar = async (e) => {
     e.preventDefault()
-    const nuevo = { id: Date.now(), titulo, categoria, fecha: hoy(), contenido, destino }
-    setPublicados((p) => [nuevo, ...p])
-    setPublicado(true)
-    setTitulo('')
-    setContenido('')
-    setTimeout(() => setPublicado(false), 4000)
+    const encontrados = {}
+    if (!titulo.trim()) encontrados.titulo = 'Escribe un título.'
+    if (!contenido.trim()) encontrados.cuerpo = 'Escribe el contenido del comunicado.'
+    setErrores(encontrados)
+    if (Object.keys(encontrados).length) return
+
+    setPublicando(true)
+    setErrorGeneral('')
+    try {
+      await adminApi.publicarComunicado({ titulo: titulo.trim(), cuerpo: contenido.trim() })
+      setTitulo('')
+      setContenido('')
+      setPublicado(true)
+      setTimeout(() => setPublicado(false), 4000)
+      recargar()
+    } catch (err) {
+      if (Object.keys(err.erroresCampo).length) setErrores(err.erroresCampo)
+      else setErrorGeneral(err.message)
+    } finally {
+      setPublicando(false)
+    }
   }
 
   const borrador = {
     id: 'borrador',
     titulo: titulo || 'Título del comunicado',
-    categoria,
-    fecha: hoy(),
+    fecha: fmtFecha(new Date()),
     contenido: contenido || 'Aquí verás el contenido tal como lo leerán los residentes en la cartelera.',
-    destino,
+    autor: usuario.nombreCompleto,
   }
 
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Comunicados</h1>
-        <p className="mt-1 text-sm text-slate-500">Publica información oficial en la cartelera del conjunto</p>
+        <p className="mt-1 text-sm text-slate-500">Publica información oficial en la cartelera del conjunto. La ven todos los residentes.</p>
       </div>
 
       <AnimatePresence>
         {publicado && (
           <motion.div
+            role="status"
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -68,62 +85,35 @@ export default function Comunicados() {
         {/* Redactar */}
         <motion.section {...aparecer(0)} className={cn(tarjeta, 'p-5 sm:p-6')}>
           <Titulo>Nuevo comunicado</Titulo>
-          <form onSubmit={publicar} className="mt-4 space-y-4">
-            <Field label="Categoría" required>
-              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Categoría">
-                {categorias.map(([c, Icono, tono]) => (
-                  <button
-                    key={c}
-                    type="button"
-                    role="radio"
-                    aria-checked={categoria === c}
-                    onClick={() => setCategoria(c)}
-                    className={cn(
-                      'flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-xs font-semibold outline-none ring-1 transition-all focus-visible:ring-2 focus-visible:ring-brand-500',
-                      categoria === c ? cn(tono, 'ring-2') : 'text-slate-600 ring-slate-200 hover:bg-slate-50',
-                    )}
-                  >
-                    <Icono className="size-5" strokeWidth={2} />
-                    {c}
-                  </button>
-                ))}
-              </div>
+          <form onSubmit={publicar} noValidate className="mt-4 space-y-4">
+            <Field label="Título" htmlFor="com-titulo" required error={errores.titulo}>
+              <Input id="com-titulo" maxLength={200} value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ej. Corte de agua este sábado" />
             </Field>
-            <Field label="Título" required>
-              <Input name="titulo" required value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ej. Corte de agua este sábado" />
-            </Field>
-            <Field label="Contenido" required>
+            <Field
+              label="Contenido"
+              htmlFor="com-cuerpo"
+              required
+              error={errores.cuerpo}
+              hint={`${contenido.length} de ${MAX_CUERPO} caracteres`}
+            >
               <Textarea
-                name="contenido"
-                required
+                id="com-cuerpo"
+                maxLength={MAX_CUERPO}
                 value={contenido}
                 onChange={(e) => setContenido(e.target.value)}
-                className="min-h-28"
+                className="min-h-36"
                 placeholder="Escribe el contenido del comunicado…"
               />
             </Field>
-            <Field label="Destinatarios" required>
-              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Destinatarios">
-                {destinatarios.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    role="radio"
-                    aria-checked={destino === d}
-                    onClick={() => setDestino(d)}
-                    className={cn(
-                      'rounded-full px-3 py-1.5 text-xs font-semibold outline-none ring-1 transition-colors focus-visible:ring-2 focus-visible:ring-brand-500',
-                      destino === d ? 'bg-brand-600 text-white ring-brand-600' : 'text-slate-600 ring-slate-300 hover:bg-slate-50',
-                    )}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            </Field>
+            {errorGeneral && (
+              <p role="alert" className="flex items-start gap-2 rounded-lg bg-danger-bg px-3 py-2.5 text-sm font-medium text-danger-strong">
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                {errorGeneral}
+              </p>
+            )}
             <div className="flex justify-end">
-              <Button type="submit" icon={Send}>
-                Publicar comunicado
+              <Button type="submit" icon={Send} disabled={publicando}>
+                {publicando ? 'Publicando…' : 'Publicar comunicado'}
               </Button>
             </div>
           </form>
@@ -136,7 +126,24 @@ export default function Comunicados() {
       </div>
 
       <motion.section {...aparecer(2)}>
-        <CarteleraComunicados comunicados={publicados} titulo="Publicados" columnas="sm:grid-cols-2 xl:grid-cols-3" />
+        {error ? (
+          <div className={tarjeta}>
+            <EmptyState
+              icon={AlertCircle}
+              title="No se pudieron cargar los comunicados"
+              description={error}
+              action={
+                <Button variant="secondary" size="sm" icon={RotateCcw} onClick={recargar} className="mt-2">
+                  Intentar de nuevo
+                </Button>
+              }
+            />
+          </div>
+        ) : publicados ? (
+          <CarteleraComunicados comunicados={publicados} titulo="Publicados" columnas="sm:grid-cols-2 xl:grid-cols-3" />
+        ) : (
+          <div className={cn(tarjeta, 'h-48 animate-pulse')} role="status" aria-label="Cargando comunicados" />
+        )}
       </motion.section>
     </div>
   )

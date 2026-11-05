@@ -1,44 +1,40 @@
 import { motion } from 'motion/react'
-import { Building2, Clock, MapPin, Phone, Shield, Siren, Wrench } from 'lucide-react'
+import { Building2, Phone, Shield, Siren, Wrench } from 'lucide-react'
 import { Titulo } from '../../components/ui/Panel'
+import AgendaEventos from '../../components/comunidad/AgendaEventos'
 import CarteleraComunicados from '../../components/comunidad/CarteleraComunicados'
 import Mensajeria from '../../components/comunidad/Mensajeria'
-import { comunicados, contactosConjunto, eventosConjunto } from '../../data/mock'
 import { aparecer, tarjeta } from '../../lib/panel'
+import { fmtFechaLarga, residenteApi } from '../../lib/residente'
+import { useCarga } from '../../lib/useCarga'
 import { cn } from '../../lib/utils'
 
-// Los mocks toman el 09/09/2026 como "hoy"; con la API será la fecha actual
-const HOY = new Date('2026-09-09T00:00:00')
-const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
+const iconoRol = { PORTERO: Shield, ADMINISTRADOR: Building2, MANTENIMIENTO: Wrench }
+const ORDEN = ['PORTERO', 'ADMINISTRADOR', 'MANTENIMIENTO']
 
-const faltan = (fecha) => {
-  const dias = Math.round((new Date(`${fecha}T00:00:00`) - HOY) / 86400000)
-  if (dias === 0) return 'Hoy'
-  if (dias === 1) return 'Mañana'
-  return `En ${dias} días`
-}
-
-// Color de la hoja del calendario por tipo de evento
-const tonoEvento = {
-  mantenimiento: { cabeza: 'bg-sky-500', chip: 'bg-sky-50 text-sky-700' },
-  tramite: { cabeza: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700' },
-  asamblea: { cabeza: 'bg-violet-500', chip: 'bg-violet-50 text-violet-700' },
-  evento: { cabeza: 'bg-brand-600', chip: 'bg-brand-50 text-brand-700' },
-}
-
-const iconoContacto = { porteria: Shield, administracion: Building2, mantenimiento: Wrench, emergencias: Siren }
+const cargarTodo = () =>
+  Promise.all([residenteApi.comunicados(), residenteApi.directorio(), residenteApi.eventos()]).then(([comunicados, directorio, eventos]) => ({
+    eventos,
+    // Los más recientes primero, como hojas de la cartelera
+    comunicados: [...comunicados]
+      .sort((a, b) => b.fechaPublicacion.localeCompare(a.fechaPublicacion))
+      .map((c) => ({ id: c.id, titulo: c.titulo, contenido: c.cuerpo, fecha: fmtFechaLarga(c.fechaPublicacion), autor: c.autorNombre })),
+    // Personal y administración con su teléfono (el de los residentes es privado)
+    contactos: directorio.filter((u) => u.rol !== 'RESIDENTE').sort((a, b) => ORDEN.indexOf(a.rol) - ORDEN.indexOf(b.rol)),
+  }))
 
 export default function Comunidad() {
+  const { datos } = useCarga(cargarTodo)
+
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Comunidad</h1>
-        <p className="mt-1 text-sm text-slate-500">Comunicados, agenda, chat y mensajes privados</p>
+        <p className="mt-1 text-sm text-slate-500">Comunicados, agenda, chat comunitario, mensajes privados y contactos del conjunto</p>
       </div>
 
       <motion.div {...aparecer(0)}>
-        <CarteleraComunicados comunicados={comunicados} />
+        {datos ? <CarteleraComunicados comunicados={datos.comunicados} /> : <div className={cn(tarjeta, 'h-56 animate-pulse')} role="status" aria-label="Cargando comunicados" />}
       </motion.div>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -48,79 +44,70 @@ export default function Comunidad() {
         </motion.section>
 
         <div className="flex flex-col gap-5">
-          {/* Agenda del conjunto */}
-          <motion.section {...aparecer(2)} className={cn(tarjeta, 'p-5')}>
-            <Titulo>Agenda del conjunto</Titulo>
-            <ol className="relative mt-4 space-y-3 before:absolute before:bottom-6 before:left-[25px] before:top-6 before:w-px before:bg-slate-200">
-              {eventosConjunto.map((e, i) => {
-                const fecha = new Date(`${e.fecha}T00:00:00`)
-                const tono = tonoEvento[e.tipo] ?? tonoEvento.evento
-                return (
-                  <li key={e.id} className="relative flex gap-3.5">
-                    {/* Hoja de calendario */}
-                    <span className="z-10 flex w-[52px] shrink-0 flex-col overflow-hidden rounded-lg bg-white text-center shadow-sm ring-1 ring-slate-200">
-                      <span className={cn('py-0.5 text-[10px] font-bold uppercase tracking-wide text-white', tono.cabeza)}>
-                        {MESES_CORTOS[fecha.getMonth()]}
-                      </span>
-                      <span className="pt-0.5 text-lg font-extrabold leading-tight text-slate-900 tabular-nums">{fecha.getDate()}</span>
-                      <span className="pb-1 text-[10px] font-medium capitalize text-slate-400">{DIAS_CORTOS[fecha.getDay()]}</span>
-                    </span>
-                    <div className={cn('min-w-0 flex-1 rounded-xl px-3 py-2', i === 0 && 'bg-brand-50/60 ring-1 ring-brand-100')}>
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold leading-snug text-slate-800">{e.titulo}</p>
-                        <span className={cn('shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold', tono.chip)}>
-                          {faltan(e.fecha)}
-                        </span>
-                      </div>
-                      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
-                        <span className="flex items-center gap-1">
-                          <Clock className="size-3.5" /> {e.hora}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="size-3.5" /> {e.lugar}
-                        </span>
-                      </p>
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
-          </motion.section>
+        {/* Agenda del conjunto */}
+        <motion.section {...aparecer(2)} className={cn(tarjeta, 'p-5')}>
+          <Titulo>Agenda del conjunto</Titulo>
+          <div className="mt-4">
+            {!datos ? (
+              <div className="space-y-3" role="status" aria-label="Cargando agenda">
+                {[0, 1].map((i) => (
+                  <div key={i} className="h-14 animate-pulse rounded-xl bg-slate-100" />
+                ))}
+              </div>
+            ) : datos.eventos.length ? (
+              <AgendaEventos eventos={datos.eventos.slice(0, 5)} />
+            ) : (
+              <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-xs text-slate-500">No hay eventos próximos. La administración publicará aquí asambleas, mantenimientos y actividades.</p>
+            )}
+          </div>
+        </motion.section>
 
-          {/* Directorio */}
-          <motion.section {...aparecer(3)} className={cn(tarjeta, 'p-5')}>
-            <Titulo>Contactos del conjunto</Titulo>
-            <ul className="mt-3 divide-y divide-slate-100">
-              {contactosConjunto.map((c) => {
-                const Icono = iconoContacto[c.id] ?? Phone
-                const urgente = c.id === 'emergencias'
-                return (
-                  <li key={c.id} className="flex items-center gap-3 py-2.5">
-                    <span
-                      className={cn(
-                        'flex size-9 shrink-0 items-center justify-center rounded-lg',
-                        urgente ? 'bg-danger-bg text-danger-strong' : 'bg-brand-50 text-brand-700',
-                      )}
-                    >
-                      <Icono className="size-4" strokeWidth={2} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800">{c.nombre}</p>
-                      <p className="truncate text-xs text-slate-500">{c.horario}</p>
-                    </div>
-                    <span
-                      className={cn(
-                        'shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums',
-                        urgente ? 'text-danger-strong' : 'text-slate-600',
-                      )}
-                    >
+        {/* Directorio */}
+        <motion.section {...aparecer(3)} className={cn(tarjeta, 'p-5')}>
+          <Titulo>Contactos del conjunto</Titulo>
+          <ul className="mt-3 divide-y divide-slate-100">
+            {!datos && (
+              <li className="space-y-2 py-2" role="status" aria-label="Cargando contactos">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="block h-9 animate-pulse rounded-lg bg-slate-100" />
+                ))}
+              </li>
+            )}
+            {datos?.contactos.map((c) => {
+              const Icono = iconoRol[c.rol] ?? Phone
+              return (
+                <li key={c.id} className="flex items-center gap-3 py-2.5">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                    <Icono className="size-4" strokeWidth={2} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-800">{c.nombreCompleto}</p>
+                    <p className="truncate text-xs text-slate-500">{c.detalle}</p>
+                  </div>
+                  {c.telefono ? (
+                    <a href={`tel:${c.telefono.replace(/\s/g, '')}`} className="shrink-0 whitespace-nowrap rounded text-xs font-semibold text-slate-600 tabular-nums outline-none hover:text-brand-700 focus-visible:ring-2 focus-visible:ring-brand-500">
                       {c.telefono}
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-          </motion.section>
+                    </a>
+                  ) : (
+                    <span className="shrink-0 text-[11px] text-slate-400">Sin teléfono</span>
+                  )}
+                </li>
+              )
+            })}
+            <li className="flex items-center gap-3 py-2.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-danger-bg text-danger-strong">
+                <Siren className="size-4" strokeWidth={2} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-slate-800">Emergencias</p>
+                <p className="truncate text-xs text-slate-500">Policía, bomberos y ambulancia</p>
+              </div>
+              <a href="tel:123" className="shrink-0 rounded text-xs font-semibold text-danger-strong tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-danger">
+                123
+              </a>
+            </li>
+          </ul>
+        </motion.section>
         </div>
       </div>
     </div>
