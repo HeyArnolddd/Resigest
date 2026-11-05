@@ -1,7 +1,7 @@
-import { useState } from 'react'
 import Login from './views/Login'
 import Shell from './components/layout/Shell'
 import { roles } from './config/roles'
+import { useSesion } from './lib/sesion'
 import { sections as sectionsResidente } from './views/residente/sections'
 import { sections as sectionsPorteria } from './views/porteria/sections'
 import { sections as sectionsMantenimiento } from './views/mantenimiento/sections'
@@ -15,23 +15,26 @@ const mapSections = {
 }
 
 function App() {
-  const [roleKey, setRoleKey] = useState(null)
+  const { sesion, iniciando, cerrar } = useSesion()
 
-  const onExit = () => setRoleKey(null)
+  if (iniciando) return null
+  if (!sesion) return <Login />
 
-  if (!roleKey) {
-    return <Login onLogin={setRoleKey} />
+  // Datos de la persona autenticada sobre la definición estática del rol.
+  const role = {
+    ...roles[sesion.roleKey],
+    usuario: sesion.usuario,
+    detalle: sesion.detalle ?? roles[sesion.roleKey].detalle,
   }
-
-  const role = roles[roleKey]
-  const defaultSection = roleKey === 'administrador' ? 'dashboard' : 'inicio'
+  const defaultSection = sesion.roleKey === 'administrador' ? 'dashboard' : 'inicio'
 
   return (
     <Shell
+      key={sesion.roleKey}
       role={role}
-      sections={mapSections[roleKey]}
+      sections={mapSections[sesion.roleKey]}
       defaultSection={defaultSection}
-      onExit={onExit}
+      onExit={cerrar}
     />
   )
 }
