@@ -5,9 +5,7 @@ import { BellRing, Package } from 'lucide-react'
 import { Button, Field, Input, Modal, Select } from '../../components/ui'
 import CheckAnimado from '../../components/porteria/CheckAnimado'
 import IlustracionPaquete from '../../components/paquetes/IlustracionPaquete'
-import { api } from '../../lib/api'
-import { useApartamentos } from '../../lib/inmuebles'
-import { TAMANO_A_API, horaActual } from '../../lib/porteria'
+import { horaActual } from '../../lib/porteria'
 import { cn } from '../../lib/utils'
 
 const TAMANOS = ['Sobre', 'Caja pequeña', 'Paquete mediano', 'Caja grande']
@@ -15,53 +13,28 @@ const TAMANOS = ['Sobre', 'Caja pequeña', 'Paquete mediano', 'Caja grande']
 export default function RegistrarPaquete({ open, onClose, onRegistrado }) {
   const [registrado, setRegistrado] = useState(null)
   const [tamano, setTamano] = useState('Caja pequeña')
-  const [error, setError] = useState('')
-  const [enviando, setEnviando] = useState(false)
-  const { torres, buscar } = useApartamentos()
 
   const cerrar = () => {
     onClose()
     setTimeout(() => {
       setRegistrado(null)
       setTamano('Caja pequeña')
-      setError('')
     }, 200)
   }
 
-  const registrar = async (e) => {
+  const registrar = (e) => {
     e.preventDefault()
-    const formulario = e.target
-    const apartamento = buscar(formulario.torre.value, formulario.apartamento.value)
-    if (!apartamento) {
-      setError(`No existe el apartamento ${formulario.apartamento.value} en la torre ${formulario.torre.value}.`)
-      return
+    const datos = {
+      id: `PAQ-${Date.now().toString().slice(-4)}`,
+      empresa: e.target.empresa.value,
+      guia: e.target.guia.value,
+      apartamento: `${e.target.torre.value} · ${e.target.apartamento.value}`,
+      fecha: `${new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })} · ${horaActual()}`,
+      descripcion: tamano,
+      estado: 'Ha llegado',
     }
-    setError('')
-    setEnviando(true)
-    try {
-      const creado = await api.post('/api/paquetes', {
-        apartamentoDestinoId: apartamento.id,
-        empresaTransportadora: formulario.empresa.value,
-        descripcion: tamano,
-        guia: formulario.guia.value.trim(),
-        tamano: TAMANO_A_API[tamano],
-      })
-      const datos = {
-        id: `PAQ-${creado.id}`,
-        empresa: creado.empresaTransportadora,
-        guia: creado.guia,
-        apartamento: creado.apartamento,
-        fecha: `${new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })} · ${horaActual()}`,
-        descripcion: tamano,
-        estado: 'Ha llegado',
-      }
-      setRegistrado(datos)
-      onRegistrado?.(datos)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setEnviando(false)
-    }
+    setRegistrado(datos)
+    onRegistrado?.(datos)
   }
 
   return (
@@ -79,8 +52,8 @@ export default function RegistrarPaquete({ open, onClose, onRegistrado }) {
             <Button type="button" variant="secondary" onClick={cerrar}>
               Cancelar
             </Button>
-            <Button type="submit" form="form-paquete" disabled={enviando}>
-              {enviando ? 'Registrando…' : 'Registrar paquete'}
+            <Button type="submit" form="form-paquete">
+              Registrar paquete
             </Button>
           </>
         )
@@ -129,12 +102,10 @@ export default function RegistrarPaquete({ open, onClose, onRegistrado }) {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Torre" required>
-              <Select name="torre" defaultValue={torres[0]}>
-                {torres.map((t) => (
-                  <option key={t} value={t}>
-                    Torre {t}
-                  </option>
-                ))}
+              <Select name="torre" defaultValue="T1">
+                <option value="T1">Torre 1</option>
+                <option value="T2">Torre 2</option>
+                <option value="T3">Torre 3</option>
               </Select>
             </Field>
             <Field label="Apartamento" required>
@@ -164,11 +135,6 @@ export default function RegistrarPaquete({ open, onClose, onRegistrado }) {
               })}
             </div>
           </Field>
-        {error && (
-            <p role="alert" className="rounded-lg bg-danger-bg px-3 py-2 text-sm font-medium text-danger-strong">
-              {error}
-            </p>
-          )}
         </form>
       )}
     </Modal>

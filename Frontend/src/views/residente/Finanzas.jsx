@@ -21,9 +21,7 @@ import IlustracionBilletera from '../../components/finanzas/IlustracionBilletera
 import TableroTiza from '../../components/finanzas/TableroTiza'
 import { conceptoObligacion, estadoObligacion, estadoPago, metodoPago } from '../../lib/labels'
 import { alinearTooltip, cn, formatCOP } from '../../lib/utils'
-import { api } from '../../lib/api'
-import { useApi } from '../../lib/useApi'
-import { useSesion } from '../../lib/sesion'
+import { obligacionesApto, pagosApto, residente } from '../../data/mock'
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 const POR_PAGAR = ['PENDIENTE', 'VENCIDA']
@@ -201,41 +199,10 @@ function Sparkline({ valores }) {
 
 Sparkline.propTypes = { valores: PropTypes.array.isRequired }
 
-// Carga la cartera y los pagos del apartamento y los entrega a la vista.
 export default function Finanzas() {
-  const { sesion } = useSesion()
-  const apartamentoId = sesion.perfil.residente?.apartamentoId
-  const obligaciones = useApi('/api/obligaciones', { apartamentoId }, null)
-  const pagos = useApi('/api/pagos', { apartamentoId }, null)
-
-  const error = obligaciones.error ?? pagos.error
-  if (error) {
-    return (
-      <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
-        {error.message}
-      </p>
-    )
-  }
-  if (!obligaciones.datos || !pagos.datos) return <p className="text-sm text-slate-500">Cargando estado de cuenta…</p>
-
-  return (
-    <FinanzasVista
-      lista={[...obligaciones.datos].sort((a, b) => a.periodo.localeCompare(b.periodo) || a.id - b.id)}
-      pagos={pagos.datos}
-      residente={{
-        nombre: sesion.usuario,
-        apartamento: sesion.perfil.residente?.apartamento ?? '',
-      }}
-      alCambiar={() => {
-        obligaciones.recargar()
-        pagos.recargar()
-      }}
-    />
-  )
-}
-
-function FinanzasVista({ lista, pagos, residente, alCambiar }) {
   const ahora = new Date()
+  const [lista, setLista] = useState(obligacionesApto)
+  const [pagos, setPagos] = useState(pagosApto)
   const [filtro, setFiltro] = useState('todas')
   const [verTodo, setVerTodo] = useState(false)
 
@@ -248,8 +215,6 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
   const [modalManual, setModalManual] = useState(false)
   const [manualId, setManualId] = useState('')
   const [manualEnviado, setManualEnviado] = useState(false)
-  const [comprobante, setComprobante] = useState(null)
-  const [enviandoManual, setEnviandoManual] = useState(false)
 
   const porPagar = lista.filter((o) => POR_PAGAR.includes(o.estado))
   const enVerificacion = lista.filter((o) => o.estado === 'EN_VERIFICACION')
@@ -277,7 +242,7 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
       alDia: delMes.every((o) => o.estado === 'PAGADA'),
     }
   })
-  const promedio = meses.length ? Math.round(meses.reduce((t, m) => t + m.admin + m.agua, 0) / meses.length) : 0
+  const promedio = Math.round(meses.reduce((t, m) => t + m.admin + m.agua, 0) / meses.length)
 
   const porConcepto = ['CUOTA_ADMINISTRACION', 'SERVICIO_PUBLICO'].map((concepto) => ({
     concepto,
@@ -285,10 +250,7 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
   }))
   const recibosAgua = lista.filter((o) => o.concepto === 'SERVICIO_PUBLICO')
   const ultimoAgua = recibosAgua.at(-1)
-  const anteriorAgua = recibosAgua.at(-2)
-  const variacionAgua = anteriorAgua
-    ? Math.round(((ultimoAgua.montoTotal - anteriorAgua.montoTotal) / anteriorAgua.montoTotal) * 100)
-    : 0
+  const variacionAgua = Math.round(((ultimoAgua.montoTotal - recibosAgua.at(-2).montoTotal) / recibosAgua.at(-2).montoTotal) * 100)
 
   const historial = [...lista]
     .reverse()
@@ -302,66 +264,50 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
     setMedio('PSE')
   }
 
-  const [errorAccion, setErrorAccion] = useState('')
-
-  // Cada obligación se paga con una transacción en la pasarela (simulada en desarrollo).
-  const pagarEnLinea = async () => {
+  const simularPago = () => {
     setPasoWompi('procesando')
-    setErrorAccion('')
-    try {
-      for (const o of aPagar) {
-        await api.post('/api/pagos/pasarela', { obligacionId: o.id })
-      }
-      alCambiar()
+    setTimeout(() => {
+      const ids = aPagar.map((o) => o.id)
+      setLista((l) => l.map((o) => (ids.includes(o.id) ? { ...o, estado: 'PAGADA', saldoPendiente: 0 } : o)))
+      setPagos((p) => [
+        ...aPagar.map((o, i) => ({
+          id: Math.max(...p.map((x) => x.id)) + 1 + i,
+          metodo: 'WOMPI',
+          monto: o.montoTotal,
+          estado: 'APROBADO',
+          fecha: `${ahora.toISOString().slice(0, 10)}T${ahora.toTimeString().slice(0, 8)}`,
+          obligacionId: o.id,
+          referencia: `PAGO-${(o.id * 7919).toString(36).toUpperCase()}`,
+        })),
+        ...p,
+      ])
       setPasoWompi('exito')
-    } catch (e) {
-      setErrorAccion(e.message)
-      setPasoWompi('revisar')
-    }
+    }, 1400)
   }
 
   const abrirManual = (id) => {
     setManualId(String(id ?? porPagar[0]?.id ?? ''))
     setManualEnviado(false)
-    setComprobante(null)
-    setErrorAccion('')
     setModalManual(true)
   }
 
-  const enviarManual = async () => {
-    if (!manualId) return
-    if (!comprobante) {
-      setErrorAccion('Adjunta el comprobante de la transferencia.')
-      return
-    }
-    setErrorAccion('')
-    setEnviandoManual(true)
-    try {
-      const datosArchivo = new FormData()
-      datosArchivo.append('archivo', comprobante)
-      const { url } = await api.subir('/api/archivos', datosArchivo)
-      await api.post('/api/pagos/manual', { obligacionId: Number(manualId), urlComprobanteAdjunto: url })
-      alCambiar()
-      setManualEnviado(true)
-      setComprobante(null)
-    } catch (e) {
-      setErrorAccion(e.message)
-    } finally {
-      setEnviandoManual(false)
-    }
-  }
-
-  const descargarComprobante = async (pago) => {
-    try {
-      const pdf = await api.get(`/api/pagos/${pago.id}/comprobante`)
-      const enlace = document.createElement('a')
-      enlace.href = URL.createObjectURL(pdf)
-      enlace.download = `comprobante-${pago.id}.pdf`
-      enlace.click()
-      URL.revokeObjectURL(enlace.href)
-    } catch (e) {
-      setErrorAccion(e.message)
-    }
+  const enviarManual = () => {
+    const o = lista.find((x) => String(x.id) === manualId)
+    if (!o) return
+    setLista((l) => l.map((x) => (x.id === o.id ? { ...x, estado: 'EN_VERIFICACION' } : x)))
+    setPagos((p) => [
+      {
+        id: Math.max(...p.map((x) => x.id)) + 1,
+        metodo: 'TRANSFERENCIA',
+        monto: o.montoTotal,
+        estado: 'EN_VERIFICACION',
+        fecha: `${ahora.toISOString().slice(0, 10)}T${ahora.toTimeString().slice(0, 8)}`,
+        obligacionId: o.id,
+        referencia: 'TRF-NUEVA',
+      },
+      ...p,
+    ])
+    setManualEnviado(true)
   }
 
   const totalAPagar = aPagar?.reduce((t, o) => t + o.saldoPendiente, 0) ?? 0
@@ -372,7 +318,7 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Finanzas</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Estado de cuenta · {residente.apartamento}
+            Estado de cuenta de {residente.torre} · Apartamento {residente.apto}
           </p>
         </div>
         <p className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -431,7 +377,7 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
               </button>
             </div>
             <p className="mt-6 font-mono text-xs tracking-[0.2em] text-brand-100/80">
-              {residente.nombre.toUpperCase()} · {residente.apartamento}
+              {residente.nombre.toUpperCase()} · T2 · 304
             </p>
           </div>
         </motion.section>
@@ -516,7 +462,6 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
               )
             })}
           </ul>
-          {ultimoAgua && (
           <div className="mt-auto pt-5">
             <div className="rounded-xl bg-sky-50/70 p-4">
               <div className="flex items-start justify-between gap-3">
@@ -541,7 +486,6 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
               <p className="text-[11px] text-slate-500">Últimos {recibosAgua.length} recibos · se cobra cada dos meses</p>
             </div>
           </div>
-          )}
         </motion.section>
       </div>
 
@@ -648,7 +592,6 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
                           type="button"
                           aria-label="Descargar comprobante"
                           title="Descargar comprobante (PDF)"
-                          onClick={() => descargarComprobante(p)}
                           className="flex size-7 shrink-0 items-center justify-center rounded-lg text-slate-400 outline-none transition-colors hover:bg-brand-50 hover:text-brand-700 focus-visible:ring-2 focus-visible:ring-brand-500"
                         >
                           <Download className="size-3.5" />
@@ -692,7 +635,7 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
               <Button variant="secondary" onClick={() => setAPagar(null)}>
                 Cancelar
               </Button>
-              <Button onClick={pagarEnLinea}>Pagar {formatCOP(totalAPagar)}</Button>
+              <Button onClick={simularPago}>Pagar {formatCOP(totalAPagar)}</Button>
             </>
           ) : null
         }
@@ -734,13 +677,8 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
                 ))}
               </div>
             </div>
-            {errorAccion && (
-              <p role="alert" className="rounded-lg bg-danger-bg px-3 py-2 text-sm font-medium text-danger-strong">
-                {errorAccion}
-              </p>
-            )}
             <p className="flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
-              <ShieldCheck className="size-3.5" /> Pasarela de pruebas: no se realizan cobros reales
+              <ShieldCheck className="size-3.5" /> No se realizan cobros reales en este prototipo
             </p>
           </div>
         )}
@@ -776,8 +714,8 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
               <Button variant="secondary" onClick={() => setModalManual(false)}>
                 Cancelar
               </Button>
-              <Button onClick={enviarManual} disabled={!manualId || enviandoManual}>
-                {enviandoManual ? 'Enviando…' : 'Enviar reporte'}
+              <Button onClick={enviarManual} disabled={!manualId}>
+                Enviar reporte
               </Button>
             </>
           )
@@ -820,23 +758,11 @@ function FinanzasVista({ lista, pagos, residente, alCambiar }) {
               <Input placeholder="Ej. CMS-8842210" />
             </Field>
             <Field label="Comprobante" required hint="PDF o imagen del comprobante">
-              <UploadBox hint="Adjuntar comprobante de pago" archivo={comprobante} onChange={setComprobante} />
+              <UploadBox hint="Adjuntar comprobante de pago" />
             </Field>
-            {errorAccion && (
-              <p role="alert" className="rounded-lg bg-danger-bg px-3 py-2 text-sm font-medium text-danger-strong">
-                {errorAccion}
-              </p>
-            )}
           </div>
         )}
       </Modal>
     </div>
   )
-}
-
-FinanzasVista.propTypes = {
-  lista: PropTypes.array.isRequired,
-  pagos: PropTypes.array.isRequired,
-  residente: PropTypes.shape({ nombre: PropTypes.string, apartamento: PropTypes.string }).isRequired,
-  alCambiar: PropTypes.func.isRequired,
 }

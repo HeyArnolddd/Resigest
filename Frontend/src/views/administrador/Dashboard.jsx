@@ -4,10 +4,7 @@ import { ArrowRight, CalendarRange, FileCheck2, TrendingUp, TriangleAlert, Users
 import { Titulo, VerMas } from '../../components/ui/Panel'
 import EscenaConjunto from '../../components/login/EscenaConjunto'
 import { Anillo, GraficoRecaudo, Sparkline } from '../../components/admin/Graficos'
-import { aCartera, aPagoManual, aRecaudoMensual } from '../../lib/admin'
-import { aVistaIncidencia } from '../../lib/incidencias'
-import { useApi } from '../../lib/useApi'
-import { useSesion } from '../../lib/sesion'
+import { carteraConjunto, incidencias, pagosManuales, recaudoMensual, reservasAgenda, zonas } from '../../data/mock'
 import { puntoEstado } from '../../lib/incidencias'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { useAhora } from '../../lib/useAhora'
@@ -54,66 +51,24 @@ Indicador.propTypes = {
   children: PropTypes.node,
 }
 
-// Carga los indicadores del conjunto y los entrega a la vista.
 export default function Dashboard({ onNavigate }) {
-  const { sesion } = useSesion()
-  const dash = useApi('/api/reportes/dashboard', undefined, null)
-  const incidenciasApi = useApi('/api/incidencias', { size: 200 }, { content: [] })
-  const reservasApi = useApi('/api/reservas', { estado: 'PENDIENTE' }, [])
-  const pagosApi = useApi('/api/pagos', { estado: 'EN_VERIFICACION' }, [])
-  const zonasApi = useApi('/api/zonas-comunes', undefined, [])
-  const residentesApi = useApi('/api/usuarios', { rol: 'RESIDENTE', size: 1 }, { totalElements: 0 })
-
-  if (dash.error) {
-    return (
-      <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
-        {dash.error.message}
-      </p>
-    )
-  }
-  if (!dash.datos) return <p className="text-sm text-slate-500">Cargando indicadores…</p>
-
-  return (
-    <DashboardVista
-      onNavigate={onNavigate}
-      nombre={sesion.usuario.split(' ')[0]}
-      recaudoMensual={aRecaudoMensual(dash.datos.recaudoMensual)}
-      carteraConjunto={aCartera(dash.datos.cartera)}
-      incidencias={incidenciasApi.datos.content.map(aVistaIncidencia)}
-      reservasPendientes={[...reservasApi.datos].sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio))}
-      pagosPendientes={pagosApi.datos.map(aPagoManual)}
-      zonas={zonasApi.datos}
-      usoZonas={dash.datos.usoZonas}
-      totalResidentes={residentesApi.datos.totalElements}
-    />
-  )
-}
-
-function DashboardVista({
-  onNavigate,
-  nombre,
-  recaudoMensual,
-  carteraConjunto,
-  incidencias,
-  reservasPendientes,
-  pagosPendientes,
-  zonas,
-  usoZonas: uso,
-  totalResidentes,
-}) {
   const ahora = useAhora()
   const fecha = ahora.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
 
+  const pagosPendientes = pagosManuales.filter((p) => p.estado === 'Pendiente revisión')
+  const reservasPendientes = reservasAgenda
+    .filter((r) => r.estado === 'PENDIENTE')
+    .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio))
   const activas = incidencias.filter((i) => ['Nueva', 'En proceso'].includes(i.estado))
   const ultimo = recaudoMensual.at(-1)
   const penultimo = recaudoMensual.at(-2)
-  const variacion = penultimo.valor ? Math.round(((ultimo.valor - penultimo.valor) / penultimo.valor) * 100) : 0
+  const variacion = Math.round(((ultimo.valor - penultimo.valor) / penultimo.valor) * 100)
 
   // Reservas aprobadas por zona
   const usoZonas = zonas
-    .map((z) => ({ ...z, total: uso.find((u) => u.zonaId === z.id)?.reservasMes ?? 0 }))
+    .map((z) => ({ ...z, total: reservasAgenda.filter((r) => r.zonaComunId === z.id && r.estado === 'APROBADA').length }))
     .sort((a, b) => b.total - a.total)
-  const maxUso = Math.max(1, ...usoZonas.map((z) => z.total))
+  const maxUso = Math.max(...usoZonas.map((z) => z.total))
 
   const porEstado = ['Nueva', 'En proceso', 'Resuelta'].map((e) => [e, incidencias.filter((i) => i.estado === e).length])
 
@@ -126,15 +81,15 @@ function DashboardVista({
         <div className="relative flex flex-wrap items-end justify-between gap-6 p-6 pb-24 sm:pb-28">
           <div>
             <p className="text-sm font-medium text-brand-100 first-letter:uppercase">{fecha}</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{saludo(ahora)}, {nombre}</h1>
-            <p className="mt-1 text-sm text-brand-100">Conjunto Residencial Los Robles · {carteraConjunto.apartamentos} apartamentos</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{saludo(ahora)}, Andrea</h1>
+            <p className="mt-1 text-sm text-brand-100">Conjunto Residencial Los Robles · 3 torres · 120 apartamentos</p>
           </div>
           <div className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/20 backdrop-blur-sm">
             <p className="text-xs text-brand-100">Recaudo de {ultimo.mes.toLowerCase()}</p>
             <p className="flex items-baseline gap-2 text-2xl font-extrabold tabular-nums">
               {millones(ultimo.valor)}
               <span className="flex items-center gap-0.5 rounded-full bg-lime-300/20 px-1.5 py-0.5 text-xs font-bold text-lime-200">
-                <TrendingUp className="size-3" /> {variacion > 0 ? '+' : ''}{variacion}%
+                <TrendingUp className="size-3" /> +{variacion}%
               </span>
             </p>
           </div>
@@ -143,7 +98,7 @@ function DashboardVista({
 
       {/* Indicadores */}
       <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-5 [&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1">
-        <Indicador indice={1} icono={Users} etiqueta="Residentes" valor={String(totalResidentes)} detalle={`${carteraConjunto.apartamentos} apartamentos`} tono="bg-brand-50 text-brand-700" onClick={() => onNavigate('residentes')} />
+        <Indicador indice={1} icono={Users} etiqueta="Residentes" valor="128" detalle="3 torres · 120 aptos" tono="bg-brand-50 text-brand-700" onClick={() => onNavigate('residentes')} />
         <Indicador indice={2} icono={Wallet} etiqueta="Recaudo · 6 meses" valor={millones(recaudoMensual.reduce((s, r) => s + r.valor, 0))} detalle={`${variacion > 0 ? '+' : ''}${variacion}% vs ${penultimo.mes.toLowerCase()}`} tono="bg-success-bg text-success-strong" onClick={() => onNavigate('finanzas')}>
           <Sparkline valores={recaudoMensual.map((r) => r.valor)} className="mt-2 text-success" />
         </Indicador>
@@ -166,7 +121,7 @@ function DashboardVista({
           <div className="flex flex-1 flex-col items-center justify-center gap-4 py-4">
             <Anillo valor={carteraConjunto.alDia} total={carteraConjunto.apartamentos} className="size-40">
               <span className="text-3xl font-extrabold tracking-tight text-slate-900 tabular-nums">
-                {(carteraConjunto.apartamentos ? Math.round((carteraConjunto.alDia / carteraConjunto.apartamentos) * 100) : 0)}%
+                {Math.round((carteraConjunto.alDia / carteraConjunto.apartamentos) * 100)}%
               </span>
               <span className="text-xs text-slate-500">al día</span>
             </Anillo>
@@ -265,7 +220,7 @@ function DashboardVista({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-slate-800">{r.zonaComunNombre}</span>
-                    <span className="block truncate text-xs text-slate-500">{r.apartamento}</span>
+                    <span className="block truncate text-xs text-slate-500">{r.residente}</span>
                   </span>
                   <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700">Reserva</span>
                 </button>
@@ -284,7 +239,7 @@ function DashboardVista({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-slate-800">{formatCOP(p.valor)}</span>
                     <span className="block truncate text-xs text-slate-500">
-                      {p.apartamento} · {p.banco}
+                      {p.residente} · {p.banco}
                     </span>
                   </span>
                   <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">Pago</span>
@@ -299,16 +254,3 @@ function DashboardVista({
 }
 
 Dashboard.propTypes = { onNavigate: PropTypes.func.isRequired }
-
-DashboardVista.propTypes = {
-  onNavigate: PropTypes.func.isRequired,
-  nombre: PropTypes.string.isRequired,
-  recaudoMensual: PropTypes.array.isRequired,
-  carteraConjunto: PropTypes.object.isRequired,
-  incidencias: PropTypes.array.isRequired,
-  reservasPendientes: PropTypes.array.isRequired,
-  pagosPendientes: PropTypes.array.isRequired,
-  zonas: PropTypes.array.isRequired,
-  usoZonas: PropTypes.array.isRequired,
-  totalResidentes: PropTypes.number.isRequired,
-}

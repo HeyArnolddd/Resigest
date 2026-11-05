@@ -13,7 +13,3 @@ const paleta = [
 export function colorZona(zonaId) {
   return paleta[(Math.max(1, zonaId) - 1) % paleta.length]
 }
-
-// El API no define franjas por zona; todas usan estos bloques (máximo 6 h por reserva).
-const FRANJAS = ['08:00-12:00', '14:00-18:00', '18:00-22:00']
-export const conFranjas = (zona) => ({ ...zona, franjas: FRANJAS })

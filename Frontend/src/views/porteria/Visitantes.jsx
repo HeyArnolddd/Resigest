@@ -3,9 +3,7 @@ import PropTypes from 'prop-types'
 import { AnimatePresence, motion } from 'motion/react'
 import { Building2, Check, Clock, Plus, Search } from 'lucide-react'
 import { Avatar, Button } from '../../components/ui'
-import { api } from '../../lib/api'
-import { aVistaIngreso, hoyLocal } from '../../lib/porteria'
-import { useApi } from '../../lib/useApi'
+import { ingresos } from '../../data/mock'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { estiloTipo } from '../../lib/porteria'
 import { cn } from '../../lib/utils'
@@ -92,9 +90,7 @@ GafeteVisitante.propTypes = {
 
 export default function Visitantes() {
   const [modal, setModal] = useState(false)
-  const { datos, error, recargar } = useApi('/api/porteria/bitacora', { desde: hoyLocal(), hasta: hoyLocal() }, [])
-  const lista = datos.map(aVistaIngreso)
-  const [errorAccion, setErrorAccion] = useState('')
+  const [lista, setLista] = useState(ingresos)
   const [filtro, setFiltro] = useState('Todos')
   const [busqueda, setBusqueda] = useState('')
 
@@ -107,15 +103,7 @@ export default function Visitantes() {
   const contar = (t) => lista.filter((i) => i.tipo === t).length
   const esperando = lista.filter((i) => i.estado === 'En portería').length
 
-  const darIngreso = async (id) => {
-    setErrorAccion('')
-    try {
-      await api.patch(`/api/porteria/ingresos/${id}/salida`)
-      recargar()
-    } catch (e) {
-      setErrorAccion(e.message)
-    }
-  }
+  const darIngreso = (id) => setLista(lista.map((i) => (i.id === id ? { ...i, estado: 'Completado' } : i)))
 
   return (
     <div className="space-y-5">
@@ -128,12 +116,6 @@ export default function Visitantes() {
           Registrar visitante
         </Button>
       </div>
-
-      {(error || errorAccion) && (
-        <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
-          {(error ?? { message: errorAccion }).message}
-        </p>
-      )}
 
       {/* Resumen */}
       <motion.div {...aparecer(0)} className={cn(tarjeta, 'flex flex-wrap items-center gap-x-8 gap-y-3 px-6 py-4')}>
@@ -202,7 +184,7 @@ export default function Visitantes() {
       <RegistrarVisitante
         open={modal}
         onClose={() => setModal(false)}
-        onRegistrado={recargar}
+        onRegistrado={(d) => setLista((l) => [{ ...d, id: Date.now() }, ...l])}
       />
     </div>
   )

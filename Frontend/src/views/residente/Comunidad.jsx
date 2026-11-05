@@ -3,20 +3,17 @@ import { Building2, Clock, MapPin, Phone, Shield, Siren, Wrench } from 'lucide-r
 import { Titulo } from '../../components/ui/Panel'
 import CarteleraComunicados from '../../components/comunidad/CarteleraComunicados'
 import Mensajeria from '../../components/comunidad/Mensajeria'
-import { aComunicado } from '../../lib/datos'
-import { useApi } from '../../lib/useApi'
+import { comunicados, contactosConjunto, eventosConjunto } from '../../data/mock'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
 
-const hoy = () => {
-  const d = new Date()
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
-}
+// Los mocks toman el 09/09/2026 como "hoy"; con la API será la fecha actual
+const HOY = new Date('2026-09-09T00:00:00')
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
 
 const faltan = (fecha) => {
-  const dias = Math.round((new Date(`${fecha}T00:00:00`) - hoy()) / 86400000)
+  const dias = Math.round((new Date(`${fecha}T00:00:00`) - HOY) / 86400000)
   if (dias === 0) return 'Hoy'
   if (dias === 1) return 'Mañana'
   return `En ${dias} días`
@@ -32,31 +29,7 @@ const tonoEvento = {
 
 const iconoContacto = { porteria: Shield, administracion: Building2, mantenimiento: Wrench, emergencias: Siren }
 
-// Adaptadores: DTO del API → forma que usan las tarjetas.
-const TIPO_EVENTO = { MANTENIMIENTO: 'mantenimiento', ASAMBLEA: 'asamblea', TRAMITE: 'tramite' }
-const aEvento = (e) => ({
-  id: e.id,
-  tipo: TIPO_EVENTO[e.tipo] ?? 'evento',
-  titulo: e.titulo,
-  fecha: e.fecha.slice(0, 10),
-  hora: e.fecha.slice(11, 16),
-  lugar: e.lugar ?? '',
-})
-const claveContacto = (c) => {
-  if (c.categoria === 'EMERGENCIA') return 'emergencias'
-  const n = c.nombre.toLowerCase()
-  if (n.includes('portería')) return 'porteria'
-  if (n.includes('administración')) return 'administracion'
-  if (n.includes('mantenimiento')) return 'mantenimiento'
-  return `c${c.id}`
-}
-const aContacto = (c) => ({ id: c.id, clave: claveContacto(c), nombre: c.nombre, horario: c.detalle ?? '', telefono: c.telefono })
-
 export default function Comunidad() {
-  const comunicados = useApi('/api/comunicados', undefined, []).datos.map(aComunicado)
-  const eventosConjunto = useApi('/api/eventos', undefined, []).datos.map(aEvento)
-  const contactosConjunto = useApi('/api/contactos', undefined, []).datos.map(aContacto)
-
   return (
     <div className="space-y-5">
       <div>
@@ -119,8 +92,8 @@ export default function Comunidad() {
             <Titulo>Contactos del conjunto</Titulo>
             <ul className="mt-3 divide-y divide-slate-100">
               {contactosConjunto.map((c) => {
-                const Icono = iconoContacto[c.clave] ?? Phone
-                const urgente = c.clave === 'emergencias'
+                const Icono = iconoContacto[c.id] ?? Phone
+                const urgente = c.id === 'emergencias'
                 return (
                   <li key={c.id} className="flex items-center gap-3 py-2.5">
                     <span

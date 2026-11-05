@@ -1,17 +1,15 @@
 import { useState } from 'react'
-import PropTypes from 'prop-types'
 import { AnimatePresence, motion } from 'motion/react'
 import { CalendarCheck, CalendarRange, Check, Clock, Users, X } from 'lucide-react'
 import { Button, Card, CardHeader, EmptyState, Modal, PageHeader, StatusBadge } from '../../components/ui'
 import IlustracionZona from '../../components/reservas/IlustracionZona'
 import { estadoReserva } from '../../lib/labels'
 import { cn } from '../../lib/utils'
-import { colorZona, conFranjas } from '../../lib/zonas'
-import { api } from '../../lib/api'
-import { useApi } from '../../lib/useApi'
-import { useSesion } from '../../lib/sesion'
+import { colorZona } from '../../lib/zonas'
+import { reservasAgenda, zonas } from '../../data/mock'
 
 // Usuario en sesión (mock): Juan Pérez, Torre 2 · 304
+const YO = { nombre: 'Juan Pérez', apartamentoId: 12, apartamento: 'Torre 2 · 304' }
 const DIAS_A_MOSTRAR = 14
 const OCUPAN = ['APROBADA', 'PENDIENTE']
 
@@ -126,36 +124,8 @@ function Fila({ etiqueta, valor }) {
 }
 
 export default function Reservas() {
-  const { sesion } = useSesion()
-  const [hoy] = useState(() => new Date().toISOString().slice(0, 10))
-  const zonasApi = useApi('/api/zonas-comunes', undefined, null)
-  const reservas = useApi('/api/reservas', { desde: hoy }, null)
-
-  const error = zonasApi.error ?? reservas.error
-  if (error) {
-    return (
-      <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
-        {error.message}
-      </p>
-    )
-  }
-  if (!zonasApi.datos || !reservas.datos) return <p className="text-sm text-slate-500">Cargando zonas y reservas…</p>
-
-  const residente = sesion.perfil.residente
-  return (
-    <ReservasVista
-      zonas={zonasApi.datos.filter((z) => z.activa).map(conFranjas)}
-      lista={reservas.datos}
-      yo={{ apartamentoId: residente?.apartamentoId, apartamento: residente?.apartamento ?? '' }}
-      alCambiar={reservas.recargar}
-    />
-  )
-}
-
-function ReservasVista({ zonas, lista, yo: YO, alCambiar }) {
   const [ahora] = useState(() => new Date())
-  const [errorAccion, setErrorAccion] = useState('')
-  const [enviando, setEnviando] = useState(false)
+  const [lista, setLista] = useState(reservasAgenda)
   const [zonaId, setZonaId] = useState(null)
   const [dia, setDia] = useState(null)
   const [franja, setFranja] = useState(null)
@@ -179,24 +149,22 @@ function ReservasVista({ zonas, lista, yo: YO, alCambiar }) {
     setEnviada(null)
   }
 
-  const solicitar = async () => {
+  const solicitar = () => {
     const [ini, fin] = partesFranja(franja)
-    setErrorAccion('')
-    setEnviando(true)
-    try {
-      const nueva = await api.post('/api/reservas', {
-        zonaComunId: zona.id,
-        fechaInicio: `${dia}T${ini}:00`,
-        fechaFin: `${dia}T${fin}:00`,
-      })
-      setEnviada(nueva)
-      setFranja(null)
-      alCambiar()
-    } catch (e) {
-      setErrorAccion(e.message)
-    } finally {
-      setEnviando(false)
+    const nueva = {
+      id: Math.max(...lista.map((r) => r.id)) + 1,
+      zonaComunId: zona.id,
+      zonaComunNombre: zona.nombre,
+      apartamentoId: YO.apartamentoId,
+      fechaInicio: `${dia}T${ini}:00`,
+      fechaFin: `${dia}T${fin}:00`,
+      estado: 'PENDIENTE',
+      residente: YO.nombre,
+      apartamento: YO.apartamento,
     }
+    setLista([...lista, nueva])
+    setEnviada(nueva)
+    setFranja(null)
   }
 
   const nuevaReserva = () => {
@@ -205,13 +173,8 @@ function ReservasVista({ zonas, lista, yo: YO, alCambiar }) {
     setDia(null)
   }
 
-  const cancelar = async () => {
-    try {
-      await api.del(`/api/reservas/${aCancelar.id}`)
-      alCambiar()
-    } catch (e) {
-      setErrorAccion(e.message)
-    }
+  const cancelar = () => {
+    setLista(lista.map((r) => (r.id === aCancelar.id ? { ...r, estado: 'CANCELADA' } : r)))
     setACancelar(null)
   }
 
@@ -389,16 +352,11 @@ function ReservasVista({ zonas, lista, yo: YO, alCambiar }) {
                     className="mt-4 w-full"
                     size="lg"
                     icon={CalendarCheck}
-                    disabled={!(zona && dia && franja) || enviando}
+                    disabled={!(zona && dia && franja)}
                     onClick={solicitar}
                   >
-                    {enviando ? 'Enviando…' : 'Solicitar reserva'}
+                    Solicitar reserva
                   </Button>
-                  {errorAccion && (
-                    <p role="alert" className="mt-3 rounded-lg bg-danger-bg px-3 py-2 text-xs font-medium text-danger-strong">
-                      {errorAccion}
-                    </p>
-                  )}
                   <p className="mt-3 text-center text-xs text-slate-500">
                     {!zona
                       ? 'Elige una zona, un día y un horario.'
@@ -478,11 +436,4 @@ function ReservasVista({ zonas, lista, yo: YO, alCambiar }) {
       </Modal>
     </div>
   )
-}
-
-ReservasVista.propTypes = {
-  zonas: PropTypes.array.isRequired,
-  lista: PropTypes.array.isRequired,
-  yo: PropTypes.shape({ apartamentoId: PropTypes.number, apartamento: PropTypes.string }).isRequired,
-  alCambiar: PropTypes.func.isRequired,
 }

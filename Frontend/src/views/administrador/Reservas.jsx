@@ -9,9 +9,8 @@ import IlustracionZona from '../../components/reservas/IlustracionZona'
 import { estadoReserva } from '../../lib/labels'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
-import { colorZona, conFranjas } from '../../lib/zonas'
-import { api } from '../../lib/api'
-import { useApi } from '../../lib/useApi'
+import { colorZona } from '../../lib/zonas'
+import { reservasAgenda, zonas } from '../../data/mock'
 
 const fmtFecha = (iso) => new Date(iso).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })
 const fmtHorario = (r) => `${r.fechaInicio.slice(11, 16)} – ${r.fechaFin.slice(11, 16)}`
@@ -67,37 +66,9 @@ Solicitud.propTypes = {
 }
 
 export default function Reservas() {
-  const [desde] = useState(() => {
-    const d = new Date()
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10)
-  })
-  const zonasApi = useApi('/api/zonas-comunes', undefined, null)
-  const reservasApi = useApi('/api/reservas', { desde }, null)
-  const error = zonasApi.error ?? reservasApi.error
-  if (error) {
-    return (
-      <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
-        {error.message}
-      </p>
-    )
-  }
-  if (!zonasApi.datos || !reservasApi.datos) return <p className="text-sm text-slate-500">Cargando agenda…</p>
-
-  return (
-    <ReservasVista
-      zonas={zonasApi.datos.map(conFranjas)}
-      // El API identifica la reserva por apartamento; se muestra donde antes iba el nombre.
-      lista={reservasApi.datos.map((r) => ({ ...r, residente: r.apartamento }))}
-      alCambiar={reservasApi.recargar}
-    />
-  )
-}
-
-function ReservasVista({ zonas, lista, alCambiar }) {
+  const [lista, setLista] = useState(reservasAgenda)
   const [detalle, setDetalle] = useState(null)
   const [rechazo, setRechazo] = useState(null)
-  const [motivo, setMotivo] = useState('')
-  const [errorAccion, setErrorAccion] = useState('')
 
   const pendientes = lista.filter((r) => r.estado === 'PENDIENTE').sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio))
   const aprobadas = lista.filter((r) => r.estado === 'APROBADA')
@@ -105,44 +76,24 @@ function ReservasVista({ zonas, lista, alCambiar }) {
     .map((z) => [z.nombre, aprobadas.filter((r) => r.zonaComunId === z.id).length])
     .sort((a, b) => b[1] - a[1])[0]
 
-  const resolver = async (id, accion, cuerpo) => {
-    setErrorAccion('')
-    try {
-      await api.patch(`/api/reservas/${id}/${accion}`, cuerpo)
-      alCambiar()
-      return true
-    } catch (e) {
-      setErrorAccion(e.message)
-      return false
-    }
-  }
-  const aprobar = async (r) => {
-    if (await resolver(r.id, 'aprobar')) setDetalle(null)
+  const cambiarEstado = (id, estado) => setLista(lista.map((r) => (r.id === id ? { ...r, estado } : r)))
+  const aprobar = (r) => {
+    cambiarEstado(r.id, 'APROBADA')
+    setDetalle(null)
   }
   const pedirRechazo = (r) => {
     setDetalle(null)
     setRechazo(r)
   }
-  const rechazar = async () => {
-    if (!motivo.trim()) {
-      setErrorAccion('Escribe el motivo del rechazo.')
-      return
-    }
-    if (await resolver(rechazo.id, 'rechazar', { justificacion: motivo.trim() })) {
-      setRechazo(null)
-      setMotivo('')
-    }
+  const rechazar = () => {
+    cambiarEstado(rechazo.id, 'RECHAZADA')
+    setRechazo(null)
   }
 
   const estadoDetalle = detalle && estadoReserva[detalle.estado]
 
   return (
     <div className="space-y-5">
-      {errorAccion && !rechazo && (
-        <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
-          {errorAccion}
-        </p>
-      )}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reservas</h1>
         <p className="mt-1 text-sm text-slate-500">Agenda de zonas comunes y solicitudes por aprobar</p>
@@ -275,22 +226,11 @@ function ReservasVista({ zonas, lista, alCambiar }) {
       >
         <div className="space-y-4">
           <Field label="Motivo del rechazo" required>
-            <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ej. La zona estará en mantenimiento ese día" />
+            <Textarea placeholder="Ej. La zona estará en mantenimiento ese día" />
           </Field>
-          {errorAccion && (
-            <p role="alert" className="rounded-lg bg-danger-bg px-3 py-2 text-sm font-medium text-danger-strong">
-              {errorAccion}
-            </p>
-          )}
           <p className="text-xs text-slate-500">El residente recibirá una notificación con este motivo.</p>
         </div>
       </Modal>
     </div>
   )
-}
-
-ReservasVista.propTypes = {
-  zonas: PropTypes.array.isRequired,
-  lista: PropTypes.array.isRequired,
-  alCambiar: PropTypes.func.isRequired,
 }

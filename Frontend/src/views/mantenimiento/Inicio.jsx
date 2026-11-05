@@ -4,16 +4,14 @@ import { ArrowRight, MapPin, Siren } from 'lucide-react'
 import { Titulo, VerMas } from '../../components/ui/Panel'
 import EscenaTaller from '../../components/mantenimiento/EscenaTaller'
 import IlustracionIncidencia from '../../components/incidencias/IlustracionIncidencia'
-import { estilosEstado, puntoPrioridad, useIncidenciasAsignadas } from '../../lib/incidencias'
-import { useSesion } from '../../lib/sesion'
+import { estilosEstado, puntoPrioridad } from '../../lib/incidencias'
+import { incidencias } from '../../data/mock'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { useAhora } from '../../lib/useAhora'
 import { cn, saludo } from '../../lib/utils'
 
 export default function Inicio({ onNavigate }) {
   const ahora = useAhora()
-  const { sesion } = useSesion()
-  const { incidencias } = useIncidenciasAsignadas()
   const contar = (estado) => incidencias.filter((i) => i.estado === estado).length
   const abiertas = incidencias.filter((i) => ['Nueva', 'En proceso'].includes(i.estado))
   const urgentes = abiertas.filter((i) => i.prioridad === 'Alta')
@@ -38,7 +36,7 @@ export default function Inicio({ onNavigate }) {
       <motion.section {...aparecer(0)} className={cn(tarjeta, 'grid overflow-hidden md:grid-cols-[1fr_minmax(0,380px)]')}>
         <div className="p-6">
           <p className="text-sm font-semibold text-brand-700 first-letter:uppercase">{fecha}</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{saludo(ahora)}, {sesion.usuario.split(' ')[0]}</h1>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{saludo(ahora)}, Jorge</h1>
           <p className="mt-1 text-sm text-slate-500">
             Tienes <span className="font-semibold text-slate-800">{abiertas.length} incidencias abiertas</span>
             {urgentes.length > 0 && (

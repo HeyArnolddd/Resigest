@@ -1,54 +1,31 @@
 import { useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarDays, Check, CheckCircle2, ClipboardCheck, MapPin, Paperclip, Play } from 'lucide-react'
+import { Ban, CalendarDays, Check, CheckCircle2, MapPin, Paperclip, Play, X } from 'lucide-react'
 import { Avatar, Button, Field, Modal, Textarea } from '../../components/ui'
 import IlustracionIncidencia from '../../components/incidencias/IlustracionIncidencia'
 import Avance from '../../components/incidencias/Avance'
-import { estilosEstado, puntoEstado, puntoPrioridad, useIncidenciasAsignadas } from '../../lib/incidencias'
-import { api } from '../../lib/api'
+import { estilosEstado, puntoEstado, puntoPrioridad } from '../../lib/incidencias'
+import { incidencias } from '../../data/mock'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
 
 const filtros = ['Todas', 'Nueva', 'En proceso', 'Resuelta']
 
 export default function Incidencias() {
-  const { incidencias: lista, recargar, error } = useIncidenciasAsignadas()
+  const [lista, setLista] = useState(incidencias)
   const [filtro, setFiltro] = useState('Todas')
-  const [seleccionada, setSeleccionada] = useState(null)
-  const [modalSolucion, setModalSolucion] = useState(false)
-  const [solucion, setSolucion] = useState('')
-  const [errorAccion, setErrorAccion] = useState('')
-  const [enviando, setEnviando] = useState(false)
+  const [seleccionada, setSeleccionada] = useState(incidencias[0]?.id)
+  const [modalRechazo, setModalRechazo] = useState(false)
   const detalle = useRef(null)
 
   const visible = filtro === 'Todas' ? lista : lista.filter((i) => i.estado === filtro)
-  const actual = lista.find((i) => i.id === seleccionada) || visible[0] || lista[0]
+  const actual = lista.find((i) => i.id === seleccionada) || lista[0]
   const contar = (f) => (f === 'Todas' ? lista.length : lista.filter((i) => i.estado === f).length)
 
-  const ejecutar = async (accion) => {
-    setErrorAccion('')
-    setEnviando(true)
-    try {
-      await accion()
-      recargar()
-      return true
-    } catch (e) {
-      setErrorAccion(e.message)
-      return false
-    } finally {
-      setEnviando(false)
-    }
-  }
-  const iniciar = () => ejecutar(() => api.patch(`/api/incidencias/${actual.idApi}/inicio`))
-  const resolver = async () => {
-    if (!solucion.trim()) {
-      setErrorAccion('Describe la solución aplicada.')
-      return
-    }
-    if (await ejecutar(() => api.patch(`/api/incidencias/${actual.idApi}/solucion`, { solucion: solucion.trim() }))) {
-      setModalSolucion(false)
-      setSolucion('')
-    }
+  const cambiarEstado = (estado) => setLista(lista.map((i) => (i.id === actual.id ? { ...i, estado } : i)))
+  const rechazar = () => {
+    cambiarEstado('Rechazada')
+    setModalRechazo(false)
   }
 
   const seleccionar = (id) => {
@@ -59,11 +36,6 @@ export default function Incidencias() {
 
   return (
     <div className="space-y-5">
-      {(error || (errorAccion && !modalSolucion)) && (
-        <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
-          {error?.message ?? errorAccion}
-        </p>
-      )}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Incidencias</h1>
         <p className="mt-1 text-sm text-slate-500">Gestión de solicitudes de los residentes</p>
@@ -183,9 +155,15 @@ export default function Incidencias() {
                     </span>
                   </div>
 
-                  <div className="mt-5 rounded-xl bg-slate-50 px-4 pb-3 pt-4 ring-1 ring-slate-100">
-                    <Avance estado={actual.estado} />
-                  </div>
+                  {actual.estado === 'Rechazada' ? (
+                    <p className="mt-5 flex items-center gap-2 rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
+                      <Ban className="size-4 shrink-0" /> Rechazaste esta solicitud. Se notificó al residente.
+                    </p>
+                  ) : (
+                    <div className="mt-5 rounded-xl bg-slate-50 px-4 pb-3 pt-4 ring-1 ring-slate-100">
+                      <Avance estado={actual.estado} />
+                    </div>
+                  )}
 
                   <p className="mt-5 text-sm leading-relaxed text-slate-700">{actual.descripcion}</p>
 
@@ -221,7 +199,10 @@ export default function Incidencias() {
                   {/* Acciones según el estado */}
                   {actual.estado === 'Nueva' && (
                     <div className="mt-5 flex flex-wrap justify-end gap-2">
-                      <Button icon={Play} onClick={iniciar} disabled={enviando}>
+                      <Button variant="secondary" icon={X} onClick={() => setModalRechazo(true)}>
+                        Rechazar solicitud
+                      </Button>
+                      <Button icon={Play} onClick={() => cambiarEstado('En proceso')}>
                         Aceptar y empezar
                       </Button>
                     </div>
@@ -229,14 +210,14 @@ export default function Incidencias() {
                   {actual.estado === 'En proceso' && (
                     <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 p-3.5 ring-1 ring-brand-100">
                       <p className="text-sm font-semibold text-brand-800">¿Terminaste el trabajo?</p>
-                      <Button icon={Check} onClick={() => setModalSolucion(true)} disabled={enviando}>
+                      <Button icon={Check} onClick={() => cambiarEstado('Resuelta')}>
                         Marcar como resuelta
                       </Button>
                     </div>
                   )}
                   {actual.estado === 'Resuelta' && (
                     <p className="mt-5 flex items-center gap-2 rounded-xl bg-success-bg px-4 py-3 text-sm font-medium text-success-strong">
-                      <CheckCircle2 className="size-4 shrink-0" /> Resuelta{actual.solucion ? `: ${actual.solucion}` : '.'}
+                      <CheckCircle2 className="size-4 shrink-0" /> Resuelta. El residente confirmará si quedó solucionada.
                     </p>
                   )}
                 </div>
@@ -247,35 +228,25 @@ export default function Incidencias() {
       </div>
 
       <Modal
-        open={modalSolucion}
-        onClose={() => setModalSolucion(false)}
-        title="Marcar como resuelta"
+        open={modalRechazo}
+        onClose={() => setModalRechazo(false)}
+        title="Rechazar solicitud"
         subtitle={actual?.titulo}
-        icon={ClipboardCheck}
+        icon={Ban}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setModalSolucion(false)}>
+            <Button variant="secondary" onClick={() => setModalRechazo(false)}>
               Cancelar
             </Button>
-            <Button onClick={resolver} disabled={enviando}>
-              {enviando ? 'Guardando…' : 'Confirmar'}
+            <Button variant="danger" onClick={rechazar}>
+              Confirmar rechazo
             </Button>
           </>
         }
       >
-        <Field label="Solución aplicada" hint="El residente verá este mensaje" required>
-          <Textarea
-            maxLength={1000}
-            value={solucion}
-            onChange={(e) => setSolucion(e.target.value)}
-            placeholder="Ej. Se cambió el empaque del grifo y se verificó que no hay fugas…"
-          />
+        <Field label="Motivo del rechazo" hint="El residente verá este mensaje">
+          <Textarea placeholder="Ej. No corresponde a zonas comunes, debe gestionarlo el propietario…" />
         </Field>
-        {errorAccion && (
-          <p role="alert" className="mt-3 rounded-lg bg-danger-bg px-3 py-2 text-sm font-medium text-danger-strong">
-            {errorAccion}
-          </p>
-        )}
       </Modal>
     </div>
   )
