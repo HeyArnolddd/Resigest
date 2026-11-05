@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import PropTypes from 'prop-types'
 import { cn } from '../../lib/utils'
 
@@ -50,18 +51,31 @@ Textarea.propTypes = {
   defaultValue: PropTypes.string,
 }
 
-export function UploadBox({ hint = 'Arrastra el archivo o haz clic para seleccionar' }) {
+export function UploadBox({ hint = 'Arrastra el archivo o haz clic para seleccionar', archivo, onChange }) {
+  const entrada = useRef(null)
   return (
-    <button
-      type="button"
-      className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center transition-colors hover:border-brand-400 hover:bg-brand-50/40"
-    >
-      <span className="text-xs font-medium text-slate-500">{hint}</span>
-      <span className="text-xs text-slate-400">JPG, PNG o PDF · Máx. 5 MB</span>
-    </button>
+    <>
+      <input
+        ref={entrada}
+        type="file"
+        accept="image/jpeg,image/png,application/pdf"
+        className="hidden"
+        onChange={(e) => onChange?.(e.target.files?.[0] ?? null)}
+      />
+      <button
+        type="button"
+        onClick={() => entrada.current?.click()}
+        className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center transition-colors hover:border-brand-400 hover:bg-brand-50/40"
+      >
+        <span className="text-xs font-medium text-slate-500">{archivo ? archivo.name : hint}</span>
+        <span className="text-xs text-slate-400">JPG, PNG o PDF · Máx. 5 MB</span>
+      </button>
+    </>
   )
 }
 
 UploadBox.propTypes = {
   hint: PropTypes.string,
+  archivo: PropTypes.shape({ name: PropTypes.string }),
+  onChange: PropTypes.func,
 }

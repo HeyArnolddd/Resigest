@@ -73,3 +73,10 @@ export function enColombia(fecha = new Date()) {
     segundos: Number(p.second),
   }
 }
+
+// '2026-11-05T11:46:40' → '05/11/2026'
+export function formatFecha(iso) {
+  if (!iso) return ''
+  const [anio, mes, dia] = iso.slice(0, 10).split('-')
+  return `${dia}/${mes}/${anio}`
+}

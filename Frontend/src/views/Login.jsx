@@ -1,17 +1,16 @@
 import { useState } from 'react'
 import { MotionConfig, motion } from 'motion/react'
 import { AlertCircle, Eye, EyeOff, Home, Loader2 } from 'lucide-react'
-import PropTypes from 'prop-types'
 import EscenaConjunto from '../components/login/EscenaConjunto'
 import { cn } from '../lib/utils'
+import { useSesion } from '../lib/sesion'
 
 // Usuarios demo del backend (V12__datos_demo.sql), todos con contraseña admin123.
-// Al conectar el API esto se reemplaza por POST /api/auth/login → { token, rol }.
 const DEMO = [
-  { correo: 'residente@resigest.com', rol: 'residente', etiqueta: 'Residente' },
-  { correo: 'portero@resigest.com', rol: 'porteria', etiqueta: 'Portería' },
-  { correo: 'tecnico@resigest.com', rol: 'mantenimiento', etiqueta: 'Mantenimiento' },
-  { correo: 'admin@resigest.com', rol: 'administrador', etiqueta: 'Administrador' },
+  { correo: 'residente@resigest.com', etiqueta: 'Residente' },
+  { correo: 'portero@resigest.com', etiqueta: 'Portería' },
+  { correo: 'tecnico@resigest.com', etiqueta: 'Mantenimiento' },
+  { correo: 'admin@resigest.com', etiqueta: 'Administrador' },
 ]
 const CONTRASENA_DEMO = 'admin123'
 
@@ -24,30 +23,31 @@ const entrada = (delay) => ({
 const campo =
   'h-12 w-full rounded-lg border border-transparent bg-white px-4 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-shadow focus:border-brand-300 focus:ring-4 focus:ring-white/30'
 
-export default function Login({ onLogin }) {
+export default function Login() {
+  const { ingresar: entrar } = useSesion()
   const [correo, setCorreo] = useState('')
   const [contrasena, setContrasena] = useState('')
   const [verContrasena, setVerContrasena] = useState(false)
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
 
-  const ingresar = (email, clave) => {
+  const ingresar = async (email, clave) => {
     setError('')
     if (!email.trim() || !clave) {
       setError('Escribe tu correo y tu contraseña.')
       return
     }
     setCargando(true)
-    // Simula la latencia del API
-    setTimeout(() => {
-      const usuario = DEMO.find((u) => u.correo === email.trim().toLowerCase())
-      if (!usuario || clave !== CONTRASENA_DEMO) {
-        setCargando(false)
-        setError('El correo o la contraseña no coinciden. Revísalos e intenta de nuevo.')
-        return
-      }
-      onLogin(usuario.rol)
-    }, 700)
+    try {
+      await entrar(email.trim().toLowerCase(), clave)
+    } catch (e) {
+      setCargando(false)
+      setError(
+        e.estado === 401 || e.estado === 403 || e.estado === 422
+          ? 'El correo o la contraseña no coinciden. Revísalos e intenta de nuevo.'
+          : e.message,
+      )
+    }
   }
 
   const enviar = (e) => {
@@ -181,7 +181,7 @@ export default function Login({ onLogin }) {
               <div className="mt-2 flex flex-wrap justify-center gap-2">
                 {DEMO.map((u) => (
                   <button
-                    key={u.rol}
+                    key={u.correo}
                     type="button"
                     disabled={cargando}
                     onClick={() => accesoRapido(u)}
@@ -202,8 +202,4 @@ export default function Login({ onLogin }) {
       </div>
     </MotionConfig>
   )
-}
-
-Login.propTypes = {
-  onLogin: PropTypes.func.isRequired,
 }

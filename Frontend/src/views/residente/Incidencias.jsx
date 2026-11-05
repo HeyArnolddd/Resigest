@@ -1,38 +1,77 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { Calendar, Check, CheckCircle2, MapPin, Plus, RotateCcw, X } from 'lucide-react'
-import { Button, Field, Modal, Select, Textarea, UploadBox } from '../../components/ui'
+import { Calendar, CheckCircle2, MapPin, Plus } from 'lucide-react'
+import { Button, Field, Input, Modal, Select, Textarea, UploadBox } from '../../components/ui'
 import IlustracionIncidencia from '../../components/incidencias/IlustracionIncidencia'
 import Avance from '../../components/incidencias/Avance'
-import { estilosEstado, puntoPrioridad } from '../../lib/incidencias'
+import { CATEGORIAS, aVistaIncidencia, estilosEstado, puntoPrioridad } from '../../lib/incidencias'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
+import { api } from '../../lib/api'
+import { useApi } from '../../lib/useApi'
 
-const categorias = ['Plomería', 'Eléctrico', 'Carpintería', 'Iluminación', 'Ascensores', 'Zonas comunes', 'Otro']
-const ubicaciones = ['Torre 1', 'Torre 2', 'Torre 3', 'Zonas comunes']
+const formVacio = {
+  titulo: '',
+  descripcion: '',
+  categoria: 'PLOMERIA',
+  ubicacion: 'Mi apartamento',
+  prioridad: 'MEDIA',
+  evidencia: null,
+}
 
-const incidenciasIniciales = [
-  { id: 'INC-013', titulo: 'Fuga de agua en el baño de la ducha', categoria: 'Plomería', ubicacion: 'Torre 2 · Apto 304', fecha: '07/09/2026', prioridad: 'Alta', estado: 'En proceso', descripcion: 'Se presenta un goteo constante en la ducha del baño principal, incluso con la llave cerrada.' },
-  { id: 'INC-012', titulo: 'El ascensor 1 emite un ruido fuerte', categoria: 'Ascensores', ubicacion: 'Torre 1 · Lobby', fecha: '05/09/2026', prioridad: 'Media', estado: 'Nueva', descripcion: 'Al llegar al piso 3 el ascensor 1 presenta un ruido metálico y vibración.' },
-  { id: 'INC-010', titulo: 'Cerradura de la puerta principal en mal estado', categoria: 'Carpintería', ubicacion: 'Torre 2 · Apto 304', fecha: '02/09/2026', prioridad: 'Media', estado: 'Nueva', descripcion: 'La cerradura de la puerta principal gira con dificultad y a veces se queda trabada.' },
-  { id: 'INC-001', titulo: 'Bombilla quemada en el pasillo del piso 4', categoria: 'Iluminación', ubicacion: 'Torre 2 · Piso 4', fecha: '30/07/2026', prioridad: 'Baja', estado: 'Resuelta', descripcion: 'La bombilla del pasillo del piso 4 está quemada desde hace una semana.' },
+const ubicaciones = ['Mi apartamento', 'Torre 1', 'Torre 2', 'Torre 3', 'Zonas comunes']
+const prioridades = [
+  ['BAJA', 'Baja'],
+  ['MEDIA', 'Media'],
+  ['ALTA', 'Alta'],
 ]
 
 export default function Incidencias() {
-  const [lista, setLista] = useState(incidenciasIniciales)
+  const { datos, cargando, error, recargar } = useApi('/api/incidencias', { size: 100, sort: 'id,desc' }, { content: [] })
+  const lista = datos.content.map(aVistaIncidencia)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [reportada, setReportada] = useState(false)
-  const [categoriaNueva, setCategoriaNueva] = useState(categorias[0])
+  const [enviando, setEnviando] = useState(false)
+  const [errorForm, setErrorForm] = useState('')
+  const [form, setForm] = useState(formVacio)
+  const cambiar = (campo) => (e) => setForm({ ...form, [campo]: e.target.value })
 
-  const responder = (id, respuesta) => {
-    setLista(lista.map((i) => (i.id === id ? { ...i, estado: respuesta === 'si' ? 'Evaluada' : 'Reabierta' } : i)))
+  const enviar = async () => {
+    setErrorForm('')
+    if (!form.titulo.trim() || !form.descripcion.trim()) {
+      setErrorForm('Escribe un título y una descripción.')
+      return
+    }
+    setEnviando(true)
+    try {
+      const creada = await api.post('/api/incidencias', {
+        titulo: form.titulo.trim(),
+        descripcion: form.descripcion.trim(),
+        ubicacion: form.ubicacion,
+        prioridad: form.prioridad,
+        categoria: form.categoria,
+      })
+      if (form.evidencia) {
+        const datosArchivo = new FormData()
+        datosArchivo.append('archivo', form.evidencia)
+        await api.subir(`/api/incidencias/${creada.id}/evidencias`, datosArchivo)
+      }
+      setReportada(true)
+      setModalAbierto(false)
+      setForm(formVacio)
+      recargar()
+    } catch (e) {
+      setErrorForm(e.message)
+    } finally {
+      setEnviando(false)
+    }
   }
 
   const contar = (...estados) => lista.filter((i) => estados.includes(i.estado)).length
   const resumen = [
     ['Nuevas', contar('Nueva'), 'bg-sky-500'],
-    ['En proceso', contar('En proceso', 'Reabierta'), 'bg-warning'],
-    ['Resueltas', contar('Resuelta', 'Evaluada'), 'bg-success'],
+    ['En proceso', contar('En proceso'), 'bg-warning'],
+    ['Resueltas', contar('Resuelta'), 'bg-success'],
   ]
 
   return (
@@ -50,7 +89,7 @@ export default function Incidencias() {
       {/* Resumen por estado */}
       <motion.div {...aparecer(0)} className={cn(tarjeta, 'flex flex-wrap items-center gap-x-8 gap-y-3 px-6 py-4')}>
         <p className="text-sm font-bold text-slate-900">
-          {lista.length} reportes
+          {lista.length} {lista.length === 1 ? 'reporte' : 'reportes'}
         </p>
         {resumen.map(([etiqueta, n, punto]) => (
           <p key={etiqueta} className="flex items-center gap-2 text-sm text-slate-600">
@@ -65,6 +104,16 @@ export default function Incidencias() {
           ))}
         </div>
       </motion.div>
+
+      {error && (
+        <p role="alert" className="rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">
+          {error.message}
+        </p>
+      )}
+      {cargando && lista.length === 0 && <p className="text-sm text-slate-500">Cargando incidencias…</p>}
+      {!cargando && !error && lista.length === 0 && (
+        <p className="text-sm text-slate-500">Aún no has reportado incidencias.</p>
+      )}
 
       {reportada && (
         <div className="animate-fade-up flex items-center gap-3 rounded-xl border border-success/30 bg-success-bg px-4 py-3 text-sm text-success-strong">
@@ -87,7 +136,7 @@ export default function Incidencias() {
                     estilosEstado[inc.estado],
                   )}
                 >
-                  {inc.estado === 'Evaluada' ? 'Solución confirmada' : inc.estado}
+                  {inc.estado}
                 </span>
               </div>
 
@@ -111,28 +160,11 @@ export default function Incidencias() {
                 <Avance estado={inc.estado} />
               </div>
 
-              {inc.estado === 'Resuelta' && (
-                <div className="mt-4 rounded-xl bg-brand-50 p-3.5 ring-1 ring-brand-100">
-                  <p className="text-sm font-semibold text-brand-800">¿La incidencia fue solucionada?</p>
-                  <div className="mt-2.5 flex gap-2">
-                    <Button size="sm" onClick={() => responder(inc.id, 'si')} icon={Check}>
-                      Correcto
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => responder(inc.id, 'no')} icon={X}>
-                      Incorrecto
-                    </Button>
-                  </div>
+              {inc.estado === 'Resuelta' && inc.solucion && (
+                <div className="mt-4 rounded-xl bg-success-bg p-3.5 ring-1 ring-green-200">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-success-strong">Solución aplicada</p>
+                  <p className="mt-1 text-sm text-slate-700">{inc.solucion}</p>
                 </div>
-              )}
-              {inc.estado === 'Evaluada' && (
-                <p className="mt-4 flex items-center gap-2 rounded-xl bg-success-bg px-3.5 py-2.5 text-xs font-medium text-success-strong">
-                  <CheckCircle2 className="size-4 shrink-0" /> Gracias por confirmar. La incidencia quedó cerrada.
-                </p>
-              )}
-              {inc.estado === 'Reabierta' && (
-                <p className="mt-4 flex items-center gap-2 rounded-xl bg-danger-bg px-3.5 py-2.5 text-xs font-medium text-danger-strong">
-                  <RotateCcw className="size-4 shrink-0" /> La reabrimos. Mantenimiento volverá a revisarla.
-                </p>
               )}
             </div>
           </motion.article>
@@ -151,13 +183,8 @@ export default function Incidencias() {
             <Button variant="secondary" onClick={() => setModalAbierto(false)}>
               Cancelar
             </Button>
-            <Button
-              onClick={() => {
-                setReportada(true)
-                setModalAbierto(false)
-              }}
-            >
-              Enviar reporte
+            <Button onClick={enviar} disabled={enviando}>
+              {enviando ? 'Enviando…' : 'Enviar reporte'}
             </Button>
           </>
         }
@@ -165,47 +192,60 @@ export default function Incidencias() {
         <div className="space-y-4">
           <Field label="¿Qué tipo de problema es?" required>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Categoría">
-              {categorias.map((c) => (
+              {CATEGORIAS.map(({ clave, etiqueta }) => (
                 <button
-                  key={c}
+                  key={clave}
                   type="button"
                   role="radio"
-                  aria-checked={categoriaNueva === c}
-                  onClick={() => setCategoriaNueva(c)}
+                  aria-checked={form.categoria === clave}
+                  onClick={() => setForm({ ...form, categoria: clave })}
                   className={cn(
                     'overflow-hidden rounded-xl border text-left outline-none transition focus-visible:ring-2 focus-visible:ring-brand-500',
-                    categoriaNueva === c ? 'border-brand-500 ring-2 ring-brand-500' : 'border-slate-200 hover:border-brand-300',
+                    form.categoria === clave ? 'border-brand-500 ring-2 ring-brand-500' : 'border-slate-200 hover:border-brand-300',
                   )}
                 >
-                  <IlustracionIncidencia categoria={c} className="h-14" />
-                  <span className="block px-2 py-1.5 text-xs font-semibold text-slate-700">{c}</span>
+                  <IlustracionIncidencia categoria={etiqueta} className="h-14" />
+                  <span className="block px-2 py-1.5 text-xs font-semibold text-slate-700">{etiqueta}</span>
                 </button>
               ))}
             </div>
           </Field>
+          <Field label="Título" required>
+            <Input placeholder="Ej. Fuga de agua en el baño" maxLength={200} value={form.titulo} onChange={cambiar('titulo')} />
+          </Field>
           <Field label="Descripción de la incidencia" required>
-            <Textarea placeholder="Describe brevemente qué sucede…" />
+            <Textarea placeholder="Describe brevemente qué sucede…" maxLength={1000} value={form.descripcion} onChange={cambiar('descripcion')} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Ubicación" required>
-              <Select defaultValue="Torre 2">
+              <Select value={form.ubicacion} onChange={cambiar('ubicacion')}>
                 {ubicaciones.map((u) => (
                   <option key={u}>{u}</option>
                 ))}
               </Select>
             </Field>
-            <Field label="Apartamento" hint="Si el reporte es comunitario, indica la zona común">
-              <Select defaultValue="Torre 2 · Apto 304">
-                <option>Torre 1 · Apto 101</option>
-                <option>Torre 1 · Apto 204</option>
-                <option>Torre 2 · Apto 304</option>
-                <option>Torre 3 · Apto 502</option>
+            <Field label="Prioridad" required>
+              <Select value={form.prioridad} onChange={cambiar('prioridad')}>
+                {prioridades.map(([valor, etiqueta]) => (
+                  <option key={valor} value={valor}>
+                    {etiqueta}
+                  </option>
+                ))}
               </Select>
             </Field>
           </div>
-          <Field label="Evidencia" hint="Opcional — fotos o capturas del problema">
-            <UploadBox hint="Adjuntar evidencia (foto o documento)" />
+          <Field label="Evidencia" hint="Opcional — una foto o captura del problema">
+            <UploadBox
+              hint="Adjuntar evidencia (foto o documento)"
+              archivo={form.evidencia}
+              onChange={(archivo) => setForm({ ...form, evidencia: archivo })}
+            />
           </Field>
+          {errorForm && (
+            <p role="alert" className="rounded-lg bg-danger-bg px-3 py-2 text-sm font-medium text-danger-strong">
+              {errorForm}
+            </p>
+          )}
         </div>
       </Modal>
     </div>
