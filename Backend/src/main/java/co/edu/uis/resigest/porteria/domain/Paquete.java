@@ -44,7 +44,7 @@ public class Paquete extends EntidadBase {
 
     private LocalDateTime fechaEntrega;
 
-    @Column(length = 200)
+    @Column(name = "entregado_a", length = 200)
     private String entregadoA;
 
     protected Paquete() {

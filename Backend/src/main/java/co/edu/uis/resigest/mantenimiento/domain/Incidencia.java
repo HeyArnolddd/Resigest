@@ -55,6 +55,9 @@ public class Incidencia extends EntidadBase {
     @JoinColumn(name = "asignado_a_id")
     private TecnicoMantenimiento asignadoA;
 
+    @Column(nullable = false, length = 30)
+    private String categoria = "OTRO";
+
     @Column(length = 1000)
     private String solucion;
 
@@ -73,6 +76,14 @@ public class Incidencia extends EntidadBase {
         this.prioridad = prioridad;
         this.reportadoPor = reportadoPor;
         this.estado = EstadoIncidencia.ABIERTA;
+    }
+
+    public Incidencia(String titulo, String descripcion, String ubicacion,
+                      PrioridadIncidencia prioridad, Usuario reportadoPor, String categoria) {
+        this(titulo, descripcion, ubicacion, prioridad, reportadoPor);
+        if (categoria != null && !categoria.isBlank()) {
+            this.categoria = categoria.trim().toUpperCase();
+        }
     }
 
     public void asignarA(TecnicoMantenimiento tecnico) {
