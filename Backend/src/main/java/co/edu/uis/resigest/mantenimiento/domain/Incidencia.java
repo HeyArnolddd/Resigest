@@ -39,6 +39,16 @@ public class Incidencia extends EntidadBase {
     @Column(length = 200)
     private String ubicacion;
 
+    @Column(length = 40)
+    private String categoria;
+
+    @Column(length = 300)
+    private String fotoSolucionUrl;
+
+    /** Comentario de quien la reportó cuando dice que el problema sigue. */
+    @Column(length = 500)
+    private String observacionConfirmacion;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private EstadoIncidencia estado;
@@ -54,9 +64,6 @@ public class Incidencia extends EntidadBase {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "asignado_a_id")
     private TecnicoMantenimiento asignadoA;
-
-    @Column(nullable = false, length = 30)
-    private String categoria = "OTRO";
 
     @Column(length = 1000)
     private String solucion;
@@ -78,14 +85,6 @@ public class Incidencia extends EntidadBase {
         this.estado = EstadoIncidencia.ABIERTA;
     }
 
-    public Incidencia(String titulo, String descripcion, String ubicacion,
-                      PrioridadIncidencia prioridad, Usuario reportadoPor, String categoria) {
-        this(titulo, descripcion, ubicacion, prioridad, reportadoPor);
-        if (categoria != null && !categoria.isBlank()) {
-            this.categoria = categoria.trim().toUpperCase();
-        }
-    }
-
     public void asignarA(TecnicoMantenimiento tecnico) {
         if (estado != EstadoIncidencia.ABIERTA) {
             throw new ReglaNegocioException("Solo se puede asignar una incidencia ABIERTA");
@@ -101,14 +100,39 @@ public class Incidencia extends EntidadBase {
         this.estado = EstadoIncidencia.EN_PROCESO;
     }
 
-    public void resolver(String solucion) {
-        if (estado == EstadoIncidencia.RESUELTA) {
+    /** El técnico registra lo que hizo y una foto del resultado; queda esperando confirmación. */
+    public void resolver(String solucion, String fotoSolucionUrl) {
+        if (estado == EstadoIncidencia.RESUELTA || estado == EstadoIncidencia.CERRADA) {
             throw new ReglaNegocioException("La incidencia ya está resuelta");
         }
         if (solucion == null || solucion.isBlank()) {
             throw new ReglaNegocioException("Debe registrar la solución aplicada");
         }
+        if (fotoSolucionUrl == null || fotoSolucionUrl.isBlank()) {
+            throw new ReglaNegocioException("Adjunta una foto del trabajo terminado");
+        }
         this.solucion = solucion;
+        this.fotoSolucionUrl = fotoSolucionUrl;
         this.estado = EstadoIncidencia.RESUELTA;
+    }
+
+    /** Quien la reportó confirma que quedó solucionada. */
+    public void confirmarSolucion() {
+        if (estado != EstadoIncidencia.RESUELTA) {
+            throw new ReglaNegocioException("Solo se puede confirmar una incidencia resuelta");
+        }
+        this.estado = EstadoIncidencia.CERRADA;
+    }
+
+    /** Quien la reportó indica que el problema sigue: vuelve a mantenimiento con su comentario. */
+    public void reabrir(String comentario) {
+        if (estado != EstadoIncidencia.RESUELTA) {
+            throw new ReglaNegocioException("Solo se puede reabrir una incidencia resuelta");
+        }
+        if (comentario == null || comentario.isBlank()) {
+            throw new ReglaNegocioException("Cuéntale a mantenimiento qué sigue fallando");
+        }
+        this.observacionConfirmacion = comentario;
+        this.estado = EstadoIncidencia.EN_PROCESO;
     }
 }

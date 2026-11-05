@@ -1,6 +1,8 @@
 package co.edu.uis.resigest.comunicaciones.service;
 
-import co.edu.uis.resigest.comunicaciones.dto.ContactoChatDTO;
+import co.edu.uis.resigest.comunicaciones.dto.CanalComunidadDTO;
+import co.edu.uis.resigest.comunicaciones.dto.MensajeComunidadDTO;
+import co.edu.uis.resigest.comunicaciones.dto.ConversacionDTO;
 import co.edu.uis.resigest.comunicaciones.dto.MensajeChatDTO;
 
 import java.util.List;
@@ -11,14 +13,17 @@ public interface ChatService {
 
     List<MensajeChatDTO> conversacion(Long usuarioId, Long otroUsuarioId);
 
-    /** Mensajes recientes del chat comunitario, del más antiguo al más nuevo. */
-    List<MensajeChatDTO> comunidad();
+    /** Una entrada por cada persona con la que ha hablado, la más reciente primero. */
+    List<ConversacionDTO> conversaciones(Long usuarioId);
 
-    MensajeChatDTO enviarComunidad(Long remitenteId, String contenido);
+    /**
+     * Chats comunitarios del usuario: el general para todos; el de su torre para el residente;
+     * el de todas las torres para la administración.
+     */
+    List<CanalComunidadDTO> canales(Long usuarioId);
 
-    /** Residentes con los que se puede conversar (todos menos el propio usuario). */
-    List<ContactoChatDTO> contactos(Long usuarioId);
+    /** Últimos mensajes de un chat (torreId null = general), del más antiguo al más reciente. */
+    List<MensajeComunidadDTO> mensajesComunidad(Long torreId, Long usuarioId);
 
-    /** Contactos con los que el usuario ya tiene una conversación. */
-    List<ContactoChatDTO> conversaciones(Long usuarioId);
+    MensajeComunidadDTO enviarComunidad(Long autorId, Long torreId, String contenido);
 }

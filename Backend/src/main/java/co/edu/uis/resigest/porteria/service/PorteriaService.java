@@ -12,7 +12,7 @@ public interface PorteriaService {
 
     void registrarSalida(Long id);
 
-    List<RegistroIngresoDTO> listarActivos();
-
     List<RegistroIngresoDTO> consultarBitacora(LocalDate desde, LocalDate hasta);
+
+    List<RegistroIngresoDTO> listarDentro();
 }

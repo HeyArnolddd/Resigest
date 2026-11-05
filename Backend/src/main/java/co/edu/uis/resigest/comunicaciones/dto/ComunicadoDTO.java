@@ -11,6 +11,7 @@ public record ComunicadoDTO(
         String urlAdjunto,
         boolean fijado,
         Long autorId,
+        String autorNombre,
         LocalDateTime fechaPublicacion
 ) {
 
@@ -22,6 +23,7 @@ public record ComunicadoDTO(
                 comunicado.getUrlAdjunto(),
                 comunicado.isFijado(),
                 comunicado.getAutor().getId(),
+                comunicado.getAutor().getNombreCompleto(),
                 comunicado.getFechaPublicacion()
         );
     }

@@ -1,6 +1,5 @@
 package co.edu.uis.resigest.common.security;
 
-import co.edu.uis.resigest.usuarios.domain.Usuario;
 import co.edu.uis.resigest.usuarios.repository.UsuarioRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -14,15 +13,16 @@ import org.springframework.stereotype.Service;
 public class UsuarioDetailsService implements UserDetailsService {
 
     private final UsuarioRepository usuarioRepository;
+    private final CacheUsuarios cacheUsuarios;
 
-    public UsuarioDetailsService(UsuarioRepository usuarioRepository) {
+    public UsuarioDetailsService(UsuarioRepository usuarioRepository, CacheUsuarios cacheUsuarios) {
         this.usuarioRepository = usuarioRepository;
+        this.cacheUsuarios = cacheUsuarios;
     }
 
     @Override
     public UserDetails loadUserByUsername(String correo) throws UsernameNotFoundException {
-        Usuario usuario = usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + correo));
-        return new UsuarioAutenticado(usuario);
+        return cacheUsuarios.obtener(correo, () -> new UsuarioAutenticado(usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + correo))));
     }
 }

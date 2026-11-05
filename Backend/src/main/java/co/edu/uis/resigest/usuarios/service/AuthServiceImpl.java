@@ -3,6 +3,7 @@ package co.edu.uis.resigest.usuarios.service;
 import co.edu.uis.resigest.common.exception.AutenticacionException;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.common.exception.ReglaNegocioException;
+import co.edu.uis.resigest.common.security.CifradorContrasenas;
 import co.edu.uis.resigest.common.security.JwtService;
 import co.edu.uis.resigest.usuarios.domain.TokenRecuperacion;
 import co.edu.uis.resigest.usuarios.domain.Usuario;
@@ -37,20 +38,23 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final TokenRecuperacionRepository tokenRecuperacionRepository;
+    private final CifradorContrasenas cifrador;
 
     public AuthServiceImpl(UsuarioRepository usuarioRepository,
                            PasswordEncoder passwordEncoder,
                            JwtService jwtService,
-                           TokenRecuperacionRepository tokenRecuperacionRepository) {
+                           TokenRecuperacionRepository tokenRecuperacionRepository,
+                           CifradorContrasenas cifrador) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.tokenRecuperacionRepository = tokenRecuperacionRepository;
+        this.cifrador = cifrador;
     }
 
     @Override
     public TokenResponse autenticar(LoginRequest request) {
-        Usuario usuario = usuarioRepository.findByCorreo(request.correo())
+        Usuario usuario = usuarioRepository.findByCorreo(request.correo().trim().toLowerCase())
                 .orElseThrow(() -> new AutenticacionException("Credenciales inválidas"));
 
         if (usuario.estaBloqueado()) {
@@ -98,8 +102,9 @@ public class AuthServiceImpl implements AuthService {
         }
 
         Usuario usuario = recuperacion.getUsuario();
-        usuario.setContrasenaHash(passwordEncoder.encode(nuevaContrasena));
-        usuario.reiniciarIntentos();
+        // El personal operativo mantiene su copia cifrada al día para el administrador.
+        String cifrada = usuario.getRol().esPersonalOperativo() ? cifrador.cifrar(nuevaContrasena) : null;
+        usuario.cambiarContrasena(passwordEncoder.encode(nuevaContrasena), cifrada);
         recuperacion.marcarUsado();
     }
 }

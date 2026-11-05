@@ -5,7 +5,6 @@ import co.edu.uis.resigest.reservas.dto.RechazoRequest;
 import co.edu.uis.resigest.reservas.dto.ReservaDTO;
 import co.edu.uis.resigest.reservas.dto.SolicitudReservaRequest;
 
-import java.time.LocalDate;
 import java.util.List;
 
 public interface ReservaService {
@@ -18,7 +17,6 @@ public interface ReservaService {
 
     void cancelar(Long id, Long residenteId);
 
-    /** Lista reservas con filtros opcionales; {@code mias} restringe al apartamento del residente. */
-    List<ReservaDTO> listar(Long zonaId, EstadoReserva estado, boolean mias,
-                            LocalDate desde, LocalDate hasta, Long usuarioId);
+    /** Todos los filtros son opcionales. */
+    List<ReservaDTO> listar(Long zonaId, Long apartamentoId, EstadoReserva estado);
 }

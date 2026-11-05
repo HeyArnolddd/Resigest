@@ -1,5 +1,10 @@
 package co.edu.uis.resigest.mantenimiento.service;
 
+import co.edu.uis.resigest.mantenimiento.dto.ConfirmarSolucionRequest;
+import co.edu.uis.resigest.common.archivos.ArchivoService;
+import co.edu.uis.resigest.mantenimiento.event.IncidenciaActualizadaEvento;
+import org.springframework.context.ApplicationEventPublisher;
+import java.util.List;
 import co.edu.uis.resigest.common.exception.AccesoDenegadoException;
 import co.edu.uis.resigest.common.exception.RecursoNoEncontradoException;
 import co.edu.uis.resigest.common.exception.ReglaNegocioException;
@@ -7,18 +12,15 @@ import co.edu.uis.resigest.mantenimiento.domain.EvidenciaIncidencia;
 import co.edu.uis.resigest.mantenimiento.domain.Incidencia;
 import co.edu.uis.resigest.mantenimiento.dto.AsignarRequest;
 import co.edu.uis.resigest.mantenimiento.dto.CrearIncidenciaRequest;
-import co.edu.uis.resigest.mantenimiento.dto.FiltroIncidencias;
 import co.edu.uis.resigest.mantenimiento.dto.IncidenciaDTO;
 import co.edu.uis.resigest.mantenimiento.dto.ResolverIncidenciaRequest;
 import co.edu.uis.resigest.mantenimiento.repository.IncidenciaRepository;
 import co.edu.uis.resigest.mantenimiento.storage.AlmacenamientoArchivos;
-import co.edu.uis.resigest.usuarios.domain.Rol;
 import co.edu.uis.resigest.usuarios.domain.TecnicoMantenimiento;
 import co.edu.uis.resigest.usuarios.domain.Usuario;
 import co.edu.uis.resigest.usuarios.repository.UsuarioRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,9 +35,13 @@ public class IncidenciaServiceImpl implements IncidenciaService {
     private final UsuarioRepository usuarioRepository;
     private final AlmacenamientoArchivos almacenamientoArchivos;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     public IncidenciaServiceImpl(IncidenciaRepository incidenciaRepository,
                                  UsuarioRepository usuarioRepository,
-                                 AlmacenamientoArchivos almacenamientoArchivos) {
+                                 AlmacenamientoArchivos almacenamientoArchivos,
+                                 ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
         this.incidenciaRepository = incidenciaRepository;
         this.usuarioRepository = usuarioRepository;
         this.almacenamientoArchivos = almacenamientoArchivos;
@@ -50,15 +56,19 @@ public class IncidenciaServiceImpl implements IncidenciaService {
 
         Incidencia incidencia = new Incidencia(
                 request.titulo(), request.descripcion(), request.ubicacion(),
-                request.prioridad(), reportador, request.categoria());
+                request.prioridad(), reportador);
+        incidencia.setCategoria(request.categoria());
         incidenciaRepository.save(incidencia);
         return IncidenciaDTO.de(incidencia);
     }
 
     @Override
     @Transactional
-    public IncidenciaDTO agregarEvidencia(Long incidenciaId, MultipartFile archivo) {
+    public IncidenciaDTO agregarEvidencia(Long incidenciaId, MultipartFile archivo, Long usuarioId) {
         Incidencia incidencia = buscarIncidencia(incidenciaId);
+        if (!incidencia.getReportadoPor().getId().equals(usuarioId)) {
+            throw new AccesoDenegadoException("Solo quien reportó la incidencia puede adjuntar evidencias");
+        }
         String url = almacenamientoArchivos.guardar(archivo);
         incidencia.getEvidencias().add(new EvidenciaIncidencia(
                 incidencia, url, archivo.getOriginalFilename()));
@@ -76,50 +86,80 @@ public class IncidenciaServiceImpl implements IncidenciaService {
             throw new ReglaNegocioException("El usuario asignado no es un técnico de mantenimiento");
         }
         incidencia.asignarA(tecnico);
+        eventPublisher.publishEvent(new IncidenciaActualizadaEvento(
+                IncidenciaActualizadaEvento.Tipo.ASIGNADA, tecnico.getId(), incidencia.getTitulo()));
         return IncidenciaDTO.de(incidencia);
     }
 
     @Override
     @Transactional
-    public IncidenciaDTO resolver(Long incidenciaId, ResolverIncidenciaRequest request) {
+    public IncidenciaDTO resolver(Long incidenciaId, ResolverIncidenciaRequest request, Long tecnicoId) {
         Incidencia incidencia = buscarIncidencia(incidenciaId);
-        incidencia.resolver(request.solucion());
+        verificarAsignada(incidencia, tecnicoId);
+        if (!ArchivoService.esUrlPropia(request.fotoUrl())) {
+            throw new ReglaNegocioException("La foto debe subirse primero al sistema");
+        }
+        incidencia.resolver(request.solucion().trim(), request.fotoUrl());
+        eventPublisher.publishEvent(new IncidenciaActualizadaEvento(
+                IncidenciaActualizadaEvento.Tipo.RESUELTA, incidencia.getReportadoPor().getId(), incidencia.getTitulo()));
         return IncidenciaDTO.de(incidencia);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Page<IncidenciaDTO> listar(FiltroIncidencias filtro, Long usuarioId, Rol rol, Pageable pageable) {
-        Specification<Incidencia> spec = (root, query, cb) -> cb.conjunction();
-        if (rol == Rol.RESIDENTE || rol == Rol.PORTERO) {
-            spec = spec.and((root, q, cb) -> cb.equal(root.get("reportadoPor").get("id"), usuarioId));
-        }
-        if (filtro.estado() != null) {
-            spec = spec.and((root, q, cb) -> cb.equal(root.get("estado"), filtro.estado()));
-        }
-        if (filtro.asignadoAMi()) {
-            spec = spec.and((root, q, cb) -> cb.equal(root.get("asignadoA").get("id"), usuarioId));
-        }
-        if (filtro.desde() != null) {
-            spec = spec.and((root, q, cb) ->
-                    cb.greaterThanOrEqualTo(root.get("fechaCreacion"), filtro.desde().atStartOfDay()));
-        }
-        if (filtro.hasta() != null) {
-            spec = spec.and((root, q, cb) ->
-                    cb.lessThan(root.get("fechaCreacion"), filtro.hasta().plusDays(1).atStartOfDay()));
-        }
-        return incidenciaRepository.findAll(spec, pageable).map(IncidenciaDTO::de);
     }
 
     @Override
     @Transactional
     public IncidenciaDTO iniciar(Long incidenciaId, Long tecnicoId) {
         Incidencia incidencia = buscarIncidencia(incidenciaId);
-        if (incidencia.getAsignadoA() == null || !incidencia.getAsignadoA().getId().equals(tecnicoId)) {
-            throw new AccesoDenegadoException("La incidencia no está asignada a este técnico");
-        }
+        verificarAsignada(incidencia, tecnicoId);
         incidencia.iniciarTrabajo();
         return IncidenciaDTO.de(incidencia);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<IncidenciaDTO> listarReportadasPor(Long usuarioId) {
+        return incidenciaRepository.findByReportadoPorIdOrderByFechaCreacionDesc(usuarioId).stream()
+                .map(IncidenciaDTO::de)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<IncidenciaDTO> listarAsignadasA(Long tecnicoId) {
+        return incidenciaRepository.findByAsignadoAIdOrderByFechaCreacionDesc(tecnicoId).stream()
+                .map(IncidenciaDTO::de)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public IncidenciaDTO confirmarSolucion(Long incidenciaId, ConfirmarSolucionRequest request, Long usuarioId) {
+        Incidencia incidencia = buscarIncidencia(incidenciaId);
+        if (!incidencia.getReportadoPor().getId().equals(usuarioId)) {
+            throw new AccesoDenegadoException("Solo quien reportó la incidencia puede confirmar la solución");
+        }
+        if (request.solucionado()) {
+            incidencia.confirmarSolucion();
+        } else {
+            incidencia.reabrir(request.comentario() == null ? null : request.comentario().trim());
+        }
+        if (incidencia.getAsignadoA() != null) {
+            eventPublisher.publishEvent(new IncidenciaActualizadaEvento(
+                    request.solucionado() ? IncidenciaActualizadaEvento.Tipo.CONFIRMADA : IncidenciaActualizadaEvento.Tipo.REABIERTA,
+                    incidencia.getAsignadoA().getId(), incidencia.getTitulo()));
+        }
+        return IncidenciaDTO.de(incidencia);
+    }
+
+    private void verificarAsignada(Incidencia incidencia, Long tecnicoId) {
+        if (incidencia.getAsignadoA() == null || !incidencia.getAsignadoA().getId().equals(tecnicoId)) {
+            throw new AccesoDenegadoException("Esta incidencia no está asignada a ti");
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<IncidenciaDTO> listar(Pageable pageable) {
+        return incidenciaRepository.findAll(pageable).map(IncidenciaDTO::de);
     }
 
     private Incidencia buscarIncidencia(Long id) {

@@ -12,8 +12,7 @@ public record ReservaDTO(
         String apartamento,
         LocalDateTime fechaInicio,
         LocalDateTime fechaFin,
-        String estado,
-        String justificacionRechazo
+        String estado
 ) {
 
     public static ReservaDTO de(Reserva reserva) {
@@ -25,8 +24,7 @@ public record ReservaDTO(
                 reserva.getApartamento().identificadorCompleto(),
                 reserva.getFechaInicio(),
                 reserva.getFechaFin(),
-                reserva.getEstado().name(),
-                reserva.getJustificacionRechazo()
+                reserva.getEstado().name()
         );
     }
 }

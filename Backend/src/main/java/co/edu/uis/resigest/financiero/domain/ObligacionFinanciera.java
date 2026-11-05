@@ -91,6 +91,17 @@ public class ObligacionFinanciera extends EntidadBase {
         estado = EstadoObligacion.EN_VERIFICACION;
     }
 
+    /** Tras rechazar un comprobante: vuelve a estar por pagar (vencida si ya pasó la fecha). */
+    public void reabrir() {
+        if (estado == EstadoObligacion.EN_VERIFICACION) {
+            estado = fechaVencimiento.isBefore(LocalDate.now()) ? EstadoObligacion.VENCIDA : EstadoObligacion.PENDIENTE;
+        }
+    }
+
+    public boolean estaEnVerificacion() {
+        return estado == EstadoObligacion.EN_VERIFICACION;
+    }
+
     public void marcarVencida() {
         if (estado == EstadoObligacion.PENDIENTE) {
             estado = EstadoObligacion.VENCIDA;

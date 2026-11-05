@@ -2,24 +2,12 @@ package co.edu.uis.resigest.comunicaciones.repository;
 
 import co.edu.uis.resigest.comunicaciones.domain.MensajeChat;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
 public interface MensajeChatRepository extends JpaRepository<MensajeChat, Long> {
-
-    @Query("select m from MensajeChat m where m.destinatario is null order by m.fecha desc")
-    List<MensajeChat> comunidad(Pageable pageable);
-
-    /** Ids de las personas con las que el usuario tiene mensajes privados. */
-    @Query("""
-            select distinct case when m.remitente.id = :u then m.destinatario.id else m.remitente.id end
-            from MensajeChat m
-            where m.destinatario is not null and (m.remitente.id = :u or m.destinatario.id = :u)
-            """)
-    List<Long> interlocutores(@Param("u") Long usuarioId);
 
     @Query("""
             select m from MensajeChat m
@@ -28,4 +16,12 @@ public interface MensajeChatRepository extends JpaRepository<MensajeChat, Long> 
             order by m.fecha
             """)
     List<MensajeChat> conversacion(@Param("u1") Long u1, @Param("u2") Long u2);
+
+    /** Todos los mensajes en los que participa el usuario, del más reciente al más antiguo. */
+    @Query("""
+            select m from MensajeChat m
+            where m.remitente.id = :usuarioId or m.destinatario.id = :usuarioId
+            order by m.fecha desc
+            """)
+    List<MensajeChat> deUsuario(@Param("usuarioId") Long usuarioId);
 }

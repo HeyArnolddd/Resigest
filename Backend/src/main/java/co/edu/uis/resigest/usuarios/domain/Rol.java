@@ -7,5 +7,13 @@ public enum Rol {
     RESIDENTE,
     ADMINISTRADOR,
     PORTERO,
-    MANTENIMIENTO
+    MANTENIMIENTO;
+
+    /**
+     * Portería y mantenimiento: cuentas creadas por el administrador, que puede
+     * consultar sus credenciales.
+     */
+    public boolean esPersonalOperativo() {
+        return this == PORTERO || this == MANTENIMIENTO;
+    }
 }

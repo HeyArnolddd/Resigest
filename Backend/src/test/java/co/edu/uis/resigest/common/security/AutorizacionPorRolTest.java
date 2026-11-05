@@ -37,7 +37,7 @@ class AutorizacionPorRolTest {
     @Test
     @WithMockUser(roles = "ADMINISTRADOR")
     void administradorPuedeListarUsuarios() throws Exception {
-        when(usuarioService.listar(any(), any())).thenReturn(Page.empty());
+        when(usuarioService.listar(any(), any(), any(), any())).thenReturn(Page.empty());
         mockMvc.perform(get("/api/usuarios")).andExpect(status().isOk());
     }
 

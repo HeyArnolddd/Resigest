@@ -1,15 +1,16 @@
 import { motion } from 'motion/react'
-import { CalendarDays, CheckCircle2, MapPin } from 'lucide-react'
+import { CalendarDays, CheckCircle2, ClipboardCheck, MapPin } from 'lucide-react'
 import IlustracionIncidencia from '../../components/incidencias/IlustracionIncidencia'
-import { puntoPrioridad } from '../../lib/incidencias'
-import { incidencias } from '../../data/mock'
+import { incidenciasApi, puntoPrioridad } from '../../lib/incidencias'
+import { useCarga } from '../../lib/useCarga'
 import { aparecer, tarjeta } from '../../lib/panel'
 import { cn } from '../../lib/utils'
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 export default function Historial() {
-  const resueltas = incidencias.filter((i) => i.estado === 'Resuelta')
+  const { datos } = useCarga(incidenciasApi.asignadas, 'mant:asignadas')
+  const resueltas = (datos ?? []).filter((i) => i.terminada)
 
   // Agrupadas por mes (fechas dd/mm/aaaa), en el orden en que llegan
   const porMes = resueltas.reduce((acc, i) => {
@@ -50,6 +51,15 @@ export default function Historial() {
         </div>
       </motion.div>
 
+      {datos && resueltas.length === 0 && (
+        <div className={cn(tarjeta, 'flex flex-col items-center gap-2 px-6 py-14 text-center')}>
+          <ClipboardCheck className="size-8 text-slate-300" />
+          <p className="text-sm font-bold text-slate-900">Todavía no has resuelto incidencias</p>
+          <p className="max-w-sm text-xs text-slate-500">Cada trabajo que marques como resuelto quedará registrado aquí, organizado por mes.</p>
+        </div>
+      )}
+      {!datos && <div className={cn(tarjeta, 'h-40 animate-pulse')} role="status" aria-label="Cargando historial" />}
+
       {/* Línea de tiempo por mes */}
       {Object.entries(porMes).map(([mes, lista], m) => (
         <motion.section key={mes} {...aparecer(m + 1)}>
@@ -74,10 +84,14 @@ export default function Historial() {
                   <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-6 gap-y-2 p-4">
                     <div className="min-w-0 flex-1 basis-56">
                       <p className="flex items-center gap-2">
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-600">{inc.id}</span>
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-600">{inc.codigo}</span>
                         <span className="text-[11px] font-medium text-slate-400">{inc.categoria}</span>
                       </p>
                       <p className="mt-1.5 font-bold leading-snug text-slate-900">{inc.titulo}</p>
+                      {inc.solucion && <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{inc.solucion}</p>}
+                      <p className={cn('mt-1 text-[11px] font-semibold', inc.estado === 'Confirmada' ? 'text-brand-700' : 'text-warning-strong')}>
+                        {inc.estado === 'Confirmada' ? '✓ Confirmada por el residente' : 'Esperando confirmación del residente'}
+                      </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                       <span className="flex items-center gap-1">

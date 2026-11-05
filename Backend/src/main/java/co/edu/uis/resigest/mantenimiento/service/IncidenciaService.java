@@ -1,11 +1,11 @@
 package co.edu.uis.resigest.mantenimiento.service;
 
+import co.edu.uis.resigest.mantenimiento.dto.ConfirmarSolucionRequest;
+import java.util.List;
 import co.edu.uis.resigest.mantenimiento.dto.AsignarRequest;
 import co.edu.uis.resigest.mantenimiento.dto.CrearIncidenciaRequest;
-import co.edu.uis.resigest.mantenimiento.dto.FiltroIncidencias;
 import co.edu.uis.resigest.mantenimiento.dto.IncidenciaDTO;
 import co.edu.uis.resigest.mantenimiento.dto.ResolverIncidenciaRequest;
-import co.edu.uis.resigest.usuarios.domain.Rol;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,17 +14,24 @@ public interface IncidenciaService {
 
     IncidenciaDTO reportar(CrearIncidenciaRequest request, Long usuarioId);
 
-    IncidenciaDTO agregarEvidencia(Long incidenciaId, MultipartFile archivo);
+    /** Solo quien reportó la incidencia puede adjuntarle fotos. */
+    IncidenciaDTO agregarEvidencia(Long incidenciaId, MultipartFile archivo, Long usuarioId);
 
     IncidenciaDTO asignar(Long incidenciaId, AsignarRequest request);
 
-    IncidenciaDTO resolver(Long incidenciaId, ResolverIncidenciaRequest request);
-
+    /** El técnico marca que empezó a trabajar (ASIGNADA → EN_PROCESO). Solo el técnico asignado. */
     IncidenciaDTO iniciar(Long incidenciaId, Long tecnicoId);
 
-    /**
-     * Lista incidencias según el rol del solicitante: administrador y mantenimiento ven todas;
-     * residente y portero solo las que reportaron. Los filtros son opcionales.
-     */
-    Page<IncidenciaDTO> listar(FiltroIncidencias filtro, Long usuarioId, Rol rol, Pageable pageable);
+    /** Solo el técnico asignado puede resolverla. */
+    IncidenciaDTO resolver(Long incidenciaId, ResolverIncidenciaRequest request, Long tecnicoId);
+
+    /** Las que reportó el usuario (residente o portero). */
+    List<IncidenciaDTO> listarReportadasPor(Long usuarioId);
+
+    List<IncidenciaDTO> listarAsignadasA(Long tecnicoId);
+
+    /** Quien la reportó confirma la solución o la reabre con un comentario. */
+    IncidenciaDTO confirmarSolucion(Long incidenciaId, ConfirmarSolucionRequest request, Long usuarioId);
+
+    Page<IncidenciaDTO> listar(Pageable pageable);
 }

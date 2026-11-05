@@ -1,13 +1,11 @@
 package co.edu.uis.resigest.financiero.service;
 
-import co.edu.uis.resigest.financiero.domain.EstadoPago;
 import co.edu.uis.resigest.financiero.dto.IniciarPagoRequest;
 import co.edu.uis.resigest.financiero.dto.PagoDTO;
 import co.edu.uis.resigest.financiero.dto.ReportarPagoManualRequest;
 import co.edu.uis.resigest.financiero.dto.ValidarPagoRequest;
 import co.edu.uis.resigest.financiero.dto.WebhookPagoRequest;
 
-import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -23,8 +21,7 @@ public interface PagoService {
 
     List<PagoDTO> listarPendientesValidacion();
 
-    /** Lista pagos con filtros opcionales (estado, apartamento, rango de fechas). */
-    List<PagoDTO> listar(EstadoPago estado, Long apartamentoId, LocalDate desde, LocalDate hasta);
+    List<PagoDTO> listarPorApartamento(Long apartamentoId);
 
     PagoDTO procesarWebhook(WebhookPagoRequest request);
 }

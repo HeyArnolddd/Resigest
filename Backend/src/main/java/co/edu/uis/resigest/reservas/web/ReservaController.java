@@ -1,13 +1,12 @@
 package co.edu.uis.resigest.reservas.web;
 
+import co.edu.uis.resigest.reservas.domain.EstadoReserva;
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
 import co.edu.uis.resigest.reservas.dto.RechazoRequest;
 import co.edu.uis.resigest.reservas.dto.ReservaDTO;
 import co.edu.uis.resigest.reservas.dto.SolicitudReservaRequest;
 import co.edu.uis.resigest.reservas.service.ReservaService;
 import jakarta.validation.Valid;
-import co.edu.uis.resigest.reservas.domain.EstadoReserva;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
-import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -40,12 +38,9 @@ public class ReservaController {
 
     @GetMapping
     public List<ReservaDTO> listar(@RequestParam(required = false) Long zonaId,
-                                   @RequestParam(required = false) EstadoReserva estado,
-                                   @RequestParam(defaultValue = "false") boolean mias,
-                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
-                                   @AuthenticationPrincipal UsuarioAutenticado autenticado) {
-        return reservaService.listar(zonaId, estado, mias, desde, hasta, autenticado.getId());
+                                   @RequestParam(required = false) Long apartamentoId,
+                                   @RequestParam(required = false) EstadoReserva estado) {
+        return reservaService.listar(zonaId, apartamentoId, estado);
     }
 
     @PostMapping

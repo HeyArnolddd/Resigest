@@ -31,4 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
-uploads/
+
+### Variables de entorno locales (credenciales) ###
+.env

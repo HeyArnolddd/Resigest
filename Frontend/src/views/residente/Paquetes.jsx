@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarDays, CheckCircle2, Clock, MapPin, PackageCheck, PackageOpen, Truck } from 'lucide-react'
-import { Button } from '../../components/ui'
+import { AlertCircle, CalendarDays, CheckCircle2, Clock, IdCard, MapPin, PackageCheck, PackageOpen, RotateCcw } from 'lucide-react'
+import { ArchivoProtegido, Button, EmptyState } from '../../components/ui'
 import { Titulo } from '../../components/ui/Panel'
 import EscenaPaquetes from '../../components/inicio/EscenaPaquetes'
 import IlustracionPaquete from '../../components/paquetes/IlustracionPaquete'
-import { paquetes } from '../../data/mock'
 import { aparecer, tarjeta } from '../../lib/panel'
+import { hora } from '../../lib/porteria'
+import { fmtFechaCorta, residenteApi } from '../../lib/residente'
+import { useSesion } from '../../lib/sesion'
+import { useCarga } from '../../lib/useCarga'
 import { useAhora } from '../../lib/useAhora'
 import { cn } from '../../lib/utils'
 
@@ -35,7 +38,7 @@ function CodigoBarras({ guia }) {
 CodigoBarras.propTypes = { guia: PropTypes.string.isRequired }
 
 // Paquete en portería como etiqueta de envío
-function Etiqueta({ paquete, onConfirmar }) {
+function Etiqueta({ paquete, onRecogido, ocupado }) {
   return (
     <motion.article
       layout
@@ -50,19 +53,23 @@ function Etiqueta({ paquete, onConfirmar }) {
           <span className="size-2 rounded-full bg-warning" />
           En portería
         </span>
-        <span className="font-mono text-[11px] font-semibold text-amber-700/70">{paquete.id}</span>
+        <span className="font-mono text-[11px] font-semibold text-amber-700/70">#{String(paquete.id).padStart(4, '0')}</span>
       </div>
 
       <div className="flex gap-4 p-5">
-        <div className="flex size-24 shrink-0 items-end justify-center rounded-xl bg-amber-50/60 ring-1 ring-amber-100">
-          <IlustracionPaquete descripcion={paquete.descripcion} className="w-full p-1.5" />
-        </div>
+        {paquete.fotoUrl ? (
+          <ArchivoProtegido url={paquete.fotoUrl} alt={`Foto del paquete de ${paquete.empresa}`} className="size-24 shrink-0 rounded-xl" />
+        ) : (
+          <div className="flex size-24 shrink-0 items-end justify-center rounded-xl bg-amber-50/60 ring-1 ring-amber-100">
+            <IlustracionPaquete descripcion={paquete.descripcion} className="w-full p-1.5" />
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Remitente</p>
           <h3 className="truncate text-lg font-bold leading-tight text-slate-900">{paquete.empresa}</h3>
           <p className="mt-1 text-sm text-slate-600">{paquete.descripcion}</p>
           <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-            <CalendarDays className="size-3.5" /> Llegó el {paquete.fecha}
+            <CalendarDays className="size-3.5" /> Llegó el {fmtFechaCorta(paquete.fechaRecepcion)} a las {hora(paquete.fechaRecepcion)}
           </p>
         </div>
       </div>
@@ -71,13 +78,20 @@ function Etiqueta({ paquete, onConfirmar }) {
       <div className="mx-5 border-t-2 border-dashed border-slate-200" />
 
       <div className="flex flex-wrap items-end gap-4 px-5 pb-5 pt-4">
-        <div className="min-w-[140px] flex-1">
-          <CodigoBarras guia={paquete.guia} />
-          <p className="mt-1 font-mono text-[11px] tracking-[0.2em] text-slate-500">{paquete.guia}</p>
+        {paquete.guia && (
+          <div className="min-w-[140px] flex-1">
+            <CodigoBarras guia={paquete.guia} />
+            <p className="mt-1 font-mono text-[11px] tracking-[0.2em] text-slate-500">{paquete.guia}</p>
+          </div>
+        )}
+        <div className="flex flex-col items-end gap-1.5">
+          <Button size="sm" icon={PackageCheck} disabled={ocupado} onClick={() => onRecogido(paquete)}>
+            Ya lo recogí
+          </Button>
+          <p className="flex items-center gap-1 text-[11px] text-slate-500">
+            <IdCard className="size-3.5 text-brand-600" /> Lleva tu documento
+          </p>
         </div>
-        <Button size="sm" icon={PackageCheck} onClick={() => onConfirmar(paquete.id)}>
-          Ya lo recogí
-        </Button>
       </div>
     </motion.article>
   )
@@ -85,26 +99,42 @@ function Etiqueta({ paquete, onConfirmar }) {
 
 Etiqueta.propTypes = {
   paquete: PropTypes.shape({
-    id: PropTypes.string.isRequired,
+    id: PropTypes.number.isRequired,
     empresa: PropTypes.string.isRequired,
-    guia: PropTypes.string.isRequired,
+    guia: PropTypes.string,
     descripcion: PropTypes.string,
-    fecha: PropTypes.string.isRequired,
+    fechaRecepcion: PropTypes.string.isRequired,
+    fotoUrl: PropTypes.string,
   }).isRequired,
-  onConfirmar: PropTypes.func.isRequired,
+  onRecogido: PropTypes.func.isRequired,
+  ocupado: PropTypes.bool,
 }
 
 export default function Paquetes() {
-  const [lista, setLista] = useState(paquetes)
+  const { usuario } = useSesion()
+  const { datos: lista, error, recargar } = useCarga(() => residenteApi.paquetes(usuario.apartamentoId), 'res:paquetes')
   const ahora = useAhora()
 
-  const enPorteria = lista.filter((p) => p.estado === 'Ha llegado')
-  const enCamino = lista.filter((p) => p.estado === 'No ha llegado')
-  const entregados = lista.filter((p) => p.estado === 'Entregado')
-  const abierta = ahora.getHours() >= APERTURA && ahora.getHours() < CIERRE
+  const [ocupado, setOcupado] = useState(false)
+  const [errorAccion, setErrorAccion] = useState('')
 
-  const confirmarEntrega = (id) =>
-    setLista(lista.map((p) => (p.id === id ? { ...p, estado: 'Entregado', fecha: 'Hoy' } : p)))
+  // El residente confirma que ya lo recogió: deja de salirle como pendiente
+  const recogido = async (paquete) => {
+    setOcupado(true)
+    setErrorAccion('')
+    try {
+      await residenteApi.confirmarRecogido(paquete.id)
+      recargar()
+    } catch (e) {
+      setErrorAccion(e.message)
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  const enPorteria = (lista ?? []).filter((p) => p.enPorteria)
+  const entregados = (lista ?? []).filter((p) => !p.enPorteria)
+  const abierta = ahora.getHours() >= APERTURA && ahora.getHours() < CIERRE
 
   return (
     <div className="space-y-5">
@@ -118,7 +148,7 @@ export default function Paquetes() {
         <div className="p-6">
           <p className="text-sm font-semibold text-brand-700">Te esperan en portería</p>
           <p className="mt-1 flex items-baseline gap-2">
-            <span className="text-5xl font-extrabold leading-none tracking-tight text-slate-900 tabular-nums">{enPorteria.length}</span>
+            <span className="text-5xl font-extrabold leading-none tracking-tight text-slate-900 tabular-nums">{lista ? enPorteria.length : '–'}</span>
             <span className="text-base font-semibold text-slate-600">{enPorteria.length === 1 ? 'paquete' : 'paquetes'}</span>
           </p>
           <p className="mt-2 max-w-md text-sm text-slate-500">
@@ -149,6 +179,21 @@ export default function Paquetes() {
         </div>
       </motion.section>
 
+      {error && (
+        <div className={tarjeta}>
+          <EmptyState
+            icon={AlertCircle}
+            title="No se pudieron cargar tus paquetes"
+            description={error}
+            action={
+              <Button variant="secondary" size="sm" icon={RotateCcw} onClick={recargar} className="mt-2">
+                Intentar de nuevo
+              </Button>
+            }
+          />
+        </div>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Por recoger */}
         <div className="lg:col-span-2">
@@ -156,11 +201,14 @@ export default function Paquetes() {
             <span className="size-2.5 rounded-[3px] bg-brand-500" />
             Por recoger
           </h2>
-          {enPorteria.length > 0 ? (
+          {errorAccion && <p role="alert" className="mb-3 rounded-xl bg-danger-bg px-4 py-3 text-sm font-medium text-danger-strong">{errorAccion}</p>}
+          {!lista && !error ? (
+            <div className={cn(tarjeta, 'h-48 animate-pulse')} role="status" aria-label="Cargando paquetes" />
+          ) : enPorteria.length > 0 ? (
             <div className="grid gap-5 md:grid-cols-2">
               <AnimatePresence mode="popLayout">
                 {enPorteria.map((p) => (
-                  <Etiqueta key={p.id} paquete={p} onConfirmar={confirmarEntrega} />
+                  <Etiqueta key={p.id} paquete={p} onRecogido={recogido} ocupado={ocupado} />
                 ))}
               </AnimatePresence>
             </div>
@@ -169,36 +217,13 @@ export default function Paquetes() {
               <span className="flex size-12 items-center justify-center rounded-full bg-success-bg text-success-strong">
                 <CheckCircle2 className="size-6" />
               </span>
-              <p className="text-sm font-bold text-slate-900">Todo recogido</p>
-              <p className="text-xs text-slate-500">No hay paquetes tuyos esperando en portería.</p>
+              <p className="text-sm font-bold text-slate-900">Nada por recoger</p>
+              <p className="text-xs text-slate-500">No hay paquetes tuyos esperando en portería. Te avisaremos cuando llegue uno.</p>
             </div>
           )}
         </div>
 
         <div className="flex flex-col gap-5">
-          {/* En camino */}
-          {enCamino.length > 0 && (
-            <motion.section {...aparecer(1)} className={cn(tarjeta, 'p-5')}>
-              <Titulo>En camino</Titulo>
-              <ul className="mt-3 space-y-2">
-                {enCamino.map((p) => (
-                  <li key={p.id} className="flex items-center gap-3 rounded-xl bg-sky-50/70 p-3 ring-1 ring-sky-100">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-sky-600 ring-1 ring-sky-100">
-                      <Truck className="size-4" strokeWidth={2} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800">{p.empresa}</p>
-                      <p className="truncate text-xs text-slate-500">
-                        {p.descripcion} · <span className="font-mono">{p.guia}</span>
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-[11px] font-semibold text-sky-700">Aún no llega</span>
-                  </li>
-                ))}
-              </ul>
-            </motion.section>
-          )}
-
           {/* Historial */}
           <motion.section {...aparecer(2)} className={cn(tarjeta, 'p-5')}>
             <Titulo>Ya recogidos</Titulo>
@@ -218,9 +243,9 @@ export default function Paquetes() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-slate-800">{p.empresa}</p>
-                        <p className="truncate text-xs text-slate-500">{p.descripcion}</p>
+                        <p className="truncate text-xs text-slate-500">Lo recibió {p.entregadoA}</p>
                       </div>
-                      <span className="shrink-0 text-xs text-slate-400 tabular-nums">{p.fecha}</span>
+                      <span className="shrink-0 text-xs text-slate-400 tabular-nums">{fmtFechaCorta(p.fechaEntrega)}</span>
                     </motion.li>
                   ))}
                 </AnimatePresence>

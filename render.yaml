@@ -1,0 +1,51 @@
+# Plano de despliegue en Render (https://render.com/docs/blueprint-spec).
+# En Render: New → Blueprint → elegir este repositorio. Crea el backend y el frontend.
+# Los valores con "sync: false" los pide Render al crear el Blueprint (ver Documentation/DESPLIEGUE.md).
+
+services:
+  # Backend (Spring Boot en Docker). En Virginia, junto a la base de datos de Supabase.
+  - type: web
+    name: resigest-api
+    runtime: docker
+    rootDir: Backend
+    dockerfilePath: ./Dockerfile
+    region: virginia
+    plan: free
+    branch: frontend
+    healthCheckPath: /api/salud
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: RESIGEST_CLAVE_CREDENCIALES
+        sync: false
+      - key: JWT_SECRETO
+        generateValue: true
+      # Las URL del frontend en Render empiezan por resigest-app
+      - key: CORS_ORIGENES
+        value: https://resigest-app*.onrender.com,http://localhost:5173
+      # El plan gratis tiene 512 MB: que Java no use más de lo que hay
+      - key: JAVA_TOOL_OPTIONS
+        value: -XX:MaxRAMPercentage=75 -XX:+UseSerialGC
+
+  # Frontend (sitio estático de Vite). Gratis y siempre encendido.
+  - type: web
+    name: resigest-app
+    runtime: static
+    rootDir: Frontend
+    branch: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      # Vite 8 necesita Node 20.19 o superior
+      - key: NODE_VERSION
+        value: "22"
+      # Dirección pública del backend (fromService/host entrega el nombre interno, que el navegador no alcanza).
+      # Si el backend queda con otro nombre en Render, cambiarla aquí.
+      - key: VITE_API_URL
+        value: https://resigest-api.onrender.com

@@ -1,22 +1,39 @@
+# Perfil de producción: todo sale de variables de entorno (ver Documentation/DESPLIEGUE.md).
+# Se activa con SPRING_PROFILES_ACTIVE=prod.
 spring:
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      # El plan gratuito de Supabase limita las conexiones simultáneas
+      maximum-pool-size: ${DB_MAX_CONEXIONES:5}
   jpa:
     hibernate:
       ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+  flyway:
+    enabled: true
+
+server:
+  # Render, Railway y similares indican el puerto en PORT
+  port: ${PORT:8080}
 
 app:
   jwt:
-    secret: ${JWT_SECRET}
+    secret: ${JWT_SECRETO}
     expiracion-horas: ${JWT_EXPIRACION_HORAS:8}
-  cors:
-    origins: ${CORS_ORIGINS}
   webhook:
-    secret: ${WEBHOOK_SECRET}
+    # Vacío = el webhook rechaza todo (valor seguro por defecto)
+    secret: ${WEBHOOK_SECRETO:}
+  cors:
+    origenes: ${CORS_ORIGENES}
+  credenciales:
+    clave: ${RESIGEST_CLAVE_CREDENCIALES}
   pasarela: ${PASARELA:simulada}
   wompi:
-    url: ${WOMPI_URL:https://api.wompi.co/v1}
+    url: ${WOMPI_URL:https://sandbox.wompi.co/v1}
     llave-publica: ${WOMPI_PUBLIC_KEY:}
     llave-privada: ${WOMPI_PRIVATE_KEY:}
+    correo-cliente: ${WOMPI_CORREO_CLIENTE:cliente@resigest.com}

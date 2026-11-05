@@ -44,6 +44,9 @@ public abstract class Usuario extends EntidadBase {
 
     private LocalDateTime bloqueadoHasta;
 
+    /** Solo para personal operativo: copia cifrada que el administrador puede consultar. */
+    private String contrasenaCifrada;
+
     protected Usuario() {}
 
     public Usuario(String nombreCompleto, String correo, String contrasenaHash,
@@ -73,6 +76,16 @@ public abstract class Usuario extends EntidadBase {
     public void reiniciarIntentos() {
         intentosFallidos = 0;
         bloqueadoHasta = null;
+    }
+
+    /**
+     * Cambia la contraseña. {@code cifrada} va en null para los roles cuya
+     * contraseña no puede consultar el administrador.
+     */
+    public void cambiarContrasena(String hash, String cifrada) {
+        this.contrasenaHash = hash;
+        this.contrasenaCifrada = cifrada;
+        reiniciarIntentos();
     }
 
     public void activar() {

@@ -8,6 +8,7 @@ import {
   Check,
   Clock,
   CreditCard,
+  DoorOpen,
   Megaphone,
   Package,
   TriangleAlert,
@@ -19,24 +20,21 @@ import { aparecer, tarjeta } from '../../lib/panel'
 import CiudadBanner from '../../components/inicio/CiudadBanner'
 import EscenaPaquetes from '../../components/inicio/EscenaPaquetes'
 import IlustracionZona from '../../components/reservas/IlustracionZona'
-import { estadoReserva } from '../../lib/labels'
+import { estadoReserva, nombrePeriodo } from '../../lib/labels'
 import { alinearTooltip, cn, esDeNoche, formatCOP, saludo } from '../../lib/utils'
+import { api } from '../../lib/api'
+import { incidenciasApi } from '../../lib/incidencias'
+import { hora } from '../../lib/porteria'
+import { fmtFechaCorta, residenteApi } from '../../lib/residente'
+import { useSesion } from '../../lib/sesion'
+import { useCarga } from '../../lib/useCarga'
 import { useAhora } from '../../lib/useAhora'
 import { colorZona } from '../../lib/zonas'
-import {
-  incidencias,
-  notificaciones,
-  obligaciones,
-  paquetes,
-  reservasAgenda,
-  residente,
-  saldoPendiente,
-} from '../../data/mock'
 
-const MI_APARTAMENTO_ID = 12
+const POR_PAGAR = ['PENDIENTE', 'VENCIDA']
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
-const PASOS_INCIDENCIA = ['Nueva', 'En proceso', 'Resuelta']
+const PASOS_INCIDENCIA = ['Nueva', 'En proceso', 'Resuelta', 'Confirmada']
 
 const fechaLarga = (d) => `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`
 const horaCorta = (d) => d.toTimeString().slice(0, 5)
@@ -51,6 +49,9 @@ function faltan(fecha, ahora) {
 
 // Cuotas de los últimos meses: barra por mes, verde si está pagada y ámbar si sigue pendiente.
 function CuotasRecientes({ lista }) {
+  if (!lista.length) {
+    return <p className="flex h-20 items-center justify-center rounded-xl bg-slate-50 px-4 text-center text-xs text-slate-500">Todavía no tienes cuotas generadas.</p>
+  }
   const max = Math.max(...lista.map((o) => o.valor))
   return (
     <div>
@@ -144,11 +145,11 @@ function PasosIncidencia({ estado }) {
             className={cn(
               'flex size-5 items-center justify-center rounded-full text-[10px] font-bold',
               i < actual && 'bg-brand-600 text-white',
-              i === actual && (estado === 'Resuelta' ? 'bg-brand-600 text-white' : 'bg-brand-100 text-brand-700 ring-2 ring-brand-500'),
+              i === actual && (estado === 'Confirmada' ? 'bg-brand-600 text-white' : 'bg-brand-100 text-brand-700 ring-2 ring-brand-500'),
               i > actual && 'bg-slate-100 text-slate-400',
             )}
           >
-            {i < actual || estado === 'Resuelta' ? <Check className="size-3" strokeWidth={3} /> : i + 1}
+            {i < actual || estado === 'Confirmada' ? <Check className="size-3" strokeWidth={3} /> : i + 1}
           </span>
           {i < PASOS_INCIDENCIA.length - 1 && (
             <span className={cn('h-0.5 w-4 rounded-full', i < actual ? 'bg-brand-600' : 'bg-slate-200')} />
@@ -163,6 +164,8 @@ PasosIncidencia.propTypes = { estado: PropTypes.string.isRequired }
 
 const iconoNotificacion = {
   paquete: { icono: Package, punto: 'bg-teal-600', tono: 'text-teal-700' },
+  visita: { icono: DoorOpen, punto: 'bg-brand-600', tono: 'text-brand-700' },
+  pago: { icono: CreditCard, punto: 'bg-brand-600', tono: 'text-brand-700' },
   reserva: { icono: CalendarRange, punto: 'bg-violet-600', tono: 'text-violet-700' },
   incidencia: { icono: Wrench, punto: 'bg-warning', tono: 'text-warning-strong' },
   comunicado: { icono: Megaphone, punto: 'bg-sky-600', tono: 'text-sky-700' },
@@ -170,46 +173,75 @@ const iconoNotificacion = {
 
 const etiquetaTipo = {
   paquete: 'Paquetes',
+  visita: 'Portería',
+  pago: 'Pagos',
   reserva: 'Reservas',
   incidencia: 'Incidencias',
   comunicado: 'Comunicados',
 }
 
-// Agrupa las notificaciones en Hoy / Ayer / Anteriores según su fecha ("Hoy · 10:04", "Ayer", "08/09/2026").
-function agruparPorDia(lista) {
+// NotificacionDTO → tipo con icono propio (los ingresos de portería pueden ser paquetes o visitas)
+function tipoNotificacion(n) {
+  if (n.tipo === 'INGRESO') return /paquete/i.test(n.titulo) ? 'paquete' : 'visita'
+  return n.tipo.toLowerCase()
+}
+
+// Agrupa las notificaciones en Hoy / Ayer / Anteriores según su fecha de envío
+function agruparPorDia(lista, ahora) {
+  const hoy = ahora.toLocaleDateString('en-CA')
+  const ayer = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1).toLocaleDateString('en-CA')
   const grupos = new Map()
   for (const n of lista) {
-    const dia = n.fecha.startsWith('Hoy') ? 'Hoy' : n.fecha.startsWith('Ayer') ? 'Ayer' : 'Anteriores'
+    const fecha = n.fechaEnvio.slice(0, 10)
+    const dia = fecha === hoy ? 'Hoy' : fecha === ayer ? 'Ayer' : 'Anteriores'
     grupos.set(dia, [...(grupos.get(dia) ?? []), n])
   }
   return [...grupos]
 }
 
+const cargarTodo = (apartamentoId) =>
+  Promise.all([
+    residenteApi.obligaciones(apartamentoId),
+    residenteApi.reservas({ apartamentoId }),
+    incidenciasApi.mias(),
+    residenteApi.paquetes(apartamentoId),
+    api('/notificaciones/no-leidas'),
+  ]).then(([obligaciones, reservas, incidencias, paquetes, notificaciones]) => ({
+    obligaciones: obligaciones.map((o) => ({ ...o, montoTotal: Number(o.montoTotal), saldoPendiente: Number(o.saldoPendiente) })),
+    reservas,
+    incidencias,
+    paquetes,
+    notificaciones: [...notificaciones].sort((a, b) => b.fechaEnvio.localeCompare(a.fechaEnvio)),
+  }))
+
 export default function Inicio({ onNavigate }) {
+  const { usuario } = useSesion()
   const ahora = useAhora()
   // De noche entre las 6 p. m. y las 6 a. m., igual que el saludo; se revisa cada minuto.
   // `?modo=dia|noche` lo fuerza para revisar el mockup.
   const modo = new URLSearchParams(window.location.search).get('modo')
   const noche = modo ? modo === 'noche' : esDeNoche(ahora)
-  const primerNombre = residente.nombre.split(' ')[0]
+  const primerNombre = usuario.nombreCompleto.split(' ')[0]
+  const { datos } = useCarga(() => cargarTodo(usuario.apartamentoId), 'res:inicio')
+  const { obligaciones = [], reservas = [], incidencias: misIncidencias = [], paquetes = [], notificaciones = [] } = datos ?? {}
 
-  const misReservas = reservasAgenda
-    .filter(
-      (r) =>
-        r.apartamentoId === MI_APARTAMENTO_ID &&
-        ['APROBADA', 'PENDIENTE'].includes(r.estado) &&
-        new Date(r.fechaFin) > ahora,
-    )
+  const misReservas = reservas
+    .filter((r) => ['APROBADA', 'PENDIENTE'].includes(r.estado) && new Date(r.fechaFin) > ahora)
     .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio))
   const proxima = misReservas[0]
   const color = proxima && colorZona(proxima.zonaComunId)
 
-  const pendientes = obligaciones.filter((o) => o.estado === 'Pendiente')
-  const cuotas = [...obligaciones].reverse()
-  const misIncidencias = incidencias.filter((i) => i.solicitante === residente.nombre)
-  const abiertas = misIncidencias.filter((i) => i.estado !== 'Resuelta')
-  const enPorteria = paquetes.filter((p) => p.estado === 'Ha llegado')
-  const sinLeer = notificaciones.filter((n) => !n.leida).length
+  const pendientes = obligaciones.filter((o) => POR_PAGAR.includes(o.estado)).sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento))
+  const saldoPendiente = pendientes.reduce((t, o) => t + o.saldoPendiente, 0)
+  // Últimas seis cuotas (una barra por cuota)
+  const cuotas = [...obligaciones]
+    .sort((a, b) => a.periodo.localeCompare(b.periodo))
+    .slice(-6)
+    .map((o) => ({ id: o.id, periodo: nombrePeriodo(o.periodo, true), valor: o.montoTotal, estado: o.estado === 'PAGADA' ? 'Pagada' : 'Pendiente' }))
+  const abiertas = misIncidencias.filter((i) => i.estado !== 'Confirmada')
+  const enPorteria = paquetes.filter((p) => p.enPorteria)
+  const sinLeer = notificaciones.length
+  const vencida = pendientes.find((o) => o.estado === 'VENCIDA')
 
   return (
     <div className="space-y-5">
@@ -235,9 +267,7 @@ export default function Inicio({ onNavigate }) {
               <h1 className="mt-2 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
                 {saludo(ahora)}, {primerNombre}
               </h1>
-              <p className="mt-1 text-sm text-brand-50">
-                {residente.torre} · Apartamento {residente.apto}
-              </p>
+              <p className="mt-1 text-sm text-brand-50">{usuario.apartamento}</p>
               <p className="mt-5 max-w-sm text-sm leading-relaxed text-white/90 sm:max-w-[46%]">
                 {enPorteria.length > 0 && `Tienes ${enPorteria.length} paquete${enPorteria.length === 1 ? '' : 's'} por recoger`}
                 {enPorteria.length > 0 && proxima ? ' y tu ' : proxima ? 'Tu ' : ''}
@@ -268,11 +298,16 @@ export default function Inicio({ onNavigate }) {
         <motion.section {...aparecer(1)} className={cn(tarjeta, 'flex flex-col p-6 lg:col-span-4')}>
           <Titulo accion={<VerMas onClick={() => onNavigate('finanzas')}>Detalle</VerMas>}>Estado de cuenta</Titulo>
           <p className="mt-4 text-xs font-medium text-slate-500">Saldo pendiente</p>
-          <p className="text-4xl font-extrabold tracking-tight text-slate-900 tabular-nums">{formatCOP(saldoPendiente)}</p>
-          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-warning-strong">
-            <Clock className="size-3.5" />
-            {pendientes.length} cuotas por pagar · la más antigua venció el {pendientes.at(-1)?.vencimiento}
-          </p>
+          <p className="text-4xl font-extrabold tracking-tight text-slate-900 tabular-nums">{datos ? formatCOP(saldoPendiente) : '–'}</p>
+          {pendientes.length > 0 ? (
+            <p className={cn('mt-1 flex items-center gap-1.5 text-xs font-medium', vencida ? 'text-danger-strong' : 'text-warning-strong')}>
+              <Clock className="size-3.5" />
+              {pendientes.length === 1 ? '1 cuota por pagar' : `${pendientes.length} cuotas por pagar`} ·{' '}
+              {vencida ? `venció el ${fmtFechaCorta(`${vencida.fechaVencimiento}T12:00`)}` : `vence el ${fmtFechaCorta(`${pendientes[0].fechaVencimiento}T12:00`)}`}
+            </p>
+          ) : (
+            datos && <p className="mt-1 text-xs font-medium text-success-strong">{obligaciones.length ? 'Estás al día con la administración' : 'Sin cuotas por ahora'}</p>
+          )}
           <div className="mt-5 flex-1">
             <CuotasRecientes lista={cuotas} />
           </div>
@@ -281,7 +316,7 @@ export default function Inicio({ onNavigate }) {
             onClick={() => onNavigate('finanzas')}
             className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand-600 text-sm font-bold text-white outline-none transition-colors hover:bg-brand-700 focus-visible:ring-4 focus-visible:ring-brand-200"
           >
-            <CreditCard className="size-4" /> Pagar ahora
+            <CreditCard className="size-4" /> {pendientes.length ? 'Pagar ahora' : 'Ver mi estado de cuenta'}
           </button>
         </motion.section>
       </div>
@@ -297,7 +332,9 @@ export default function Inicio({ onNavigate }) {
           detalle={
             misReservas.some((r) => r.estado === 'PENDIENTE')
               ? `${misReservas.filter((r) => r.estado === 'PENDIENTE').length} esperando aprobación`
-              : 'Todas aprobadas'
+              : misReservas.length
+                ? 'Todas aprobadas'
+                : 'Sin reservas por ahora'
           }
           onClick={() => onNavigate('reservas')}
         >
@@ -319,7 +356,7 @@ export default function Inicio({ onNavigate }) {
           tono="bg-teal-50 text-teal-700"
           etiqueta="Paquetes en portería"
           valor={enPorteria.length}
-          detalle="Recógelos con tu documento"
+          detalle={enPorteria.length ? 'Recógelos con tu documento' : 'Nada por recoger'}
           onClick={() => onNavigate('paquetes')}
         >
           <div className="flex gap-1.5">
@@ -336,12 +373,12 @@ export default function Inicio({ onNavigate }) {
           tono="bg-warning-bg text-warning-strong"
           etiqueta="Incidencias abiertas"
           valor={abiertas.length}
-          detalle={`${misIncidencias.length - abiertas.length} resuelta${misIncidencias.length - abiertas.length === 1 ? '' : 's'} de ${misIncidencias.length} reportadas`}
+          detalle={misIncidencias.length ? `${misIncidencias.length - abiertas.length} resuelta${misIncidencias.length - abiertas.length === 1 ? '' : 's'} de ${misIncidencias.length} reportadas` : 'No has reportado incidencias'}
           onClick={() => onNavigate('incidencias')}
         >
           <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full" aria-hidden="true">
             {PASOS_INCIDENCIA.map((paso) => {
-              const n = misIncidencias.filter((i) => i.estado === paso).length
+              const n = misIncidencias.filter((i) => i.paso === paso).length
               if (!n) return null
               return (
                 <span
@@ -350,7 +387,8 @@ export default function Inicio({ onNavigate }) {
                   className={cn(
                     paso === 'Nueva' && 'bg-brand-300',
                     paso === 'En proceso' && 'bg-warning',
-                    paso === 'Resuelta' && 'bg-brand-600',
+                    paso === 'Resuelta' && 'bg-success',
+                    paso === 'Confirmada' && 'bg-brand-600',
                   )}
                 />
               )
@@ -364,10 +402,11 @@ export default function Inicio({ onNavigate }) {
                     'size-2 rounded-full',
                     paso === 'Nueva' && 'bg-brand-300',
                     paso === 'En proceso' && 'bg-warning',
-                    paso === 'Resuelta' && 'bg-brand-600',
+                    paso === 'Resuelta' && 'bg-success',
+                    paso === 'Confirmada' && 'bg-brand-600',
                   )}
                 />
-                {paso} {misIncidencias.filter((i) => i.estado === paso).length}
+                {paso} {misIncidencias.filter((i) => i.paso === paso).length}
               </span>
             ))}
           </div>
@@ -424,17 +463,18 @@ export default function Inicio({ onNavigate }) {
 
         <motion.section {...aparecer(6)} className={cn(tarjeta, 'flex flex-col p-6 lg:col-span-7')}>
           <Titulo accion={<VerMas onClick={() => onNavigate('incidencias')}>Ver todas</VerMas>}>Tus incidencias</Titulo>
+          {datos && misIncidencias.length === 0 && <p className="mt-4 text-sm text-slate-500">No has reportado incidencias.</p>}
           <ul className="mb-4 mt-4 divide-y divide-slate-100">
             {misIncidencias.slice(0, 3).map((i) => (
               <li key={i.id} className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-slate-800">{i.titulo}</p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    {i.id} · {i.categoria} · {i.fecha}
+                    {i.codigo} · {i.categoria} · {i.fecha}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <PasosIncidencia estado={i.estado} />
+                  <PasosIncidencia estado={i.paso} />
                   <StatusBadge status={i.estado} className="w-24 text-xs" />
                 </div>
               </li>
@@ -469,18 +509,23 @@ export default function Inicio({ onNavigate }) {
           >
             Novedades
           </Titulo>
+          {datos && notificaciones.length === 0 && (
+            <p className="mt-5 rounded-xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+              Estás al día. Aquí verás avisos de paquetes, visitas, reservas, pagos e incidencias.
+            </p>
+          )}
           <div className="mt-5 space-y-5">
-            {agruparPorDia(notificaciones.slice(0, 4)).map(([dia, lista]) => (
+            {agruparPorDia(notificaciones.slice(0, 4), ahora).map(([dia, lista]) => (
               <div key={dia}>
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">{dia}</p>
                 <ol className="relative">
                   {lista.map((n, i) => {
-                    const { icono: Icono, punto, tono } = iconoNotificacion[n.tipo] ?? {
+                    const tipo = tipoNotificacion(n)
+                    const { icono: Icono, punto, tono } = iconoNotificacion[tipo] ?? {
                       icono: Bell,
                       punto: 'bg-slate-500',
                       tono: 'text-slate-600',
                     }
-                    const hora = n.fecha.split('·')[1]?.trim()
                     return (
                       <li key={n.id} className="relative flex gap-4 pb-3 last:pb-0">
                         {i < lista.length - 1 && (
@@ -510,12 +555,12 @@ export default function Inicio({ onNavigate }) {
                               )}
                             </p>
                             <span className="shrink-0 text-[11px] font-medium text-slate-400">
-                              <span className={cn('font-semibold', tono)}>{etiquetaTipo[n.tipo]}</span>
+                              <span className={cn('font-semibold', tono)}>{etiquetaTipo[tipo]}</span>
                               {' · '}
-                              {hora ?? (dia === 'Anteriores' ? n.fecha.slice(0, 5) : 'Ayer')}
+                              {dia === 'Anteriores' ? fmtFechaCorta(n.fechaEnvio) : hora(n.fechaEnvio)}
                             </span>
                           </div>
-                          <p className="mt-0.5 text-xs leading-relaxed text-slate-600">{n.detalle}</p>
+                          <p className="mt-0.5 text-xs leading-relaxed text-slate-600">{n.mensaje}</p>
                         </div>
                       </li>
                     )
@@ -534,7 +579,7 @@ export default function Inicio({ onNavigate }) {
             <EscenaPaquetes className="h-32 w-full" />
             <div className="absolute left-4 top-3">
               <p className="text-3xl font-extrabold leading-none tracking-tight text-brand-800 tabular-nums">
-                {enPorteria.length}
+                {datos ? enPorteria.length : '–'}
               </p>
               <p className="mt-0.5 text-xs font-semibold text-brand-700">
                 {enPorteria.length === 1 ? 'paquete' : 'paquetes'}
@@ -552,8 +597,8 @@ export default function Inicio({ onNavigate }) {
                   <div className="relative flex shrink-0 flex-col items-end justify-center border-l-2 border-dashed border-slate-200 bg-slate-50 px-4 py-3">
                     <span className="absolute -left-[7px] -top-[7px] size-3 rounded-full border border-slate-200 bg-white" aria-hidden="true" />
                     <span className="absolute -bottom-[7px] -left-[7px] size-3 rounded-full border border-slate-200 bg-white" aria-hidden="true" />
-                    <span className="font-mono text-[11px] font-semibold text-slate-700">{p.guia}</span>
-                    <span className="mt-0.5 text-[11px] text-slate-400">Llegó el {p.fecha.slice(0, 5)}</span>
+                    {p.guia && <span className="font-mono text-[11px] font-semibold text-slate-700">{p.guia}</span>}
+                    <span className="mt-0.5 text-[11px] text-slate-400">Llegó el {fmtFechaCorta(p.fechaRecepcion)}</span>
                   </div>
                 </li>
               ))}

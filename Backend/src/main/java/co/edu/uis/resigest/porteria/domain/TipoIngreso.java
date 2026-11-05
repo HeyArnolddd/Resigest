@@ -5,5 +5,6 @@ package co.edu.uis.resigest.porteria.domain;
  */
 public enum TipoIngreso {
     VISITANTE,
-    DOMICILIO
+    DOMICILIO,
+    SERVICIO
 }

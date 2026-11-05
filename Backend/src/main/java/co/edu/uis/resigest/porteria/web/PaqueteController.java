@@ -1,5 +1,6 @@
 package co.edu.uis.resigest.porteria.web;
 
+import co.edu.uis.resigest.common.exception.AccesoDenegadoException;
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
 import co.edu.uis.resigest.common.security.VerificadorPropietario;
 import co.edu.uis.resigest.porteria.dto.EntregaPaqueteRequest;
@@ -8,8 +9,6 @@ import co.edu.uis.resigest.porteria.dto.RegistrarPaqueteRequest;
 import co.edu.uis.resigest.porteria.service.PaqueteService;
 import co.edu.uis.resigest.usuarios.domain.Rol;
 import jakarta.validation.Valid;
-import co.edu.uis.resigest.common.exception.ReglaNegocioException;
-import co.edu.uis.resigest.porteria.domain.EstadoPaquete;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -49,6 +48,14 @@ public class PaqueteController {
                 .body(creado);
     }
 
+    @PatchMapping("/{id}/recogido")
+    @PreAuthorize("hasRole('RESIDENTE')")
+    public ResponseEntity<PaqueteDTO> confirmarRecogido(@PathVariable Long id,
+                                                        @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        verificadorPropietario.verificarApartamento(paqueteService.apartamentoDe(id), autenticado);
+        return ResponseEntity.ok(paqueteService.confirmarRecogido(id, autenticado.getNombreCompleto()));
+    }
+
     @PatchMapping("/{id}/entrega")
     @PreAuthorize("hasRole('PORTERO')")
     public ResponseEntity<PaqueteDTO> entregar(@PathVariable Long id,
@@ -59,14 +66,14 @@ public class PaqueteController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'PORTERO', 'RESIDENTE')")
     public List<PaqueteDTO> listar(@RequestParam(required = false) Long apartamentoId,
-                                   @RequestParam(required = false) EstadoPaquete estado,
                                    @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        // El residente solo ve los de su apartamento; portería y administración pueden ver todos
         if (autenticado.getRol() == Rol.RESIDENTE) {
             if (apartamentoId == null) {
-                throw new ReglaNegocioException("Debes indicar apartamentoId");
+                throw new AccesoDenegadoException("Indica el apartamento");
             }
             verificadorPropietario.verificarApartamento(apartamentoId, autenticado);
         }
-        return paqueteService.listar(apartamentoId, estado);
+        return paqueteService.listar(apartamentoId);
     }
 }
