@@ -3,6 +3,7 @@ package co.edu.uis.resigest.common.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -45,6 +46,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> manejarAccesoDenegado(AccesoDenegadoException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiError.de(403, "ACCESO_DENEGADO", ex.getMessage()));
+    }
+
+    // @PreAuthorize rechazado (rol insuficiente). Sin esto caería en el manejador genérico como 500.
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> manejarRolInsuficiente(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiError.de(403, "ACCESO_DENEGADO", "No tienes permiso para realizar esta acción"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

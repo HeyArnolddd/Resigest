@@ -51,20 +51,20 @@ public class PagoController {
     }
 
     @GetMapping("/pendientes-validacion")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public List<PagoDTO> pendientesValidacion() {
         return pagoService.listarPendientesValidacion();
     }
 
     @PatchMapping("/{id}/validacion")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<PagoDTO> validar(@PathVariable Long id,
                                            @Valid @RequestBody ValidarPagoRequest request) {
         return ResponseEntity.ok(pagoService.validarPago(id, request));
     }
 
     @GetMapping("/{id}/comprobante")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESIDENTE')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'RESIDENTE')")
     public ResponseEntity<byte[]> comprobante(@PathVariable Long id) {
         byte[] pdf = comprobanteService.generar(id);
         return ResponseEntity.ok()

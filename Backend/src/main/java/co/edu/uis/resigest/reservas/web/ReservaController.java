@@ -50,13 +50,13 @@ public class ReservaController {
     }
 
     @PatchMapping("/{id}/aprobar")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<ReservaDTO> aprobar(@PathVariable Long id) {
         return ResponseEntity.ok(reservaService.aprobar(id));
     }
 
     @PatchMapping("/{id}/rechazar")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<ReservaDTO> rechazar(@PathVariable Long id,
                                                @Valid @RequestBody RechazoRequest request) {
         return ResponseEntity.ok(reservaService.rechazar(id, request));

@@ -42,7 +42,7 @@ public class ApartamentoController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<ApartamentoDTO> crear(@Valid @RequestBody CrearApartamentoRequest request) {
         ApartamentoDTO creado = apartamentoService.crear(request);
         return ResponseEntity.created(URI.create("/api/apartamentos/" + creado.id()))
@@ -55,7 +55,7 @@ public class ApartamentoController {
     }
 
     @GetMapping("/{id}/estado-cuenta")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESIDENTE')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'RESIDENTE')")
     public ResponseEntity<EstadoCuentaDTO> estadoCuenta(@PathVariable Long id,
                                                         @AuthenticationPrincipal UsuarioAutenticado autenticado) {
         verificadorPropietario.verificarApartamento(id, autenticado);
