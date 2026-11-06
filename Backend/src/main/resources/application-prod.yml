@@ -24,16 +24,18 @@ app:
   jwt:
     secret: ${JWT_SECRETO}
     expiracion-horas: ${JWT_EXPIRACION_HORAS:8}
-  webhook:
-    # Vacío = el webhook rechaza todo (valor seguro por defecto)
-    secret: ${WEBHOOK_SECRETO:}
   cors:
     origenes: ${CORS_ORIGENES}
   credenciales:
     clave: ${RESIGEST_CLAVE_CREDENCIALES}
-  pasarela: ${PASARELA:simulada}
-  wompi:
-    url: ${WOMPI_URL:https://sandbox.wompi.co/v1}
-    llave-publica: ${WOMPI_PUBLIC_KEY:}
-    llave-privada: ${WOMPI_PRIVATE_KEY:}
-    correo-cliente: ${WOMPI_CORREO_CLIENTE:cliente@resigest.com}
+  # Pago en línea con PayU. Por defecto, el sandbox con las credenciales públicas de prueba
+  # de la documentación de PayU (no se mueve dinero real).
+  payu:
+    url-checkout: ${PAYU_URL_CHECKOUT:https://sandbox.checkout.payulatam.com/ppp-web-gateway-payu/}
+    url-consultas: ${PAYU_URL_CONSULTAS:https://sandbox.api.payulatam.com/reports-api/4.0/service.cgi}
+    merchant-id: ${PAYU_MERCHANT_ID:508029}
+    account-id: ${PAYU_ACCOUNT_ID:512321}
+    api-login: ${PAYU_API_LOGIN:pRRXKOl8ikMmt9u}
+    api-key: ${PAYU_API_KEY:4Vj8eK4rloUd272L48hsrarnUA}
+    pruebas: ${PAYU_PRUEBAS:true}
+    url-confirmacion: ${PAYU_URL_CONFIRMACION:}

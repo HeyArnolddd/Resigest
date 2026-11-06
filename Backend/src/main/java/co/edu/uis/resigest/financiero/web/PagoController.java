@@ -2,7 +2,9 @@ package co.edu.uis.resigest.financiero.web;
 
 import co.edu.uis.resigest.common.security.UsuarioAutenticado;
 import co.edu.uis.resigest.common.security.VerificadorPropietario;
+import co.edu.uis.resigest.financiero.dto.CheckoutPagoDTO;
 import co.edu.uis.resigest.financiero.dto.IniciarPagoRequest;
+import co.edu.uis.resigest.financiero.dto.VerificarPagoEnLineaRequest;
 import co.edu.uis.resigest.financiero.dto.PagoDTO;
 import co.edu.uis.resigest.financiero.dto.ReportarPagoManualRequest;
 import co.edu.uis.resigest.financiero.dto.ValidarPagoRequest;
@@ -43,10 +45,20 @@ public class PagoController {
         this.comprobanteService = comprobanteService;
     }
 
-    @PostMapping("/pasarela")
+    /** Paso 1 del pago en línea: devuelve la orden firmada para abrir la página de PayU. */
+    @PostMapping("/en-linea/iniciar")
     @PreAuthorize("hasRole('RESIDENTE')")
-    public ResponseEntity<PagoDTO> pagarPasarela(@Valid @RequestBody IniciarPagoRequest request) {
-        return ResponseEntity.ok(pagoService.iniciarPagoPasarela(request));
+    public CheckoutPagoDTO iniciarEnLinea(@Valid @RequestBody IniciarPagoRequest request,
+                                          @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return pagoService.iniciarPagoEnLinea(request.obligacionId(), autenticado);
+    }
+
+    /** Paso 2: al volver de PayU, el backend le pregunta a PayU cómo terminó el pago. */
+    @PostMapping("/en-linea/verificar")
+    @PreAuthorize("hasRole('RESIDENTE')")
+    public PagoDTO verificarEnLinea(@Valid @RequestBody VerificarPagoEnLineaRequest request,
+                                    @AuthenticationPrincipal UsuarioAutenticado autenticado) {
+        return pagoService.verificarPagoEnLinea(request.referencia(), autenticado);
     }
 
     @PostMapping("/manual")

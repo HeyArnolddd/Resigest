@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import { motion } from 'motion/react'
 import {
@@ -7,6 +7,7 @@ import {
   CalendarClock,
   CheckCircle2,
   CreditCard,
+  ExternalLink,
   Download,
   Droplets,
   FileCheck2,
@@ -32,6 +33,7 @@ const aNumero = (o) => ({ ...o, montoTotal: Number(o.montoTotal), saldoPendiente
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 const POR_PAGAR = ['PENDIENTE', 'VENCIDA']
+const PAGO_PENDIENTE = 'resigest:pago-en-linea-pendiente'
 
 const mesDe = (periodo) => MESES[Number(periodo.split('-')[1]) - 1]
 const periodoLargo = (periodo) => `${mesDe(periodo)} ${periodo.split('-')[0]}`
@@ -221,11 +223,13 @@ export default function Finanzas() {
   const [filtro, setFiltro] = useState('todas')
   const [verTodo, setVerTodo] = useState(false)
 
-  // Pago en línea (pasarela; en desarrollo es la simulada del backend)
-  const [aPagar, setAPagar] = useState(null)
-  const [pasoWompi, setPasoWompi] = useState('revisar')
-  const [medio, setMedio] = useState('PSE')
+  // Pagar: elegir cuota y forma de pago. En línea: revisar → (página de PayU) → verificando → resultado
+  const [modalPago, setModalPago] = useState(false)
+  const [seleccion, setSeleccion] = useState(null)
+  const [forma, setForma] = useState('linea')
+  const [pasoPago, setPasoPago] = useState('revisar')
   const [resultadoPago, setResultadoPago] = useState(null)
+  const [errorPago, setErrorPago] = useState('')
 
   // Reporte de transferencia
   const [modalManual, setModalManual] = useState(false)
@@ -280,29 +284,93 @@ export default function Finanzas() {
       filtro === 'todas' ? true : filtro === 'porPagar' ? o.estado !== 'PAGADA' : o.estado === 'PAGADA',
     )
 
-  const abrirWompi = (obligaciones) => {
-    setAPagar(obligaciones)
-    setPasoWompi('revisar')
-    setMedio('PSE')
+  // La más antigua primero: es la que conviene pagar antes
+  const porPagarOrdenadas = [...porPagar].sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento))
+  const aPagar = porPagar.find((o) => o.id === seleccion)
+
+  const abrirPago = (obligacion) => {
+    setSeleccion(obligacion?.id ?? porPagarOrdenadas[0]?.id ?? null)
+    setForma('linea')
+    setPasoPago('revisar')
+    setErrorPago('')
+    setModalPago(true)
   }
 
-  // Una obligación a la vez: la pasarela cobra cada una por separado
-  const pagarEnLinea = async () => {
-    setPasoWompi('procesando')
-    let aprobados = 0
-    let error = ''
-    for (const o of aPagar) {
-      try {
-        const pago = await residenteApi.pagarEnLinea(o.id)
-        if (pago.estado === 'APROBADO') aprobados++
-      } catch (e) {
-        error = e.message
+  // El backend firma la orden y el residente paga en la página de PayU (una obligación por pago).
+  // PayU recibe la orden por POST de formulario, así que se arma uno y se envía.
+  const irAPayu = async () => {
+    setPasoPago('redirigiendo')
+    setErrorPago('')
+    try {
+      const orden = await residenteApi.iniciarPagoEnLinea(seleccion)
+      const campos = {
+        ...orden.campos,
+        buyerEmail: usuario.correo ?? '',
+        buyerFullName: usuario.nombreCompleto ?? '',
+        telephone: usuario.telefono ?? '',
+        responseUrl: `${window.location.origin}/`,
       }
+      const formulario = document.createElement('form')
+      formulario.method = 'POST'
+      formulario.action = orden.urlCheckout
+      formulario.acceptCharset = 'UTF-8'
+      for (const [nombre, valor] of Object.entries(campos)) {
+        if (!valor) continue
+        const campo = document.createElement('input')
+        campo.type = 'hidden'
+        campo.name = nombre
+        campo.value = valor
+        formulario.appendChild(campo)
+      }
+      document.body.appendChild(formulario)
+      formulario.submit()
+    } catch (e) {
+      setErrorPago(e.message)
+      setPasoPago('revisar')
     }
-    setResultadoPago({ aprobados, total: aPagar.length, error })
-    setPasoWompi('exito')
-    recargar()
   }
+
+  const continuarPago = () => {
+    if (forma === 'linea') {
+      irAPayu()
+    } else {
+      setModalPago(false)
+      abrirManual(seleccion)
+    }
+  }
+
+  // Al volver de PayU llega ?referenceCode=<referencia>: el backend le pregunta a PayU cómo terminó.
+  // Si quedó pendiente (p. ej. PSE), se vuelve a consultar la próxima vez que se abra Finanzas.
+  useEffect(() => {
+    const idDeUrl = new URLSearchParams(window.location.search).get('referenceCode')
+    const id = idDeUrl || localStorage.getItem(PAGO_PENDIENTE)
+    if (!id) return
+    if (idDeUrl) {
+      window.history.replaceState(null, '', window.location.pathname)
+      setModalPago(true)
+      setPasoPago('verificando')
+    }
+    residenteApi
+      .verificarPagoEnLinea(id)
+      .then((pago) => {
+        const pendiente = pago.estado === 'INICIADO'
+        if (pendiente) localStorage.setItem(PAGO_PENDIENTE, id)
+        else localStorage.removeItem(PAGO_PENDIENTE)
+        if (idDeUrl || !pendiente) {
+          setResultadoPago({ estado: pago.estado, monto: Number(pago.monto), motivo: pago.motivoRechazo })
+          setPasoPago('resultado')
+          setModalPago(true)
+        }
+        if (!pendiente) recargar()
+      })
+      .catch((e) => {
+        if (!idDeUrl) return
+        setResultadoPago({ estado: 'ERROR', motivo: e.message })
+        setPasoPago('resultado')
+      })
+    // Solo al abrir la pantalla
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const abrirManual = (id) => {
     setManualId(String(id ?? porPagar[0]?.id ?? ''))
@@ -379,7 +447,6 @@ export default function Finanzas() {
 
   const sinCuotas = lista.length === 0
 
-  const totalAPagar = aPagar?.reduce((t, o) => t + o.saldoPendiente, 0) ?? 0
 
   return (
     <div className="space-y-5">
@@ -390,7 +457,7 @@ export default function Finanzas() {
         </div>
         <p className="flex items-center gap-1.5 text-xs text-slate-500">
           <ShieldCheck className="size-4 text-brand-600" />
-          Pagos protegidos con Wompi
+          Pagos en línea con PayU
         </p>
       </div>
 
@@ -429,11 +496,11 @@ export default function Finanzas() {
               <button
                 type="button"
                 disabled={!porPagar.length}
-                onClick={() => abrirWompi(porPagar)}
+                onClick={() => abrirPago()}
                 className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-brand-700 shadow-lg shadow-brand-950/25 outline-none transition-colors hover:bg-brand-50 focus-visible:ring-4 focus-visible:ring-white/40 disabled:opacity-60"
               >
                 <CreditCard className="size-4" />
-                Pagar todo en línea
+                Pagar en línea
               </button>
               <button
                 type="button"
@@ -442,9 +509,14 @@ export default function Finanzas() {
                 className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white outline-none backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60"
               >
                 <ArrowLeftRight className="size-4" />
-                Reportar transferencia
+                Subir comprobante
               </button>
             </div>
+            {porPagar.length > 0 && (
+              <p className="mt-3 max-w-sm text-xs text-brand-100">
+                En línea se aprueba al instante. Con comprobante de transferencia, la administración lo confirma en 1 a 2 días hábiles.
+              </p>
+            )}
             <p className="mt-6 font-mono text-xs tracking-[0.2em] text-brand-100/80">
               {usuario.nombreCompleto.toUpperCase()} · {usuario.apartamento.replace('Torre ', 'T').replace(' – Apto ', ' · ')}
             </p>
@@ -632,7 +704,7 @@ export default function Finanzas() {
                             <Hourglass className="size-4" />
                           </span>
                         ) : (
-                          <Button size="sm" onClick={() => abrirWompi([o])}>
+                          <Button size="sm" onClick={() => abrirPago(o)}>
                             Pagar
                           </Button>
                         )}
@@ -651,7 +723,7 @@ export default function Finanzas() {
           <ol className="mt-4">
             {pagos.slice(0, 5).map((p, i, arr) => {
               const o = lista.find((x) => x.id === p.obligacionId)
-              const Icono = p.metodo === 'WOMPI' ? CreditCard : ArrowLeftRight
+              const Icono = p.metodo === 'PAYU' ? CreditCard : ArrowLeftRight
               return (
                 <li key={p.id} className="relative flex gap-3 pb-4 last:pb-0">
                   {i < arr.length - 1 && <span className="absolute bottom-0 left-[19px] top-10 w-px bg-slate-200" aria-hidden="true" />}
@@ -718,94 +790,159 @@ export default function Finanzas() {
           onFiltro={setFiltro}
           verTodo={verTodo}
           onVerTodo={() => setVerTodo(!verTodo)}
-          onPagar={(o) => abrirWompi([o])}
+          onPagar={(o) => abrirPago(o)}
         />
       </motion.section>
       )}
 
-      {/* Pago en línea */}
+      {/* Pagar: en línea con PayU o por transferencia con comprobante */}
       <Modal
-        open={Boolean(aPagar)}
-        onClose={() => setAPagar(null)}
-        title="Pagar en línea"
-        subtitle="Pasarela Wompi · entorno de demostración"
+        open={modalPago}
+        onClose={() => pasoPago !== 'redirigiendo' && setModalPago(false)}
+        title="Pagar"
+        subtitle={pasoPago === 'revisar' ? 'Elige qué pagar y cómo' : 'Pago en línea con PayU'}
         icon={CreditCard}
         footer={
-          pasoWompi === 'exito' ? (
-            <Button onClick={() => setAPagar(null)}>Listo</Button>
-          ) : pasoWompi === 'revisar' ? (
+          pasoPago === 'resultado' ? (
+            <Button onClick={() => setModalPago(false)}>Listo</Button>
+          ) : pasoPago === 'revisar' ? (
             <>
-              <Button variant="secondary" onClick={() => setAPagar(null)}>
+              <Button variant="secondary" onClick={() => setModalPago(false)}>
                 Cancelar
               </Button>
-              <Button onClick={pagarEnLinea}>Pagar {formatCOP(totalAPagar)}</Button>
+              {forma === 'linea' ? (
+                <Button icon={ExternalLink} onClick={continuarPago} disabled={!aPagar}>
+                  Ir a PayU{aPagar ? ` · ${formatCOP(aPagar.saldoPendiente)}` : ''}
+                </Button>
+              ) : (
+                <Button icon={FileCheck2} onClick={continuarPago} disabled={!aPagar}>
+                  Subir comprobante
+                </Button>
+              )}
             </>
           ) : null
         }
       >
-        {pasoWompi === 'revisar' && aPagar && (
-          <div className="space-y-4">
-            <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-slate-50">
-              {aPagar.map((o) => (
-                <li key={o.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-                  <span className="text-slate-600">
-                    {conceptoObligacion[o.concepto]} · <span className="capitalize">{periodoLargo(o.periodo)}</span>
-                  </span>
-                  <span className="font-semibold text-slate-900 tabular-nums">{formatCOP(o.saldoPendiente)}</span>
-                </li>
-              ))}
-              <li className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm font-semibold text-slate-700">Total</span>
-                <span className="text-lg font-extrabold text-brand-700 tabular-nums">{formatCOP(totalAPagar)}</span>
-              </li>
-            </ul>
+        {pasoPago === 'revisar' && (
+          <div className="space-y-5">
             <div>
-              <p className="mb-2 text-sm font-semibold text-slate-800">Medio de pago</p>
-              <div className="grid grid-cols-3 gap-2">
-                {['PSE', 'Tarjeta crédito', 'Nequi'].map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMedio(m)}
-                    aria-pressed={medio === m}
-                    className={cn(
-                      'rounded-xl border px-3 py-3 text-xs font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-500',
-                      medio === m
-                        ? 'border-brand-500 bg-brand-50 text-brand-800 ring-1 ring-brand-500'
-                        : 'border-slate-300 text-slate-700 hover:border-brand-300',
-                    )}
-                  >
-                    {m}
-                  </button>
-                ))}
+              <p className="mb-2 text-sm font-semibold text-slate-800">
+                {porPagarOrdenadas.length > 1 ? '1. ¿Qué quieres pagar?' : 'Vas a pagar'}
+              </p>
+              <ul className="space-y-2" role="radiogroup" aria-label="Obligación a pagar">
+                {porPagarOrdenadas.map((o) => {
+                  const elegida = o.id === seleccion
+                  return (
+                    <li key={o.id}>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={elegida}
+                        onClick={() => setSeleccion(o.id)}
+                        className={cn(
+                          'flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-500',
+                          elegida ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-slate-200 hover:border-brand-300',
+                        )}
+                      >
+                        <span className="text-slate-700">
+                          {conceptoObligacion[o.concepto]} · <span className="capitalize">{periodoLargo(o.periodo)}</span>
+                          {o.estado === 'VENCIDA' && <span className="ml-2 text-xs font-semibold text-danger">Vencida</span>}
+                        </span>
+                        <span className="font-semibold text-slate-900 tabular-nums">{formatCOP(o.saldoPendiente)}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-semibold text-slate-800">{porPagarOrdenadas.length > 1 ? '2. ¿Cómo quieres pagar?' : '¿Cómo quieres pagar?'}</p>
+              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Forma de pago">
+                {[
+                  {
+                    clave: 'linea',
+                    Icono: CreditCard,
+                    titulo: 'En línea con PayU',
+                    texto: 'Tarjeta, PSE o Nequi. Si el pago sale bien, queda aprobado al instante.',
+                  },
+                  {
+                    clave: 'transferencia',
+                    Icono: ArrowLeftRight,
+                    titulo: 'Transferencia y comprobante',
+                    texto: 'Subes el comprobante y la administración confirma el pago en 1 a 2 días hábiles.',
+                  },
+                ].map(({ clave, Icono, titulo, texto }) => {
+                  const activa = forma === clave
+                  return (
+                    <button
+                      key={clave}
+                      type="button"
+                      role="radio"
+                      aria-checked={activa}
+                      onClick={() => setForma(clave)}
+                      className={cn(
+                        'flex flex-col gap-1.5 rounded-xl border p-4 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-500',
+                        activa ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-slate-200 hover:border-brand-300',
+                      )}
+                    >
+                      <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                        <Icono className={cn('size-4', activa ? 'text-brand-600' : 'text-slate-400')} />
+                        {titulo}
+                      </span>
+                      <span className="text-xs text-slate-500">{texto}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
-            <p className="flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
-              <ShieldCheck className="size-3.5" /> Pasarela de prueba: no se realizan cobros reales
+
+            {forma === 'linea' && (
+              <p className="flex items-start gap-1.5 text-xs text-slate-500">
+                <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-brand-600" />
+                Pagas en la página segura de PayU y vuelves aquí. Ambiente de pruebas: no se cobra dinero real.
+              </p>
+            )}
+            {errorPago && (
+              <p className="flex items-start gap-2 rounded-xl bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
+                <AlertCircle className="mt-0.5 size-4 shrink-0" /> {errorPago}
+              </p>
+            )}
+          </div>
+        )}
+        {(pasoPago === 'redirigiendo' || pasoPago === 'verificando') && (
+          <div className="flex flex-col items-center gap-4 py-10" role="status">
+            <Loader2 className="size-10 animate-spin text-brand-600" />
+            <p className="text-sm font-medium text-slate-600">
+              {pasoPago === 'redirigiendo' ? 'Abriendo la página de pago de PayU…' : 'Confirmando tu pago con PayU…'}
             </p>
           </div>
         )}
-        {pasoWompi === 'procesando' && (
-          <div className="flex flex-col items-center gap-4 py-10">
-            <Loader2 className="size-10 animate-spin text-brand-600" />
-            <p className="text-sm font-medium text-slate-600">Conectando con Wompi y procesando el pago…</p>
-          </div>
-        )}
-        {pasoWompi === 'exito' && resultadoPago && (
+        {pasoPago === 'resultado' && resultadoPago && (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            {resultadoPago.aprobados === resultadoPago.total ? (
+            {resultadoPago.estado === 'APROBADO' ? (
               <>
                 <CheckCircle2 className="size-12 text-brand-600" />
                 <p className="text-base font-bold text-slate-900">¡Pago aprobado!</p>
-                <p className="max-w-xs text-sm text-slate-500">Tus obligaciones quedaron pagadas. Descarga el comprobante desde Pagos recientes.</p>
+                <p className="max-w-xs text-sm text-slate-500">
+                  PayU confirmó el pago de {formatCOP(resultadoPago.monto)} y tu cuota ya quedó pagada. Puedes descargar el comprobante en Pagos recientes.
+                </p>
+              </>
+            ) : resultadoPago.estado === 'INICIADO' ? (
+              <>
+                <Hourglass className="size-12 text-warning" />
+                <p className="text-base font-bold text-slate-900">Tu pago está en proceso</p>
+                <p className="max-w-xs text-sm text-slate-500">
+                  PayU todavía no confirma el cobro (puede pasar con PSE). Lo revisaremos de nuevo cuando vuelvas a Finanzas.
+                </p>
               </>
             ) : (
               <>
                 <AlertCircle className="size-12 text-danger" />
-                <p className="text-base font-bold text-slate-900">
-                  {resultadoPago.aprobados ? `Se aprobaron ${resultadoPago.aprobados} de ${resultadoPago.total} pagos` : 'El pago no fue aprobado'}
+                <p className="text-base font-bold text-slate-900">El pago no se completó</p>
+                <p className="max-w-xs text-sm text-slate-500">
+                  {resultadoPago.motivo || 'PayU no aprobó el cobro.'} Tu cuota sigue pendiente; intenta de nuevo o paga por transferencia.
                 </p>
-                <p className="max-w-xs text-sm text-slate-500">{resultadoPago.error || 'La pasarela rechazó el cobro. Intenta de nuevo o paga por transferencia.'}</p>
               </>
             )}
           </div>

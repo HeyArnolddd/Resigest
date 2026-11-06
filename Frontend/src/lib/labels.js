@@ -21,7 +21,7 @@ export const conceptoObligacion = {
 }
 
 export const metodoPago = {
-  WOMPI: 'Wompi',
+  PAYU: 'PayU (en línea)',
   TRANSFERENCIA: 'Transferencia',
 }
 
