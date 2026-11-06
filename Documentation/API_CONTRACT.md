@@ -138,20 +138,21 @@ El **correo es el usuario** con el que se inicia sesión; se guarda en minúscul
 
 | Método | Ruta | Rol | Body → Response |
 |---|---|---|---|
-| POST | `/api/pagos/pasarela` | RESIDENTE | `{obligacionId}` → `200` PagoDTO |
+| POST | `/api/pagos/en-linea/iniciar` | RESIDENTE (dueño) | `{obligacionId}` → `200` CheckoutPagoDTO |
+| POST | `/api/pagos/en-linea/verificar` | RESIDENTE (dueño) | `{referencia}` → `200` PagoDTO |
 | POST | `/api/pagos/manual` | RESIDENTE | `{obligacionId, urlComprobanteAdjunto}` → `201` PagoDTO |
 | GET | `/api/pagos/pendientes-validacion` | ADMIN | → `[PagoDTO]` |
 | PATCH | `/api/pagos/{id}/validacion` | ADMIN | `{aprobar: true, motivo: null}` → PagoDTO |
-| POST | `/api/pagos/webhook` | público | `{idTransaccion, aprobada}` → 200 |
+| POST | `/api/pagos/en-linea/confirmacion` | público (lo llama PayU) | formulario de confirmación de PayU (`reference_sale`, …) → 200 |
 | GET | `/api/pagos/{id}/comprobante` | ADMIN, RESIDENTE | → PDF (application/pdf) |
 
 ```json
 // PagoDTO
-{ "id": 1, "metodo": "WOMPI", "monto": 1200.00, "estado": "APROBADO",
+{ "id": 1, "metodo": "PAYU", "monto": 1200.00, "estado": "APROBADO",
   "fecha": "2026-10-27T10:00:00", "obligacionId": 1, "referencia": "PAGO-..." }
 ```
 
-`metodo`: `WOMPI` | `TRANSFERENCIA` · `estado`: `INICIADO` | `EN_VERIFICACION` | `APROBADO` | `RECHAZADO`
+`metodo`: `PAYU` | `TRANSFERENCIA` · `estado`: `INICIADO` | `EN_VERIFICACION` | `APROBADO` | `RECHAZADO`
 
 ## 7. Prorrateo de servicios
 
@@ -316,9 +317,29 @@ Para conectar las pantallas de residente, portería y mantenimiento se tocó el 
 - `POST /api/paquetes`: nuevos campos opcionales `guia`, `tamano`, `fotoUrl`.
 - `POST /api/incidencias`: nuevo campo opcional `categoria`.
 - `TipoIngreso`: nuevo valor `SERVICIO`.
+- Zonas comunes: `V22` vuelve a crear (o reactiva) el **Gimnasio** (capacidad 15). Quedan BBQ, Salón Social, Piscina y Gimnasio.
+- `POST /api/obligaciones/generar`: nuevo campo opcional `apartamentos: [{apartamentoId, monto}]` para generar la cuota solo a esos apartamentos; `monto` de cada uno es opcional (si falta se usa el `monto` general). Sin `apartamentos`, se genera para todos los activos como antes. Sigue sin duplicar la cuota de un mes que el apartamento ya tenga.
 
 **DTO con campos nuevos:** `PaqueteDTO` (`apartamento`, `guia`, `tamano`, `fotoUrl`), `RegistroIngresoDTO` (`apartamento`, `registradoPorNombre`), `IncidenciaDTO` (`categoria`, `reportadoPorNombre`, `apartamento`, `asignadoANombre`, `fechaReporte`, `evidencias`, `fotoSolucionUrl`, `observacionConfirmacion`), `ReservaDTO` (`apartamento`), `PagoDTO` (`apartamento`, `concepto`, `periodo`, `urlComprobante`, `motivoRechazo`), `ObligacionDTO` (`apartamentoId`, `apartamento`), `ComunicadoDTO` (`autorNombre`).
 
 **Notificaciones:** se avisa a todos los residentes del apartamento (antes solo a uno) y se agregaron avisos de paquete recibido, visita en portería, incidencia asignada (al técnico) e incidencia resuelta (a quien la reportó). Cada aviso se guarda en su propia transacción (antes podían perderse).
+
+**Pago en línea con PayU Latam (WebCheckout).** Antes la pasarela simulada aprobaba todo al instante y `POST /api/pagos/webhook` le creía a cualquiera que enviara `{idTransaccion, aprobada: true}`. Ahora hay dos formas de pagar:
+
+- **En línea (PayU):** se aprueba en cuanto PayU confirma el cobro, sin intervención del administrador.
+- **Transferencia con comprobante** (`POST /api/pagos/manual`, sin cambios): queda `EN_VERIFICACION` hasta que el administrador la aprueba o rechaza.
+
+Flujo en línea:
+
+1. `POST /api/pagos/en-linea/iniciar` crea un `PagoPasarela` en `INICIADO` por el saldo pendiente, con referencia única `RG-{obligacionId}-{12 caracteres}`, y devuelve `CheckoutPagoDTO {pagoId, referencia, monto, urlCheckout, campos}`. `campos` es el formulario firmado de WebCheckout (`merchantId`, `accountId`, `description`, `referenceCode`, `amount`, `tax`, `taxReturnBase`, `currency`, `signature`, `test`, `lng` y `confirmationUrl` si está configurada). Firma: `MD5("ApiKey~merchantId~referenceCode~amount~currency")`, calculada en el backend. Obligación saldada o en verificación → `422`.
+2. El frontend agrega `buyerEmail`, `buyerFullName`, `telephone` y `responseUrl` y envía el formulario por POST a `urlCheckout`. El residente paga en PayU.
+3. PayU devuelve al frontend con `?referenceCode=…` y el frontend llama `POST /api/pagos/en-linea/verificar`. El backend consulta la API de consultas de PayU (`ORDER_DETAIL_BY_REFERENCE_CODE`) y aplica el resultado: `APPROVED` con el mismo valor y moneda COP → `APROBADO` y abono a la obligación; `DECLINED`/`EXPIRED`/`ERROR`… → `RECHAZADO`; `PENDING` → sigue `INICIADO`. Es idempotente (fila bloqueada, solo cambia pagos `INICIADO`).
+4. `POST /api/pagos/en-linea/confirmacion` (página de confirmación de PayU, pública) no le cree al aviso: toma `reference_sale` y vuelve a consultar en PayU.
+
+Por defecto se usa el **sandbox de PayU** con las credenciales públicas de prueba de su documentación (merchant `508029`, cuenta Colombia `512321`): no se mueve dinero real y no hay que registrar ningún comercio. Para aprobar un pago de prueba se escribe `APPROVED` como nombre del titular de la tarjeta; `REJECTED` para rechazarlo.
+
+Se eliminaron `POST /api/pagos/pasarela`, `POST /api/pagos/webhook`, `PasarelaSimulada`, `WompiPasarelaAdapter` y la propiedad `app.pasarela`. `V21` renombra el método `WOMPI` a `PAYU`. `GET /api/pagos` no lista los pagos en línea que quedaron `INICIADO` (pagos abandonados).
+
+Variables (todas opcionales; sin ellas se usa el sandbox): `PAYU_URL_CHECKOUT`, `PAYU_URL_CONSULTAS`, `PAYU_MERCHANT_ID`, `PAYU_ACCOUNT_ID`, `PAYU_API_LOGIN`, `PAYU_API_KEY`, `PAYU_PRUEBAS` (`true`) y `PAYU_URL_CONFIRMACION` (URL pública de `/api/pagos/en-linea/confirmacion`).
 
 **Rendimiento (BD remota):** `hibernate.default_batch_fetch_size=50`, `readOnlyMode=ignore` en el driver de PostgreSQL y el usuario autenticado se recuerda 20 s (`CacheUsuarios`, se vacía al editar, activar, desactivar, eliminar o cambiar la contraseña de un usuario).

@@ -16,7 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Lógica de cartera: estado de cuenta, generación de obligaciones y vencimiento.
@@ -73,10 +75,23 @@ public class CarteraServiceImpl implements CarteraService {
     @Override
     @Transactional
     public List<ObligacionDTO> generarObligacionesMensuales(GenerarObligacionesRequest request) {
-        List<Apartamento> apartamentos = apartamentoRepository.findByActivoTrue();
+        // Valor de cada apartamento: todos los activos con el valor general, o solo los elegidos
+        Map<Apartamento, BigDecimal> destinatarios = new LinkedHashMap<>();
+        if (request.apartamentos() == null || request.apartamentos().isEmpty()) {
+            apartamentoRepository.findByActivoTrue().forEach(a -> destinatarios.put(a, request.monto()));
+        } else {
+            for (GenerarObligacionesRequest.CuotaApartamento cuota : request.apartamentos()) {
+                Apartamento apartamento = apartamentoRepository.findById(cuota.apartamentoId())
+                        .filter(Apartamento::isActivo)
+                        .orElseThrow(() -> new RecursoNoEncontradoException(
+                                "No existe un apartamento activo con id " + cuota.apartamentoId()));
+                destinatarios.put(apartamento, cuota.monto() != null ? cuota.monto() : request.monto());
+            }
+        }
         List<ObligacionDTO> creadas = new ArrayList<>();
 
-        for (Apartamento apartamento : apartamentos) {
+        for (Map.Entry<Apartamento, BigDecimal> destinatario : destinatarios.entrySet()) {
+            Apartamento apartamento = destinatario.getKey();
             boolean yaExiste = obligacionRepository.existsByApartamentoIdAndConceptoAndPeriodo(
                     apartamento.getId(), request.concepto(), request.periodo());
             if (yaExiste) {
@@ -84,7 +99,7 @@ public class CarteraServiceImpl implements CarteraService {
             }
             ObligacionFinanciera obligacion = new ObligacionFinanciera(
                     apartamento, request.concepto(), request.periodo(),
-                    request.monto(), request.fechaVencimiento());
+                    destinatario.getValue(), request.fechaVencimiento());
             obligacionRepository.save(obligacion);
             creadas.add(ObligacionDTO.de(obligacion));
         }

@@ -38,4 +38,5 @@ Todo lo describe el archivo [`render.yaml`](../render.yaml) en la raíz del repo
 - **CORS:** el backend acepta las URL `https://resigest-app*.onrender.com`. Si el frontend queda con otro nombre, actualizar `CORS_ORIGENES` en Render.
 - **Base de datos compartida:** el backend local y el de Render usan la misma base de Supabase. Las migraciones nuevas que se prueben en local quedan aplicadas también para la versión publicada.
 - **Usuarios demo:** `V3` crea `admin@resigest.com` con contraseña `admin123`. En una instancia que vayan a usar personas reales, cambiarla desde *Usuarios → Acceso*.
+- **Pagos en línea (PayU):** funcionan sin configurar nada, con el sandbox público de PayU (no se cobra dinero real). `render.yaml` ya define `PAYU_URL_CONFIRMACION` para que PayU avise de los pagos que tardan (PSE). Si el backend queda con otro nombre en Render, actualizarla.
 - **Archivos subidos** (fotos y comprobantes): se guardan en la base de datos, así que no se pierden al redesplegar.
