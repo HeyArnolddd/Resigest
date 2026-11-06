@@ -8,7 +8,8 @@ export const residenteApi = {
   estadoCuenta: (apartamentoId) => api(`/apartamentos/${apartamentoId}/estado-cuenta`),
   obligaciones: (apartamentoId) => api('/obligaciones', { params: { apartamentoId } }),
   pagos: (apartamentoId) => api('/pagos', { params: { apartamentoId } }),
-  pagarEnLinea: (obligacionId) => api('/pagos/pasarela', { method: 'POST', body: { obligacionId } }),
+  iniciarPagoEnLinea: (obligacionId) => api('/pagos/en-linea/iniciar', { method: 'POST', body: { obligacionId } }),
+  verificarPagoEnLinea: (referencia) => api('/pagos/en-linea/verificar', { method: 'POST', body: { referencia } }),
   reportarTransferencia: (obligacionId, comprobante, referencia) =>
     api('/pagos/manual', { method: 'POST', body: { obligacionId, urlComprobanteAdjunto: comprobante, referencia } }),
   zonas: () => api('/zonas-comunes'),

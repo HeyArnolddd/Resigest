@@ -4,9 +4,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.ErrorResponseException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -62,6 +66,15 @@ public class GlobalExceptionHandler {
                 .forEach(e -> errores.put(e.getField(), e.getDefaultMessage()));
         return ResponseEntity.badRequest()
                 .body(ApiError.conErroresDeCampo(400, "VALIDACION", "Datos inválidos", errores));
+    }
+
+    // Errores propios de Spring MVC (ruta inexistente, método no permitido, etc.): conservan su código.
+    @ExceptionHandler({NoResourceFoundException.class, HttpRequestMethodNotSupportedException.class,
+            ErrorResponseException.class})
+    public ResponseEntity<ApiError> manejarErrorMvc(Exception ex) {
+        int codigo = ((ErrorResponse) ex).getStatusCode().value();
+        String mensaje = codigo == 404 ? "La ruta no existe" : "Petición no válida";
+        return ResponseEntity.status(codigo).body(ApiError.de(codigo, "PETICION", mensaje));
     }
 
     @ExceptionHandler(Exception.class)

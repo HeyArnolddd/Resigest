@@ -11,7 +11,7 @@ services:
     dockerfilePath: ./Dockerfile
     region: virginia
     plan: free
-    branch: frontend
+    branch: main
     healthCheckPath: /api/salud
     envVars:
       - key: SPRING_PROFILES_ACTIVE
@@ -26,6 +26,9 @@ services:
         sync: false
       - key: JWT_SECRETO
         generateValue: true
+      # Pago en línea con PayU: usa el sandbox público por defecto. PayU avisa aquí de los pagos
+      - key: PAYU_URL_CONFIRMACION
+        value: https://resigest-api.onrender.com/api/pagos/en-linea/confirmacion
       # Las URL del frontend en Render empiezan por resigest-app
       - key: CORS_ORIGENES
         value: https://resigest-app*.onrender.com,http://localhost:5173
@@ -38,7 +41,7 @@ services:
     name: resigest-app
     runtime: static
     rootDir: Frontend
-    branch: frontend
+    branch: main
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     envVars:

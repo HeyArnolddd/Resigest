@@ -8,10 +8,11 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 /**
- * Pago procesado a través de la pasarela (Wompi). No requiere validación manual.
+ * Pago en línea por la pasarela (PayU). No requiere validación manual: se aprueba
+ * cuando PayU confirma el cobro.
  */
 @Entity
-@DiscriminatorValue("WOMPI")
+@DiscriminatorValue("PAYU")
 @Getter
 @Setter
 public class PagoPasarela extends Pago {
@@ -30,7 +31,7 @@ public class PagoPasarela extends Pago {
 
     @Override
     public MetodoPago getMetodo() {
-        return MetodoPago.WOMPI;
+        return MetodoPago.PAYU;
     }
 
     @Override
