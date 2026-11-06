@@ -34,7 +34,9 @@ function App() {
   const roleKey = rolDesdeApi[usuario.rol]
   // El menú y la barra superior muestran al usuario que inició sesión
   const role = { ...roles[roleKey], usuario: usuario.nombreCompleto, detalle: detalleUsuario(usuario) }
-  const defaultSection = roleKey === 'administrador' ? 'dashboard' : 'inicio'
+  // Al volver de pagar en PayU (?referenceCode=...) el residente aterriza en Finanzas
+  const vuelveDePago = roleKey === 'residente' && new URLSearchParams(window.location.search).has('referenceCode')
+  const defaultSection = roleKey === 'administrador' ? 'dashboard' : vuelveDePago ? 'finanzas' : 'inicio'
 
   return (
     <Shell
