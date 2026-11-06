@@ -123,7 +123,7 @@ comunicaciones/   domain · repository · service · channel · listener · dto 
 
 - **Domain:**
   - `ObligacionFinanciera` (deuda mensual: apartamento, concepto, periodo, montoTotal, saldoPendiente, estado, fechaVencimiento). Reglas: `registrarAbono`, `marcarEnVerificacion`, `marcarVencida`, `estaSaldada`, `estaVencida`.
-  - `Pago` (SINGLE_TABLE) → `PagoPasarela` (WOMPI), `PagoManual` (TRANSFERENCIA). Reglas: `aprobar`, `rechazar`.
+  - `Pago` (SINGLE_TABLE) → `PagoPasarela` (PAYU), `PagoManual` (TRANSFERENCIA). Reglas: `aprobar`, `rechazar`.
   - `FacturaServicioComun` + `DetalleProrrateo`.
   - Enums: `EstadoObligacion`, `EstadoPago`, `ConceptoCobro`, `MetodoPago`, `TipoServicio`.
 - **Repository:** `ObligacionRepository`, `PagoRepository`, `FacturaServicioRepository`.
@@ -307,7 +307,7 @@ docker compose up -d          # PostgreSQL
 | Pendiente | Estado |
 |---|---|
 | Chat en tiempo real (WebSocket/STOMP) | ✅ Implementado (`/ws`, envío en `/app/chat.enviar`, recepción en `/topic/chat/{id}`). |
-| Pasarela real (Wompi) | ✅ `WompiPasarelaAdapter` (se activa con `app.pasarela=wompi`). Requiere las llaves en variables de entorno y el `payment_method` tokenizado desde el widget de Wompi en el front. |
+| Pasarela real (PayU Latam) | ✅ WebCheckout de PayU: `PayuCliente` firma la orden y confirma cada pago consultándolo en la API de PayU; la página de confirmación vuelve a consultar en vez de creerle al aviso. Por defecto usa el sandbox público de PayU (ver `API_CONTRACT.md` §13). |
 | Push notifications | 🔶 Canal `CanalPush` integrado en la cadena de notificaciones (stub con log). Para push real falta integrar FCM/APNs. |
 | Recuperación de contraseña | ✅ `TokenRecuperacion` (un uso, 1 h) + `POST /api/auth/recuperar` y `POST /api/auth/restablecer`. El envío de correo es simulado (log). |
 | Paginación | ✅ `GET /api/usuarios` y `GET /api/incidencias` devuelven `Page` (`?page=&size=`). El resto sigue devolviendo `List`. |
