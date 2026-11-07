@@ -12,12 +12,15 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
@@ -55,6 +58,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**", "/api/pagos/en-linea/confirmacion", "/api/salud",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/ws", "/ws/**").permitAll()
                         .anyRequest().authenticated())
+                // Sin token (o con uno vencido o inválido) es 401, no 403: 403 queda para "sin permiso"
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(noAutenticado()))
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
@@ -70,6 +75,18 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", config);
         return source;
+    }
+
+    /** Responde 401 con el mismo formato ApiError que el resto de errores. */
+    private AuthenticationEntryPoint noAutenticado() {
+        return (request, response, authException) -> {
+            response.setStatus(401);
+            response.setContentType("application/json");
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.getWriter().write("{\"timestamp\":\"" + LocalDateTime.now()
+                    + "\",\"estado\":401,\"codigo\":\"NO_AUTENTICADO\","
+                    + "\"mensaje\":\"Debes iniciar sesión para continuar\",\"erroresCampo\":{}}");
+        };
     }
 
     @Bean

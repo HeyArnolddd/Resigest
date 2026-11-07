@@ -9,6 +9,7 @@ import co.edu.uis.resigest.comunicaciones.dto.ChatMensajeRequest;
 import co.edu.uis.resigest.comunicaciones.dto.MensajeChatDTO;
 import co.edu.uis.resigest.comunicaciones.service.ChatService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,7 +37,7 @@ public class ChatController {
     @PostMapping
     public ResponseEntity<MensajeChatDTO> enviar(@Valid @RequestBody ChatMensajeRequest request,
                                                  @AuthenticationPrincipal UsuarioAutenticado autenticado) {
-        return ResponseEntity.ok(chatService.enviar(
+        return ResponseEntity.status(HttpStatus.CREATED).body(chatService.enviar(
                 autenticado.getId(), request.destinatarioId(), request.contenido()));
     }
 

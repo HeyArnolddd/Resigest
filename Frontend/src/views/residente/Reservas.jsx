@@ -12,10 +12,24 @@ import { colorZona, franjasDe } from '../../lib/zonas'
 
 const DIAS_A_MOSTRAR = 14
 
-// Todas las reservas (para saber qué horarios están ocupados) y las zonas con sus horarios
+// "10:00:00" -> "10:00"
+const hhmm = (hora) => (hora ?? '').slice(0, 5)
+
+// Todas las reservas (para saber qué horarios están ocupados) y las zonas con sus horarios.
+// Solo se ofrecen las franjas que caben en el horario de la zona (el backend rechaza el resto).
 const cargarTodo = () =>
   Promise.all([residenteApi.zonas(), residenteApi.reservas()]).then(([zonas, reservas]) => ({
-    zonas: zonas.filter((z) => z.activa).map((z) => ({ ...z, franjas: franjasDe(z.nombre) })),
+    zonas: zonas
+      .filter((z) => z.activa)
+      .map((z) => {
+        const abre = hhmm(z.horaApertura) || '00:00'
+        const cierra = hhmm(z.horaCierre) || '24:00'
+        const franjas = franjasDe(z.nombre).filter((f) => {
+          const [ini, fin] = f.split('-')
+          return ini >= abre && fin <= cierra
+        })
+        return { ...z, horario: z.horaApertura ? `${abre} – ${cierra}` : null, franjas }
+      }),
     reservas,
   }))
 const OCUPAN = ['APROBADA', 'PENDIENTE']
@@ -112,6 +126,12 @@ function TarjetaZona({ zona, seleccionada, onElegir }) {
           <Users className="size-3.5" />
           Hasta {zona.capacidad} personas
         </p>
+        {zona.horario && (
+          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-slate-500">
+            <Clock className="size-3.5" />
+            Abre de {zona.horario}
+          </p>
+        )}
       </div>
     </button>
   )

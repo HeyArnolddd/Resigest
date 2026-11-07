@@ -48,7 +48,7 @@ class AutorizacionPorRolTest {
     }
 
     @Test
-    void sinTokenDevuelve401o403() throws Exception {
-        mockMvc.perform(get("/api/usuarios")).andExpect(status().is4xxClientError());
+    void sinTokenDevuelve401() throws Exception {
+        mockMvc.perform(get("/api/usuarios")).andExpect(status().isUnauthorized());
     }
 }
