@@ -174,7 +174,7 @@ El **correo es el usuario** con el que se inicia sesión; se guarda en minúscul
 | Método | Ruta | Rol | Body → Response |
 |---|---|---|---|
 | GET | `/api/zonas-comunes` | autenticado | → `[ZonaComunDTO]` |
-| POST | `/api/zonas-comunes` | ADMIN | `{nombre, descripcion, capacidad}` → `201` ZonaComunDTO |
+| POST | `/api/zonas-comunes` | ADMIN | `{nombre, descripcion, capacidad, horaApertura?, horaCierre?}` → `201` ZonaComunDTO (horario por defecto 08:00–20:00) |
 | GET | `/api/reservas?zonaId=1` | autenticado | → `[ReservaDTO]` |
 | POST | `/api/reservas` | RESIDENTE | `{zonaComunId, fechaInicio, fechaFin}` → `201` ReservaDTO |
 | PATCH | `/api/reservas/{id}/aprobar` | ADMIN | → ReservaDTO |
@@ -183,7 +183,8 @@ El **correo es el usuario** con el que se inicia sesión; se guarda en minúscul
 
 ```json
 // ZonaComunDTO
-{ "id": 1, "nombre": "BBQ", "descripcion": "Zona de parrilla", "capacidad": 10, "activa": true }
+{ "id": 1, "nombre": "BBQ", "descripcion": "Zona de parrilla", "capacidad": 10, "activa": true,
+  "horaApertura": "10:00:00", "horaCierre": "22:00:00" }
 
 // ReservaDTO
 { "id": 1, "zonaComunId": 1, "zonaComunNombre": "BBQ", "apartamentoId": 1,
@@ -191,6 +192,8 @@ El **correo es el usuario** con el que se inicia sesión; se guarda en minúscul
 ```
 
 `estado`: `PENDIENTE` | `APROBADA` | `RECHAZADA` | `CANCELADA`
+
+Una reserva debe empezar y terminar el mismo día, dentro del horario de la zona (`horaApertura`–`horaCierre`); si no, `422`.
 
 ## 9. Mantenimiento (incidencias)
 
@@ -231,7 +234,7 @@ El **correo es el usuario** con el que se inicia sesión; se guarda en minúscul
 | GET | `/api/comunicados?fijados=true` | autenticado | → `[ComunicadoDTO]` |
 | GET | `/api/notificaciones/no-leidas` | autenticado | → `[NotificacionDTO]` |
 | PATCH | `/api/notificaciones/{id}/leida` | autenticado | → `204` |
-| POST | `/api/chat` | autenticado | `{destinatarioId, contenido}` → MensajeChatDTO |
+| POST | `/api/chat` | autenticado | `{destinatarioId, contenido}` → `201` MensajeChatDTO |
 | GET | `/api/chat?conUsuarioId=3` | autenticado | → `[MensajeChatDTO]` |
 
 ```json
@@ -348,3 +351,10 @@ Variables (todas opcionales; sin ellas se usa el sandbox): `PAYU_URL_CHECKOUT`, 
 
 - **Pagos en línea**: el webhook firmado de Wompi (`POST /api/pagos/webhook`) se reemplazó por PayU. El aviso público `POST /api/pagos/en-linea/confirmacion` no se cree lo que recibe: vuelve a consultar el estado del pago directamente en PayU (ver §13).
 - **Chat por WebSocket (STOMP)**: el frame `CONNECT` debe llevar `Authorization: Bearer <token>`. Cada usuario solo puede suscribirse a `/topic/chat/{su id}`, y el remitente se toma del token (el `remitenteId` del cuerpo se ignora). Los orígenes permitidos son los de `CORS_ORIGENES`.
+
+## Ajustes tras las pruebas funcionales
+
+- **Sin token → `401`**: una petición sin token, o con un token vencido o inválido, responde `401` con ApiError (`codigo: "NO_AUTENTICADO"`). Antes respondía `403` sin cuerpo. `403` queda solo para "sin permiso".
+- **`POST /api/chat` → `201`** (antes `200`).
+- **`PATCH /api/incidencias/{id}/solucion`**: si falta la solución o la foto responde `422` con el motivo ("Debe registrar la solución aplicada" / "Adjunta una foto del trabajo terminado"). Antes respondía `400` "Datos inválidos".
+- **Horario de las zonas** (`V23`): cada zona tiene `horaApertura` y `horaCierre` (BBQ 10–22, Salón Social 8–23, Gimnasio y Cancha 6–22, Piscina 8–20; las demás 8–20). Las reservas fuera del horario o que pasan al día siguiente responden `422`.

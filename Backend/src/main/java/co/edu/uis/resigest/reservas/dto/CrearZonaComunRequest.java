@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalTime;
+
 public record CrearZonaComunRequest(
         @NotBlank(message = "El nombre es obligatorio")
         @Size(max = 100, message = "El nombre no puede superar 100 caracteres")
@@ -13,6 +15,12 @@ public record CrearZonaComunRequest(
         String descripcion,
 
         @Positive(message = "La capacidad debe ser positiva")
-        int capacidad
+        int capacidad,
+
+        /** Opcional: si falta, 08:00. */
+        LocalTime horaApertura,
+
+        /** Opcional: si falta, 20:00. */
+        LocalTime horaCierre
 ) {
 }
